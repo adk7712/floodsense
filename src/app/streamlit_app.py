@@ -11,8 +11,15 @@ Features:
 
 import json
 import math
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+# Ensure project root is in sys.path for Databricks Apps and local execution
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -202,16 +209,17 @@ map_col, detail_col = st.columns([1.7, 1.3])
 with map_col:
     st.subheader("🗺️ Singapore Urban Risk Map (55 URA Zones)")
 
-    # Plotly Scatter Mapbox visualization
-    fig_map = px.scatter_mapbox(
-        df_results,
-        lat="lat",
-        lon="lon",
-        size="rain_30m",
-        color="risk_tier",
-        color_discrete_map={"High": "#ff4d4f", "Moderate": "#faad14", "Low": "#52c41a"},
-        hover_name="zone",
-        hover_data={
+    # Plotly Map visualization (supports Plotly 6+ scatter_map and legacy scatter_mapbox)
+    map_func = getattr(px, "scatter_map", getattr(px, "scatter_mapbox", None))
+    style_key = "map_style" if hasattr(px, "scatter_map") else "mapbox_style"
+    map_kwargs = {
+        "lat": "lat",
+        "lon": "lon",
+        "size": "rain_30m",
+        "color": "risk_tier",
+        "color_discrete_map": {"High": "#ff4d4f", "Moderate": "#faad14", "Low": "#52c41a"},
+        "hover_name": "zone",
+        "hover_data": {
             "risk_tier": True,
             "flood_probability": True,
             "rain_30m": ":.1f mm",
@@ -220,11 +228,12 @@ with map_col:
             "lat": False,
             "lon": False
         },
-        size_max=36,
-        zoom=10.5,
-        center={"lat": 1.3521, "lon": 103.8198},
-        mapbox_style="carto-darkmatter"
-    )
+        "size_max": 36,
+        "zoom": 10.5,
+        "center": {"lat": 1.3521, "lon": 103.8198},
+        style_key: "carto-darkmatter"
+    }
+    fig_map = map_func(df_results, **map_kwargs)
     fig_map.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         height=520,
