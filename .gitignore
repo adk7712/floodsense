@@ -1,0 +1,12 @@
+.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+mlruns/
+mlflow.db
+.coverage
+.DS_Store
+*.parquet
+data/raw/*
+!data/raw/.gitkeep
+
