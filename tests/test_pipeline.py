@@ -175,5 +175,5 @@ def test_geojson_generation():
 def test_replay_slice_generation(tmp_path):
     """Verify replay slice generation."""
     out_file = tmp_path / "replay_test.json"
-    p = generate_april_2021_replay_slice(str(out_file))
+    p = generate_april_2021_replay_slice(output_path=str(out_file), steps=2)
     assert p.exists()
