@@ -289,6 +289,8 @@ def _snapshots_to_frames(snaps: Iterable[RainfallSnapshot]) -> tuple[pd.DataFram
             if meta is not None:
                 seen.append((sid, meta.name, round(meta.latitude, 4), round(meta.longitude, 4), ts))
     readings = pd.DataFrame(rows, columns=["station_id", "timestamp", "rainfall_mm"])
+    if readings.empty:  # keep the column tz-aware so callers can use .dt on it
+        readings["timestamp"] = pd.Series(dtype=f"datetime64[ns, {SGT}]")
     sightings = pd.DataFrame(
         seen, columns=["station_id", "name", "latitude", "longitude", "timestamp"]
     )
@@ -305,6 +307,11 @@ def _fetch_day(poller, day: date, max_tries: int = 6) -> list[RainfallSnapshot]:
                 snaps.extend(page)
             return snaps
         except LiveFeedUnavailable as exc:
+            if "HTTP 404" in str(exc):
+                # data.gov.sg answers "REAL_TIME_API_DATA_NOT_FOUND": NEA has nothing more for
+                # this day. Keep whatever pages came back and record the gap; don't retry.
+                logger.warning("%s: no data from the API after %d snapshots", day, len(snaps))
+                return snaps
             wait = 15 * attempt
             logger.warning("%s: %s; retrying in %ds", day, exc, wait)
             time.sleep(wait)
@@ -382,13 +389,20 @@ def gapfill(year: int, day_delay_sec: float = 1.0) -> int:
 
     days = sparse_days(year)
     path = settings.rainfall_readings_dir / f"year={year}" / "part-api-gapfill.parquet"
+    key = f"readings_{year}_api_gapfill"
+    manifest = json.loads(_manifest_path().read_text()) if _manifest_path().exists() else {}
+    unavailable = set(manifest.get(key, {}).get("unavailable_days", []))
     done = set(pd.read_parquet(path)["timestamp"].dt.date) if path.exists() else set()
-    todo = [d for d in days if d not in done]
+    todo = [d for d in days if d not in done and d.isoformat() not in unavailable]
     logger.info("%d: %d sparse days, %d still to fetch", year, len(days), len(todo))
     poller = NEAPoller()
     for day in todo:
         readings, seen = _snapshots_to_frames(_fetch_day(poller, day))
         readings = readings[readings["timestamp"].dt.date == day]
+        if readings.empty:
+            unavailable.add(day.isoformat())
+            _update_manifest(key, {"unavailable_days": sorted(unavailable)})
+            continue
         if path.exists():
             readings = pd.concat([pd.read_parquet(path), readings], ignore_index=True)
         readings = _dedupe_sorted(readings, {"duplicates": 0})
@@ -397,8 +411,13 @@ def gapfill(year: int, day_delay_sec: float = 1.0) -> int:
         time.sleep(day_delay_sec)
     added = len(pd.read_parquet(path)) if path.exists() else 0
     _update_manifest(
-        f"readings_{year}_api_gapfill",
-        {"source": settings.nea_api_primary, "sparse_days": len(days), "rows": added},
+        key,
+        {
+            "source": settings.nea_api_primary,
+            "sparse_days": len(days),
+            "rows": added,
+            "unavailable_days": sorted(unavailable),
+        },
     )
     return added
 

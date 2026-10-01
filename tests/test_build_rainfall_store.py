@@ -1,5 +1,6 @@
 """Tests for the rainfall store builder and loaders on a tiny CSV in the data.gov.sg bulk format."""
 
+import json
 from datetime import date, datetime, timedelta
 
 import pandas as pd
@@ -156,3 +157,23 @@ def test_gapfill_adds_only_missing_steps(store, monkeypatch):
 def test_sparse_days_counts_grid_steps(store):
     days = brs.sparse_days(2021)
     assert date(2021, 3, 1) in days and date(2021, 1, 1) in days and len(days) == 365
+
+
+def test_gapfill_records_days_the_api_does_not_have(store, monkeypatch):
+    from floodsense.ingestion.poller import LiveFeedUnavailable
+
+    class NotFound(FakePoller):
+        def _iter_day_pages(self, day):
+            self.days.append(day)
+            raise LiveFeedUnavailable("https://api: HTTP 404")
+            yield  # pragma: no cover
+
+    fake = NotFound()
+    monkeypatch.setattr("floodsense.ingestion.poller.NEAPoller", lambda: fake)
+    monkeypatch.setattr(brs, "sparse_days", lambda year: [date(2021, 3, 7)])
+    assert brs.gapfill(2021, day_delay_sec=0) == 0
+    manifest = json.loads((settings.rainfall_dir / "manifest.json").read_text())
+    assert manifest["readings_2021_api_gapfill"]["unavailable_days"] == ["2021-03-07"]
+    fake.days.clear()
+    brs.gapfill(2021, day_delay_sec=0)
+    assert fake.days == []  # a known gap is not asked for again
