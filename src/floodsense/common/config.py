@@ -47,7 +47,11 @@ MODEL_FEATURE_COLUMNS: list[str] = [
 class Settings(BaseSettings):
     """Runtime settings, overridable via ``FLOODSENSE_*`` environment variables."""
 
-    model_config = SettingsConfigDict(env_prefix="FLOODSENSE_")
+    # Environment variables win over the repo-root .env (gitignored; holds secrets such as the
+    # data.gov.sg API key).
+    model_config = SettingsConfigDict(
+        env_prefix="FLOODSENSE_", env_file=_DEFAULT_ROOT_DIR / ".env", extra="ignore"
+    )
 
     # Risk tier thresholds (probability)
     risk_low_moderate: float = 0.25
