@@ -9,9 +9,12 @@ import time
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
 
 pytestmark = pytest.mark.e2e
+
+# Playwright is in the optional `e2e` dependency group; skip (not error) when it isn't installed.
+sync_api = pytest.importorskip("playwright.sync_api")
+expect, sync_playwright = sync_api.expect, sync_api.sync_playwright
 
 
 def test_streamlit_browser_e2e(tmp_path):
