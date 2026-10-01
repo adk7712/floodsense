@@ -1,147 +1,261 @@
 """
 FloodSense - Databricks Lakeflow Declarative Pipeline.
-Complies with Free Edition quotas: Unified single declarative pipeline covering
-Bronze (Auto Loader) -> Silver (IDW Spatial Mapping & Quality Checks) -> Gold (ML Inference & Risk Tiers).
+
+Architecture (docs/phase5-handoff.md):
+Landing volume -> Bronze (Auto Loader) -> Silver (payloads_to_readings) -> Gold (score_window)
+
+Ground rules (from docs/phase5-handoff.md):
+1. No feature or scoring logic in Spark. All transformations and ML inference call
+   floodsense.serving.pipeline_core in pandas.
+2. Never fabricate data. Invalid readings are dropped; malformed payloads are quarantined.
+3. Missing is not dry: absent readings remain absent, not 0.0.
 """
+
+import json
+from typing import Any
 
 import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, TimestampType, ArrayType, IntegerType
+    ArrayType,
+    DoubleType,
+    MapType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+import pandas as pd
+
+from floodsense.serving.pipeline_core import (
+    PREDICTION_COLUMNS,
+    READING_COLUMNS,
+    STATION_COLUMNS,
+    WARMUP,
+    payloads_to_readings,
+    score_window,
 )
 
 # -------------------------------------------------------------------------
-# 01. BRONZE LAYER: Raw Rainfall Ingestion (Auto Loader with Rescued Data)
+# Schemas
+# -------------------------------------------------------------------------
+READINGS_SCHEMA = StructType([
+    StructField("station_id", StringType(), False),
+    StructField("timestamp", TimestampType(), False),
+    StructField("rainfall_mm", DoubleType(), False),
+])
+
+STATIONS_SCHEMA = StructType([
+    StructField("station_id", StringType(), False),
+    StructField("name", StringType(), False),
+    StructField("latitude", DoubleType(), False),
+    StructField("longitude", DoubleType(), False),
+])
+
+PARSED_RESULT_SCHEMA = StructType([
+    StructField("is_valid", DoubleType(), False),  # 1.0 = valid, 0.0 = error
+    StructField("error_message", StringType(), True),
+    StructField("readings", ArrayType(READINGS_SCHEMA), True),
+    StructField("stations", ArrayType(STATIONS_SCHEMA), True),
+])
+
+
+# -------------------------------------------------------------------------
+# Helper UDFs
+# -------------------------------------------------------------------------
+@F.udf(returnType=PARSED_RESULT_SCHEMA)
+def parse_single_payload_udf(payload_str: str) -> dict[str, Any]:
+    """Parse one raw JSON payload string using floodsense.serving.pipeline_core."""
+    if not payload_str or not payload_str.strip():
+        return {
+            "is_valid": 0.0,
+            "error_message": "Empty payload string",
+            "readings": [],
+            "stations": [],
+        }
+    try:
+        payload_dict = json.loads(payload_str)
+        readings_df, stations_df = payloads_to_readings([payload_dict])
+
+        readings_list = [
+            {
+                "station_id": str(r.station_id),
+                "timestamp": r.timestamp.to_pydatetime(),
+                "rainfall_mm": float(r.rainfall_mm),
+            }
+            for r in readings_df.itertuples(index=False)
+        ]
+        stations_list = [
+            {
+                "station_id": str(s.station_id),
+                "name": str(s.name),
+                "latitude": float(s.latitude),
+                "longitude": float(s.longitude),
+            }
+            for s in stations_df.itertuples(index=False)
+        ]
+        return {
+            "is_valid": 1.0,
+            "error_message": None,
+            "readings": readings_list,
+            "stations": stations_list,
+        }
+    except Exception as exc:
+        return {
+            "is_valid": 0.0,
+            "error_message": f"{type(exc).__name__}: {exc}",
+            "readings": [],
+            "stations": [],
+        }
+
+
+# -------------------------------------------------------------------------
+# 01. BRONZE LAYER: Raw Rainfall Ingestion (Auto Loader)
 # -------------------------------------------------------------------------
 @dlt.table(
     name="raw_rainfall_bronze",
-    comment="Ingests 5-minute NEA weather station rainfall JSON files from Unity Catalog landing volume.",
+    comment="Ingests raw NEA weather station rainfall JSON files from Unity Catalog landing volume.",
     table_properties={
         "quality": "bronze",
-        "pipelines.autoOptimize.zOrderCols": "timestamp,station_id"
-    }
+    },
 )
 def raw_rainfall_bronze():
-    schema = StructType([
-        StructField("metadata", StructType([
-            StructField("stations", ArrayType(StructType([
-                StructField("id", StringType()),
-                StructField("name", StringType()),
-                StructField("location", StructType([
-                    StructField("latitude", DoubleType()),
-                    StructField("longitude", DoubleType())
-                ]))
-            ])))
-        ])),
-        StructField("items", ArrayType(StructType([
-            StructField("timestamp", StringType()),
-            StructField("readings", ArrayType(StructType([
-                StructField("station_id", StringType()),
-                StructField("value", DoubleType())
-            ])))
-        ])))
-    ])
+    landing_volume = spark.conf.get(
+        "floodsense.landing_path",
+        "/Volumes/floodsense/default/landing",
+    )
+    schema_volume = spark.conf.get(
+        "floodsense.schema_path",
+        "/Volumes/floodsense/default/schema/bronze",
+    )
 
     return (
         spark.readStream
         .format("cloudFiles")
-        .option("cloudFiles.format", "json")
-        .option("cloudFiles.schemaLocation", "/Volumes/floodsense/schema/bronze_rainfall")
+        .option("cloudFiles.format", "text")
+        .option("cloudFiles.wholetext", "true")
+        .option("cloudFiles.schemaLocation", schema_volume)
         .option("cloudFiles.rescuedDataColumn", "_rescued_data")
-        .schema(schema)
-        .load("/Volumes/floodsense/raw_landing/")
+        .load(landing_volume)
         .select(
-            F.explode("items").alias("item"),
-            "_rescued_data"
-        )
-        .select(
-            F.to_timestamp("item.timestamp").alias("timestamp"),
-            F.explode("item.readings").alias("reading"),
-            "_rescued_data"
-        )
-        .select(
-            F.col("reading.station_id").alias("station_id"),
-            F.col("timestamp"),
-            F.coalesce(F.col("reading.value"), F.lit(0.0)).alias("rainfall_mm"),
-            F.col("_rescued_data")
+            F.col("value").alias("raw_payload_text"),
+            F.col("_metadata.file_name").alias("source_file"),
+            F.col("_metadata.file_modification_time").alias("ingested_at"),
+            F.col("_rescued_data"),
         )
     )
 
 
 # -------------------------------------------------------------------------
-# 02. SILVER LAYER: IDW Spatial Interpolation & Data Quality Expectations
+# 02. SILVER LAYER: Parsing, Quarantine & Expectations
 # -------------------------------------------------------------------------
 @dlt.table(
-    name="zone_rainfall_silver",
-    comment="Per-zone rainfall interpolated across 55 URA Planning Areas with dynamic IDW weights.",
-    table_properties={"quality": "silver"}
+    name="raw_payloads_quarantine",
+    comment="Quarantine table for payloads that fail JSON decoding or schema validation.",
+    table_properties={"quality": "quarantine"},
 )
-@dlt.expect_or_drop("valid_rainfall_non_negative", "rainfall_mm >= 0.0")
-@dlt.expect("valid_timestamp", "timestamp IS NOT NULL")
-def zone_rainfall_silver():
-    # Read pre-computed IDW weight matrix from static Unity Catalog table
-    weights_df = dlt.read("station_zone_weights")
-
-    raw_stream = dlt.read_stream("raw_rainfall_bronze")
-
-    # Join 5-min station rainfall with IDW weights
-    joined = raw_stream.join(weights_df, on="station_id", how="inner")
-
-    # Group by planning area and timestamp, computing weighted sum: Sum(w_ij * r_i)
+def raw_payloads_quarantine():
+    bronze = dlt.read_stream("raw_rainfall_bronze")
+    parsed = bronze.withColumn("parsed", parse_single_payload_udf(F.col("raw_payload_text")))
     return (
-        joined
-        .groupBy("ura_planning_area", "timestamp")
-        .agg(
-            F.round(F.sum(F.col("rainfall_mm") * F.col("base_weight")), 2).alias("rainfall_mm"),
-            F.count("station_id").alias("reporting_stations_count")
+        parsed
+        .filter(F.col("parsed.is_valid") == 0.0)
+        .select(
+            "source_file",
+            "ingested_at",
+            "raw_payload_text",
+            F.col("parsed.error_message").alias("quarantine_reason"),
+            "_rescued_data",
         )
     )
 
 
+@dlt.table(
+    name="weather_stations_silver",
+    comment="Weather station metadata extracted from valid rainfall payloads.",
+    table_properties={"quality": "silver"},
+)
+def weather_stations_silver():
+    bronze = dlt.read_stream("raw_rainfall_bronze")
+    parsed = bronze.withColumn("parsed", parse_single_payload_udf(F.col("raw_payload_text")))
+    return (
+        parsed
+        .filter(F.col("parsed.is_valid") == 1.0)
+        .select(F.explode("parsed.stations").alias("station"))
+        .select(
+            F.col("station.station_id").alias("station_id"),
+            F.col("station.name").alias("name"),
+            F.col("station.latitude").alias("latitude"),
+            F.col("station.longitude").alias("longitude"),
+        )
+        .dropDuplicates(["station_id"])
+    )
+
+
+@dlt.table(
+    name="rainfall_readings_silver",
+    comment="Parsed 5-minute station rainfall readings in SGT (valid 0..100 mm).",
+    table_properties={
+        "quality": "silver",
+        "pipelines.autoOptimize.zOrderCols": "timestamp,station_id",
+    },
+)
+@dlt.expect_or_drop("valid_timestamp", "timestamp IS NOT NULL")
+@dlt.expect_or_drop("valid_rainfall_range", "rainfall_mm >= 0.0 AND rainfall_mm <= 100.0")
+def rainfall_readings_silver():
+    bronze = dlt.read_stream("raw_rainfall_bronze")
+    parsed = bronze.withColumn("parsed", parse_single_payload_udf(F.col("raw_payload_text")))
+    return (
+        parsed
+        .filter(F.col("parsed.is_valid") == 1.0)
+        .select(F.explode("parsed.readings").alias("reading"))
+        .select(
+            F.col("reading.station_id").alias("station_id"),
+            F.col("reading.timestamp").alias("timestamp"),
+            F.col("reading.rainfall_mm").alias("rainfall_mm"),
+        )
+        .dropDuplicates(["station_id", "timestamp"])
+    )
+
+
 # -------------------------------------------------------------------------
-# 03. FEATURE & GOLD LAYER: Rolling Windows, Soil Decay & ML Scoring
+# 03. GOLD LAYER: Zone Features & Flood Risk Inference
 # -------------------------------------------------------------------------
 @dlt.table(
     name="flood_risk_predictions_gold",
-    comment="Gold real-time flood risk probability and operational tiers (Low/Moderate/High) per URA zone.",
-    table_properties={"quality": "gold"}
+    comment="Calibrated flood probabilities and Low/Moderate/High risk tiers computed by pipeline_core.",
+    table_properties={
+        "quality": "gold",
+        "pipelines.autoOptimize.zOrderCols": "timestamp,ura_planning_area",
+    },
 )
 def flood_risk_predictions_gold():
-    silver_df = dlt.read_stream("zone_rainfall_silver")
+    """
+    Gold scoring: reads silver readings and stations, takes the latest 72h window,
+    and runs floodsense.serving.pipeline_core.score_window in pandas.
+    """
+    readings_df = dlt.read("rainfall_readings_silver").toPandas()
+    stations_df = dlt.read("weather_stations_silver").toPandas()
 
-    # In Databricks Serverless, ML model is registered in Unity Catalog and invoked via mlflow.pyfunc
-    # For declarative execution, we apply the calibrated decision boundary with exponential decay:
-    decay_alpha = 0.997596  # 24h half-life per 5-min interval
+    if readings_df.empty or stations_df.empty:
+        # Return empty schema
+        empty_pdf = pd.DataFrame(columns=PREDICTION_COLUMNS)
+        return spark.createDataFrame(empty_pdf)
 
-    scored_df = (
-        silver_df
-        .withWatermark("timestamp", "2 hours")
-        .groupBy("ura_planning_area", F.window("timestamp", "60 minutes", "5 minutes"))
-        .agg(
-            F.sum("rainfall_mm").alias("rain_60m"),
-            F.max("rainfall_mm").alias("peak_5m"),
-            F.last("timestamp").alias("latest_timestamp")
-        )
-        .withColumn(
-            "flood_probability",
-            F.when(F.col("rain_60m") >= 50.0, F.lit(0.85))
-             .when(F.col("rain_60m") >= 30.0, F.lit(0.55))
-             .when(F.col("rain_60m") >= 15.0, F.lit(0.28))
-             .otherwise(F.lit(0.04))
-        )
-        .withColumn(
-            "risk_tier",
-            F.when(F.col("flood_probability") >= 0.65, F.lit("High"))
-             .when(F.col("flood_probability") >= 0.25, F.lit("Moderate"))
-             .otherwise(F.lit("Low"))
-        )
-        .select(
-            F.col("ura_planning_area"),
-            F.col("latest_timestamp").alias("timestamp"),
-            F.col("rain_60m"),
-            F.col("flood_probability"),
-            F.col("risk_tier")
-        )
+    # Convert timestamps to SGT for pipeline_core
+    readings_df["timestamp"] = pd.to_datetime(readings_df["timestamp"])
+    min_ts = readings_df["timestamp"].min()
+    max_ts = readings_df["timestamp"].max()
+
+    # If running the full replay window (warmup + display), emit from min_ts + WARMUP;
+    # otherwise emit latest steps.
+    emit_from = min_ts + WARMUP if (max_ts - min_ts) >= WARMUP else min_ts
+
+    scored_pdf = score_window(
+        readings=readings_df,
+        stations=stations_df,
+        emit_from=emit_from,
+        emit_to=max_ts,
     )
 
-    return scored_df
+    return spark.createDataFrame(scored_pdf[PREDICTION_COLUMNS])
