@@ -40,8 +40,8 @@ Open with 17 April 2021: the floods cleared within half an hour, so a warning ha
 | **1. See the rain** | Maps NEA's 5-minute rain gauges onto each zone, re-weighting automatically when a gauge goes offline. **Radar nowcasting** follows rain cells *before* they reach a zone. | Warns 30–60 minutes earlier and fills the gaps between gauges |
 | **2. Know each place** | Per-zone *storm rarity* (how unusual this rain is *here*), a 72-hour wet-ground memory, past flood history, PUB flood-prone locations, and tide for coastal zones | The same rainfall floods some zones and not others |
 | **3. Build honest labels** | An LLM extracts each PUB alert or news report into a structured flood event (place, time, severity, cause: rain or rain + tide), **with its source link**. Uncertain extractions go to a human for review. | Real, auditable ground truth that grows over time |
-| **4. Model the rare event** | An interpretable logistic regression against LightGBM, both tracked in MLflow. Validation is time-based (train on earlier years, test on later ones), probabilities are calibrated, and the baseline is a simple rainfall-threshold rule. | A risk of 30% should mean a flood about 30% of the time |
-| **5. Explain and alert** | A risk map and plain-English alerts, e.g. *"Bukit Timah: HIGH. 1-in-5-year 30-minute burst on ground already wet from yesterday."* | People act on reasons, not bare scores |
+| **4. Model the rare event** | Simple rainfall rules, logistic regression and LightGBM compete on equal terms, all tracked in MLflow. The winner is whichever catches the most floods at the same false-alarm level, using time-based validation (train on earlier years, score later ones once). Probabilities are calibrated. | Honest numbers: on 10 years of real data a 60-minute rainfall rule won, so that is what we ship |
+| **5. Explain and alert** | A risk map and plain-English alerts, e.g. *"Bukit Timah: HIGH. 47 mm in the last hour; the last 30 minutes were heavier than 99.9% of rainy half-hours here since 2017."* (the real 12:45 reading on 17 April 2021) | People act on reasons, not bare scores |
 
 **False-alarm budget:** a hard cap on how often "High" can fire without a flood, so people keep trusting the alerts.
 
@@ -50,8 +50,8 @@ Open with 17 April 2021: the floods cleared within half an hour, so a warning ha
 | Data | Source | Cadence | Role |
 |---|---|---|---|
 | Rainfall at each gauge (about 60 stations) | NEA via data.gov.sg real-time API | 5 min | Live input |
-| Historical gauge rainfall (2017 onwards) | NEA via data.gov.sg | 5 min | Training, storm-rarity curves, backtests |
-| Weather radar images (70 / 240 / 480 km) | NEA via data.gov.sg | 5 min | Nowcasting |
+| Historical gauge rainfall (2017 onwards) | NEA via data.gov.sg [7] | 5 min | Training, storm-rarity curves, backtests |
+| Rain-area radar images (50 / 240 km) | MSS (NEA) via weather.gov.sg; no public archive, so we archive frames from now on [8] | 5 min | Nowcasting |
 | Planning-area boundaries | URA Master Plan 2019 via data.gov.sg | Static | Zones |
 | Tide predictions | Published tide tables | Daily | Coastal zones |
 | Flood events | PUB flood alerts (Telegram, press releases) and news | When events occur | Labels, each with a source |
@@ -140,4 +140,5 @@ Everything fits in Free Edition: one pipeline, triggered rather than continuous.
 4. Meteorological Service Singapore, "Singapore records wettest ever March and hottest ever June and November in 2025". https://www.weather.gov.sg/singapore-records-wettest-ever-march-and-hottest-ever-june-and-november-in-2025/
 5. Ministry of Sustainability and the Environment, oral reply to PQ on drainage improvement, 4 Feb 2025. https://www.mse.gov.sg/latest-news/oral-reply-on-drainage-improvement-feb2025/
 6. PUB, "Flood Forecasting and Monitoring". https://www.pub.gov.sg/Public/KeyInitiatives/Flood-Resilience/Flood-Forecasting-and-Monitoring
-7. data.gov.sg, real-time rainfall API and weather radar images dataset. https://data.gov.sg/
+7. data.gov.sg, real-time rainfall API and "Historical Rainfall across Singapore" (NEA). https://data.gov.sg/
+8. Meteorological Service Singapore, "Rain Areas" radar imagery. https://www.weather.gov.sg/weather-rain-area-50km/
