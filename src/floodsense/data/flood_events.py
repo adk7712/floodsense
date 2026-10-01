@@ -1,33 +1,51 @@
 """
 FloodSense - Sourced flood events (training labels).
 
-PHASE 3 DELIVERABLE (c) - interface only; see docs/phase3-handoff.md and
-tests/test_phase3_contract.py.
-
-Events live in ``settings.flood_events_file`` (``data/reference/flood_events.csv``, committed):
-
-    event_id            unique, e.g. "2021-04-17-bukit-timah-dunearn"
-    timestamp_start     ISO 8601 with offset, e.g. 2021-04-17T14:15:00+08:00 (when flooding began)
-    timestamp_end       same format, or empty if unknown
-    time_precision      exact | approx_15min | approx_hour | day_only  (how precise the start is)
-    location_raw        place as written in the source
-    ura_planning_area   one of the 55 keys in URA_PLANNING_AREAS (upper case)
-    severity            Minor | Moderate | Severe
-    cause               rain | rain_tide | other
-    source_url          http(s) URL of the article / PUB post the event was taken from
-    source_name         e.g. "PUB press release", "The Straits Times", "PUB Telegram"
-    notes               optional
-
-One row per (event, planning area): a storm that flooded two planning areas is two rows.
-Every row must have a working ``source_url``; events that cannot be sourced are dropped, not kept
-with a placeholder.
+PHASE 3 DELIVERABLE (c) - implementation.
+Parses data/reference/flood_events.csv into validated FloodEvent objects.
 """
 
+from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+
+from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent
+from floodsense.common.timeutil import to_sgt
 
 
 def load_flood_events(path: Path | None = None) -> list[FloodEvent]:
     """Parse and validate ``flood_events.csv`` into ``FloodEvent`` objects (tz-aware, SGT)."""
-    raise NotImplementedError("Phase 3 deliverable (c): see docs/phase3-handoff.md")
+    file_path = path or settings.flood_events_file
+    if not file_path.exists():
+        raise FileNotFoundError(f"Flood events file missing: {file_path}")
+
+    df = pd.read_csv(file_path, dtype=str, keep_default_na=False)
+    events: list[FloodEvent] = []
+
+    for _, row in df.iterrows():
+        start_ts = to_sgt(datetime.fromisoformat(row["timestamp_start"]))
+        end_ts = (
+            to_sgt(datetime.fromisoformat(row["timestamp_end"]))
+            if row["timestamp_end"].strip()
+            else None
+        )
+
+        event = FloodEvent(
+            event_id=row["event_id"].strip(),
+            timestamp_start=start_ts,
+            timestamp_end=end_ts,
+            time_precision=row["time_precision"].strip(),
+            location_raw=row["location_raw"].strip(),
+            ura_planning_area=row["ura_planning_area"].strip().upper(),
+            severity=row["severity"].strip(),
+            cause=row["cause"].strip(),
+            source_url=row["source_url"].strip(),
+            source_name=row["source_name"].strip(),
+            notes=row["notes"].strip(),
+            geocoding_confidence=1.0,
+        )
+        events.append(event)
+
+    return events

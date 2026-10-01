@@ -1,7 +1,8 @@
 """
 FloodSense - Singapore Geospatial Reference Data.
-Planning-area centroids for the 55 URA Planning Areas, and NEA rainfall stations loaded from the
-reference snapshot of data.gov.sg station metadata.
+Planning-area reference points for the 55 URA Planning Areas derived from the official URA Master Plan
+2019 polygon boundaries (representative_point), and NEA rainfall stations loaded from the reference
+snapshot of data.gov.sg station metadata.
 """
 
 import json
@@ -9,80 +10,80 @@ from pathlib import Path
 
 from floodsense.common.config import settings
 
-# 55 URA Planning Areas with Centroids (lat, lon) and Region
+# 55 URA Planning Areas with polygon-derived reference points (lat, lon) and Region
 URA_PLANNING_AREAS: dict[str, dict] = {
     # Central Region
-    "BISHAN": {"lat": 1.3508, "lon": 103.8485, "region": "Central", "pub_monitored": 1},
-    "BUKIT MERAH": {"lat": 1.2819, "lon": 103.8239, "region": "Central", "pub_monitored": 1},
-    "BUKIT TIMAH": {"lat": 1.3294, "lon": 103.7763, "region": "Central", "pub_monitored": 1},
-    "DOWNTOWN CORE": {"lat": 1.2868, "lon": 103.8545, "region": "Central", "pub_monitored": 1},
-    "GEYLANG": {"lat": 1.3182, "lon": 103.8871, "region": "Central", "pub_monitored": 1},
-    "KALLANG": {"lat": 1.3108, "lon": 103.8647, "region": "Central", "pub_monitored": 1},
-    "MARINA EAST": {"lat": 1.2882, "lon": 103.8744, "region": "Central", "pub_monitored": 0},
-    "MARINA SOUTH": {"lat": 1.2721, "lon": 103.8624, "region": "Central", "pub_monitored": 0},
-    "MARINE PARADE": {"lat": 1.3020, "lon": 103.9073, "region": "Central", "pub_monitored": 1},
-    "MUSEUM": {"lat": 1.2966, "lon": 103.8492, "region": "Central", "pub_monitored": 0},
-    "NEWTON": {"lat": 1.3130, "lon": 103.8378, "region": "Central", "pub_monitored": 1},
-    "NOVENA": {"lat": 1.3204, "lon": 103.8436, "region": "Central", "pub_monitored": 1},
-    "ORCHARD": {"lat": 1.3048, "lon": 103.8318, "region": "Central", "pub_monitored": 1},
-    "OUTRAM": {"lat": 1.2827, "lon": 103.8392, "region": "Central", "pub_monitored": 1},
-    "QUEENSTOWN": {"lat": 1.2942, "lon": 103.7861, "region": "Central", "pub_monitored": 1},
-    "RIVER VALLEY": {"lat": 1.2938, "lon": 103.8344, "region": "Central", "pub_monitored": 1},
-    "ROCHOR": {"lat": 1.3039, "lon": 103.8557, "region": "Central", "pub_monitored": 1},
-    "SINGAPORE RIVER": {"lat": 1.2891, "lon": 103.8433, "region": "Central", "pub_monitored": 1},
-    "SOUTHERN ISLANDS": {"lat": 1.2464, "lon": 103.8430, "region": "Central", "pub_monitored": 0},
-    "STRAITS VIEW": {"lat": 1.2678, "lon": 103.8569, "region": "Central", "pub_monitored": 0},
-    "TANGLIN": {"lat": 1.3060, "lon": 103.8126, "region": "Central", "pub_monitored": 1},
-    "TOA PAYOH": {"lat": 1.3343, "lon": 103.8563, "region": "Central", "pub_monitored": 1},
+    "BISHAN": {"lat": 1.3552, "lon": 103.8377, "region": "Central", "pub_monitored": 1},
+    "BUKIT MERAH": {"lat": 1.2745, "lon": 103.8216, "region": "Central", "pub_monitored": 1},
+    "BUKIT TIMAH": {"lat": 1.3281, "lon": 103.7934, "region": "Central", "pub_monitored": 1},
+    "DOWNTOWN CORE": {"lat": 1.2866, "lon": 103.8561, "region": "Central", "pub_monitored": 1},
+    "GEYLANG": {"lat": 1.3212, "lon": 103.8899, "region": "Central", "pub_monitored": 1},
+    "KALLANG": {"lat": 1.3123, "lon": 103.8651, "region": "Central", "pub_monitored": 1},
+    "MARINA EAST": {"lat": 1.2882, "lon": 103.8717, "region": "Central", "pub_monitored": 0},
+    "MARINA SOUTH": {"lat": 1.2808, "lon": 103.8660, "region": "Central", "pub_monitored": 0},
+    "MARINE PARADE": {"lat": 1.2991, "lon": 103.8985, "region": "Central", "pub_monitored": 1},
+    "MUSEUM": {"lat": 1.2960, "lon": 103.8475, "region": "Central", "pub_monitored": 0},
+    "NEWTON": {"lat": 1.3085, "lon": 103.8410, "region": "Central", "pub_monitored": 1},
+    "NOVENA": {"lat": 1.3261, "lon": 103.8372, "region": "Central", "pub_monitored": 1},
+    "ORCHARD": {"lat": 1.3040, "lon": 103.8341, "region": "Central", "pub_monitored": 1},
+    "OUTRAM": {"lat": 1.2816, "lon": 103.8437, "region": "Central", "pub_monitored": 1},
+    "QUEENSTOWN": {"lat": 1.2869, "lon": 103.7851, "region": "Central", "pub_monitored": 1},
+    "RIVER VALLEY": {"lat": 1.2979, "lon": 103.8364, "region": "Central", "pub_monitored": 1},
+    "ROCHOR": {"lat": 1.3050, "lon": 103.8543, "region": "Central", "pub_monitored": 1},
+    "SINGAPORE RIVER": {"lat": 1.2909, "lon": 103.8405, "region": "Central", "pub_monitored": 1},
+    "SOUTHERN ISLANDS": {"lat": 1.2489, "lon": 103.8343, "region": "Central", "pub_monitored": 0},
+    "STRAITS VIEW": {"lat": 1.2714, "lon": 103.8593, "region": "Central", "pub_monitored": 0},
+    "TANGLIN": {"lat": 1.3076, "lon": 103.8151, "region": "Central", "pub_monitored": 1},
+    "TOA PAYOH": {"lat": 1.3365, "lon": 103.8625, "region": "Central", "pub_monitored": 1},
     # East Region
-    "BEDOK": {"lat": 1.3236, "lon": 103.9273, "region": "East", "pub_monitored": 1},
-    "CHANGI": {"lat": 1.3595, "lon": 103.9892, "region": "East", "pub_monitored": 1},
-    "CHANGI BAY": {"lat": 1.3160, "lon": 104.0200, "region": "East", "pub_monitored": 0},
-    "PASIR RIS": {"lat": 1.3721, "lon": 103.9474, "region": "East", "pub_monitored": 1},
-    "PAYA LEBAR": {"lat": 1.3582, "lon": 103.8914, "region": "East", "pub_monitored": 1},
-    "TAMPINES": {"lat": 1.3541, "lon": 103.9439, "region": "East", "pub_monitored": 1},
+    "BEDOK": {"lat": 1.3250, "lon": 103.9309, "region": "East", "pub_monitored": 1},
+    "CHANGI": {"lat": 1.3518, "lon": 103.9972, "region": "East", "pub_monitored": 1},
+    "CHANGI BAY": {"lat": 1.2915, "lon": 104.0712, "region": "East", "pub_monitored": 0},
+    "PASIR RIS": {"lat": 1.3769, "lon": 103.9535, "region": "East", "pub_monitored": 1},
+    "PAYA LEBAR": {"lat": 1.3606, "lon": 103.9174, "region": "East", "pub_monitored": 1},
+    "TAMPINES": {"lat": 1.3450, "lon": 103.9491, "region": "East", "pub_monitored": 1},
     # North Region
     "CENTRAL WATER CATCHMENT": {
-        "lat": 1.3734,
-        "lon": 103.8078,
+        "lat": 1.3761,
+        "lon": 103.8017,
         "region": "North",
         "pub_monitored": 1,
     },
-    "LIM CHU KANG": {"lat": 1.4342, "lon": 103.7013, "region": "North", "pub_monitored": 0},
-    "MANDAI": {"lat": 1.4080, "lon": 103.7863, "region": "North", "pub_monitored": 1},
+    "LIM CHU KANG": {"lat": 1.4310, "lon": 103.7192, "region": "North", "pub_monitored": 0},
+    "MANDAI": {"lat": 1.4271, "lon": 103.8128, "region": "North", "pub_monitored": 1},
     "NORTH-EASTERN ISLANDS": {
-        "lat": 1.4117,
-        "lon": 103.9870,
+        "lat": 1.3891,
+        "lon": 104.0526,
         "region": "North",
         "pub_monitored": 0,
     },
-    "SEMBAWANG": {"lat": 1.4491, "lon": 103.8185, "region": "North", "pub_monitored": 1},
-    "SIMPANG": {"lat": 1.4312, "lon": 103.8402, "region": "North", "pub_monitored": 0},
-    "SUNGEI KADUT": {"lat": 1.4153, "lon": 103.7466, "region": "North", "pub_monitored": 1},
-    "WOODLANDS": {"lat": 1.4382, "lon": 103.7890, "region": "North", "pub_monitored": 1},
-    "YISHUN": {"lat": 1.4304, "lon": 103.8354, "region": "North", "pub_monitored": 1},
+    "SEMBAWANG": {"lat": 1.4530, "lon": 103.8187, "region": "North", "pub_monitored": 1},
+    "SIMPANG": {"lat": 1.4425, "lon": 103.8497, "region": "North", "pub_monitored": 0},
+    "SUNGEI KADUT": {"lat": 1.4176, "lon": 103.7561, "region": "North", "pub_monitored": 1},
+    "WOODLANDS": {"lat": 1.4418, "lon": 103.7885, "region": "North", "pub_monitored": 1},
+    "YISHUN": {"lat": 1.4190, "lon": 103.8434, "region": "North", "pub_monitored": 1},
     # North-East Region
-    "ANG MO KIO": {"lat": 1.3691, "lon": 103.8454, "region": "North-East", "pub_monitored": 1},
-    "HOUGANG": {"lat": 1.3708, "lon": 103.8893, "region": "North-East", "pub_monitored": 1},
-    "PUNGGOL": {"lat": 1.4011, "lon": 103.9073, "region": "North-East", "pub_monitored": 1},
-    "SELETAR": {"lat": 1.4098, "lon": 103.8714, "region": "North-East", "pub_monitored": 0},
-    "SENGKANG": {"lat": 1.3868, "lon": 103.8914, "region": "North-East", "pub_monitored": 1},
-    "SERANGOON": {"lat": 1.3554, "lon": 103.8679, "region": "North-East", "pub_monitored": 1},
+    "ANG MO KIO": {"lat": 1.3767, "lon": 103.8426, "region": "North-East", "pub_monitored": 1},
+    "HOUGANG": {"lat": 1.3609, "lon": 103.8888, "region": "North-East", "pub_monitored": 1},
+    "PUNGGOL": {"lat": 1.4037, "lon": 103.9092, "region": "North-East", "pub_monitored": 1},
+    "SELETAR": {"lat": 1.4163, "lon": 103.8793, "region": "North-East", "pub_monitored": 0},
+    "SENGKANG": {"lat": 1.3886, "lon": 103.8955, "region": "North-East", "pub_monitored": 1},
+    "SERANGOON": {"lat": 1.3660, "lon": 103.8676, "region": "North-East", "pub_monitored": 1},
     # West Region
-    "BOON LAY": {"lat": 1.3175, "lon": 103.7025, "region": "West", "pub_monitored": 0},
-    "BUKIT BATOK": {"lat": 1.3590, "lon": 103.7637, "region": "West", "pub_monitored": 1},
-    "BUKIT PANJANG": {"lat": 1.3774, "lon": 103.7719, "region": "West", "pub_monitored": 1},
-    "CHOA CHU KANG": {"lat": 1.3840, "lon": 103.7470, "region": "West", "pub_monitored": 1},
-    "CLEMENTI": {"lat": 1.3162, "lon": 103.7649, "region": "West", "pub_monitored": 1},
-    "JURONG EAST": {"lat": 1.3329, "lon": 103.7436, "region": "West", "pub_monitored": 1},
-    "JURONG WEST": {"lat": 1.3404, "lon": 103.7090, "region": "West", "pub_monitored": 1},
-    "PIONEER": {"lat": 1.3142, "lon": 103.6840, "region": "West", "pub_monitored": 0},
-    "TENGAH": {"lat": 1.3644, "lon": 103.7314, "region": "West", "pub_monitored": 0},
-    "TUAS": {"lat": 1.2988, "lon": 103.6360, "region": "West", "pub_monitored": 0},
-    "WESTERN ISLANDS": {"lat": 1.2405, "lon": 103.7220, "region": "West", "pub_monitored": 0},
+    "BOON LAY": {"lat": 1.3154, "lon": 103.7078, "region": "West", "pub_monitored": 0},
+    "BUKIT BATOK": {"lat": 1.3560, "lon": 103.7526, "region": "West", "pub_monitored": 1},
+    "BUKIT PANJANG": {"lat": 1.3662, "lon": 103.7730, "region": "West", "pub_monitored": 1},
+    "CHOA CHU KANG": {"lat": 1.3875, "lon": 103.7485, "region": "West", "pub_monitored": 1},
+    "CLEMENTI": {"lat": 1.3165, "lon": 103.7604, "region": "West", "pub_monitored": 1},
+    "JURONG EAST": {"lat": 1.3251, "lon": 103.7384, "region": "West", "pub_monitored": 1},
+    "JURONG WEST": {"lat": 1.3440, "lon": 103.7048, "region": "West", "pub_monitored": 1},
+    "PIONEER": {"lat": 1.3099, "lon": 103.6693, "region": "West", "pub_monitored": 0},
+    "TENGAH": {"lat": 1.3621, "lon": 103.7252, "region": "West", "pub_monitored": 0},
+    "TUAS": {"lat": 1.2817, "lon": 103.6342, "region": "West", "pub_monitored": 0},
+    "WESTERN ISLANDS": {"lat": 1.2600, "lon": 103.6702, "region": "West", "pub_monitored": 0},
     "WESTERN WATER CATCHMENT": {
-        "lat": 1.3912,
-        "lon": 103.6886,
+        "lat": 1.3808,
+        "lon": 103.6956,
         "region": "West",
         "pub_monitored": 0,
     },
@@ -109,34 +110,8 @@ NEA_WEATHER_STATIONS: dict[str, dict] = load_station_snapshot()
 
 def create_singapore_geojson() -> dict:
     """
-    Generate synthetic polygon GeoJSON feature collection for the 55 URA Planning Areas.
-    Uses circular/approximated polygonal bounds around each centroid.
+    Load official URA Master Plan 2019 Planning Area GeoJSON feature collection.
     """
-    features = []
-    import math
-
-    for zone_name, data in URA_PLANNING_AREAS.items():
-        lat, lon = data["lat"], data["lon"]
-        radius_km = 1.8  # ~2km radius cell approximation
-        points = []
-        for angle in range(0, 360, 30):
-            rad = math.radians(angle)
-            # 1 deg lat ~ 111 km, 1 deg lon ~ 111 * cos(lat) km
-            dlat = (radius_km / 111.0) * math.cos(rad)
-            dlon = (radius_km / (111.0 * math.cos(math.radians(lat)))) * math.sin(rad)
-            points.append([lon + dlon, lat + dlat])
-        points.append(points[0])  # close ring
-
-        features.append(
-            {
-                "type": "Feature",
-                "properties": {
-                    "name": zone_name,
-                    "region": data["region"],
-                    "pub_monitored": data["pub_monitored"],
-                },
-                "geometry": {"type": "Polygon", "coordinates": [points]},
-            }
-        )
-
-    return {"type": "FeatureCollection", "features": features}
+    if settings.zone_polygons_file.exists():
+        return json.loads(settings.zone_polygons_file.read_text())
+    raise FileNotFoundError(f"Missing {settings.zone_polygons_file}")

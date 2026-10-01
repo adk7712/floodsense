@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 
-from floodsense.features.ground_truth_extractor import HISTORICAL_FLOOD_EVENTS_BENCHMARK
+from floodsense.data.flood_events import load_flood_events
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 logger = logging.getLogger("FloodSense.DataLoader")
@@ -31,10 +31,8 @@ def generate_historical_dataset(
     records = []
     np.random.seed(42)
 
-    known_flood_dates = set()
-    for ev in HISTORICAL_FLOOD_EVENTS_BENCHMARK:
-        dt = datetime.fromisoformat(ev["timestamp_start"])
-        known_flood_dates.add(dt.date())
+    known_events = load_flood_events()
+    known_flood_dates = {ev.timestamp_start.date() for ev in known_events}
 
     cur_date = datetime(start_year, 1, 1).date()
     end_date = datetime(end_year, 9, 30).date()
@@ -49,10 +47,10 @@ def generate_historical_dataset(
             center_lon = URA_PLANNING_AREAS[storm_center_zone]["lon"]
 
             if is_known_flood:
-                for ev in HISTORICAL_FLOOD_EVENTS_BENCHMARK:
-                    if datetime.fromisoformat(ev["timestamp_start"]).date() == cur_date:
-                        center_lat = URA_PLANNING_AREAS[ev["ura_planning_area"]]["lat"]
-                        center_lon = URA_PLANNING_AREAS[ev["ura_planning_area"]]["lon"]
+                for ev in known_events:
+                    if ev.timestamp_start.date() == cur_date:
+                        center_lat = URA_PLANNING_AREAS[ev.ura_planning_area]["lat"]
+                        center_lon = URA_PLANNING_AREAS[ev.ura_planning_area]["lon"]
                         break
 
             base_dt = datetime.combine(cur_date, datetime.min.time()) + timedelta(hours=13)
@@ -76,7 +74,11 @@ def generate_historical_dataset(
 
                     if rain > 0.0 or step % 12 == 0:
                         records.append(
-                            {"ura_planning_area": zone_name, "timestamp": ts, "rainfall_mm": rain}
+                            {
+                                "ura_planning_area": zone_name,
+                                "timestamp": ts,
+                                "rainfall_mm": rain,
+                            }
                         )
 
         cur_date += timedelta(days=1)

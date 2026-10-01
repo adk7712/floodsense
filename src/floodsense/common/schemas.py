@@ -87,8 +87,12 @@ class ZoneRainfall(BaseModel):
 class FloodEvent(BaseModel):
     """Ground truth flood event extracted from official PUB/LTA alerts or news reports."""
 
-    timestamp_start: datetime = Field(..., description="Start timestamp of the flash flood event")
+    event_id: str = Field(..., description="Unique event identifier")
+    timestamp_start: datetime = Field(..., description="Start timestamp of the flash flood event, SGT")
     timestamp_end: datetime | None = Field(None, description="End/clearance timestamp if available")
+    time_precision: Literal["exact", "approx_15min", "approx_hour", "day_only"] = Field(
+        default="approx_hour", description="Precision of the start timestamp"
+    )
     location_raw: str = Field(
         ..., description="Raw text location, e.g. 'Dunearn Road near Sime Darby Centre'"
     )
@@ -98,12 +102,25 @@ class FloodEvent(BaseModel):
     severity: Literal["Minor", "Moderate", "Severe"] = Field(
         ..., description="Severity classification"
     )
-    source_reference: str = Field(
-        ..., description="Source citation, e.g. 'PUB Flash Flood Warning Twitter / Telegram'"
+    cause: Literal["rain", "rain_tide", "other"] = Field(
+        default="rain", description="Underlying flood cause"
     )
+    source_url: str = Field(..., description="Source citation URL")
+    source_name: str = Field(default="PUB / News", description="Source provider name")
+    notes: str = Field(default="", description="Optional context notes")
     geocoding_confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Confidence score of polygon mapping"
+        default=1.0, ge=0.0, le=1.0, description="Confidence score of polygon mapping"
     )
+
+    @field_validator("timestamp_start")
+    @classmethod
+    def normalise_start(cls, v: datetime) -> datetime:
+        return to_sgt(v)
+
+    @field_validator("timestamp_end")
+    @classmethod
+    def normalise_end(cls, v: datetime | None) -> datetime | None:
+        return to_sgt(v) if v is not None else None
 
 
 class ZoneFeatureVector(BaseModel):
