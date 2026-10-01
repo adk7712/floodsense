@@ -11,13 +11,16 @@ Zone features are recomputed from the readings for every view (and cached by inp
 accumulated across reruns, so the page depends only on the selected mode, time and zone.
 """
 
+import json
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from shapely.geometry import mapping, shape
 
 from floodsense.app import replay_days
 from floodsense.common.config import settings
@@ -28,7 +31,7 @@ from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 from floodsense.models.artifact import load_model, rarity_scores
 from floodsense.models.scoring import default_thresholds, score_zone_features
-from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, load_station_snapshot
 
 st.set_page_config(
     page_title="FloodSense | Urban Drainage Intelligence",
@@ -37,7 +40,329 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-TIER_COLORS = {"High": "#ff4d4f", "Moderate": "#faad14", "Low": "#52c41a"}
+TECHNICAL_UTILITY_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+/* --- 1. GLOBAL GEOMETRY: STRICT 0PX BORDER RADIUS, NO BLURS/SHADOWS --- */
+*, *::before, *::after {
+    border-radius: 0px !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+
+/* Base Canvas & Typography */
+.stApp {
+    background-color: #0B0F17 !important;
+    color: #F3F4F6 !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+header[data-testid="stHeader"] {
+    background-color: #0B0F17 !important;
+    border-bottom: 1px solid #1F2937 !important;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', 'Inter', -apple-system, sans-serif !important;
+    color: #F3F4F6 !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+}
+
+h1 {
+    font-size: 1.7rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    border-bottom: 1px solid #1F2937 !important;
+    padding-bottom: 0.4rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+h2, h3 {
+    font-size: 1.05rem !important;
+    letter-spacing: -0.01em !important;
+}
+
+/* Tabular figures for all dynamic telemetry and readouts */
+[data-testid="stMetricValue"],
+[data-testid="stMetricDelta"],
+code, pre, kbd,
+div[data-baseweb="input"] input,
+div[data-baseweb="select"] {
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace !important;
+    font-variant-numeric: tabular-nums !important;
+}
+
+/* --- 2. RACK-MOUNTED PANELS & WIREFRAME BORDERS --- */
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+    background-color: #111827 !important;
+    border: 1px solid #1F2937 !important;
+    padding: 0.85rem !important;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #0B0F17 !important;
+    border-right: 1px solid #1F2937 !important;
+}
+
+section[data-testid="stSidebar"] .stMarkdown h3 {
+    font-family: 'Space Grotesk', sans-serif !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    font-size: 0.95rem !important;
+    color: #F3F4F6 !important;
+}
+
+/* Telemetry Metric Cards */
+[data-testid="stMetric"] {
+    background-color: transparent !important;
+    padding: 0.15rem 0.25rem !important;
+}
+
+[data-testid="stMetricLabel"],
+[data-testid="stMetricLabel"] p,
+[data-testid="stMetricLabel"] div {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.60rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #9CA3AF !important;
+    white-space: nowrap !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace !important;
+    font-size: 1.55rem !important;
+    font-weight: 700 !important;
+    color: #F3F4F6 !important;
+    font-variant-numeric: tabular-nums !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1.2 !important;
+}
+
+[data-testid="stMetricDelta"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.72rem !important;
+    font-variant-numeric: tabular-nums !important;
+    font-weight: 500 !important;
+}
+
+/* --- 3. CONTROLS, INPUTS, BUTTONS --- */
+button[kind="secondary"],
+button[kind="primary"],
+[data-testid="baseButton-secondary"],
+[data-testid="baseButton-primary"] {
+    border-radius: 0px !important;
+    border: 1px solid #1F2937 !important;
+    background-color: #111827 !important;
+    color: #F3F4F6 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    box-shadow: none !important;
+    transition: none !important;
+}
+
+button[kind="primary"],
+[data-testid="baseButton-primary"] {
+    border: 1px solid #38BDF8 !important;
+    background-color: rgba(56, 189, 248, 0.12) !important;
+    color: #38BDF8 !important;
+    font-weight: 600 !important;
+}
+
+button:hover {
+    border-color: #38BDF8 !important;
+    background-color: rgba(56, 189, 248, 0.08) !important;
+    color: #F3F4F6 !important;
+}
+
+/* Segmented Control */
+div[data-testid="stSegmentedControl"] {
+    border: 1px solid #1F2937 !important;
+    background-color: #0B0F17 !important;
+    padding: 2px !important;
+    gap: 2px !important;
+}
+
+button[data-testid="stButtonGroupButton"] {
+    border-radius: 0px !important;
+    border: 1px solid transparent !important;
+    background-color: transparent !important;
+    color: #9CA3AF !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    transition: none !important;
+}
+
+button[data-testid="stButtonGroupButton"][aria-pressed="true"] {
+    background-color: #111827 !important;
+    border: 1px solid #38BDF8 !important;
+    color: #38BDF8 !important;
+}
+
+button[data-testid="stButtonGroupButton"]:hover {
+    color: #F3F4F6 !important;
+}
+
+/* Selectbox & Date Input */
+div[data-baseweb="select"] > div {
+    border-radius: 0px !important;
+    border: 1px solid #1F2937 !important;
+    background-color: #0B0F17 !important;
+    color: #F3F4F6 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.82rem !important;
+}
+
+div[data-baseweb="input"] {
+    border-radius: 0px !important;
+    border: 1px solid #1F2937 !important;
+    background-color: #0B0F17 !important;
+}
+
+div[data-baseweb="input"] input {
+    color: #F3F4F6 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.82rem !important;
+    font-variant-numeric: tabular-nums !important;
+}
+
+/* Slider */
+div[data-testid="stSlider"] div[role="slider"],
+div[data-testid="stSelectSlider"] div[role="slider"] {
+    border-radius: 0px !important;
+    border: 1px solid #38BDF8 !important;
+    background-color: #0B0F17 !important;
+    box-shadow: none !important;
+    width: 14px !important;
+    height: 14px !important;
+}
+
+div[data-testid="stSlider"] div[data-baseweb="slider"] div,
+div[data-testid="stSelectSlider"] div[data-baseweb="slider"] div {
+    border-radius: 0px !important;
+}
+
+/* Popover listbox */
+div[data-baseweb="popover"],
+ul[role="listbox"] {
+    border-radius: 0px !important;
+    border: 1px solid #1F2937 !important;
+    background-color: #111827 !important;
+}
+
+li[role="option"] {
+    border-radius: 0px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.8rem !important;
+    color: #F3F4F6 !important;
+}
+
+li[role="option"][aria-selected="true"] {
+    background-color: #1F2937 !important;
+    color: #38BDF8 !important;
+}
+
+/* Telemetry Code Blocks */
+code {
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace !important;
+    font-variant-numeric: tabular-nums !important;
+    background-color: #0B0F17 !important;
+    border: 1px solid #1F2937 !important;
+    color: #38BDF8 !important;
+    padding: 1px 5px !important;
+    border-radius: 0px !important;
+    font-size: 0.85em !important;
+}
+
+.stMarkdown code {
+    white-space: nowrap !important;
+    display: inline-block !important;
+}
+
+.stMarkdown ul li {
+    white-space: nowrap !important;
+}
+
+/* Alerts */
+div[data-testid="stAlert"] {
+    border-radius: 0px !important;
+    border: 1px solid #1F2937 !important;
+    background-color: #111827 !important;
+    color: #F3F4F6 !important;
+}
+
+hr {
+    border: none !important;
+    border-top: 1px solid #1F2937 !important;
+    margin: 0.75rem 0 !important;
+}
+
+.stCaption, [data-testid="stCaptionContainer"] {
+    color: #9CA3AF !important;
+    font-size: 0.75rem !important;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0B0F17;
+}
+::-webkit-scrollbar-thumb {
+    background: #1F2937;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+}
+</style>
+"""
+st.markdown(TECHNICAL_UTILITY_CSS, unsafe_allow_html=True)
+
+
+@st.cache_data
+def load_ura_boundaries() -> dict[str, Any] | None:
+    path = (
+        Path(__file__).resolve().parent.parent.parent.parent
+        / "data"
+        / "reference"
+        / "ura_planning_areas_mp2019.geojson"
+    )
+    if not path.exists():
+        path = Path("data/reference/ura_planning_areas_mp2019.geojson")
+    if path.exists():
+        try:
+            with open(path, encoding="utf-8") as f:
+                raw_geojson = json.load(f)
+            simplified_features: list[dict[str, Any]] = []
+            for feat in raw_geojson.get("features", []):
+                s = shape(feat["geometry"]).simplify(0.001, preserve_topology=True)
+                simplified_features.append({
+                    "type": "Feature",
+                    "properties": feat.get("properties", {}),
+                    "geometry": mapping(s),
+                })
+            return {"type": "FeatureCollection", "features": simplified_features}
+        except Exception:
+            return None
+    return None
+
+
+TIER_COLORS = {
+    "High": "#EF4444",       # Signal Crimson
+    "Moderate": "#F59E0B",   # Industrial Amber
+    "Low": "#334155",        # Subdued cool slate
+}
 NUM_ZONES = len(URA_PLANNING_AREAS)
 WET_GROUND_HELP = (
     "Recent rain, with each millimetre counting half as much after every "
@@ -182,8 +507,14 @@ if mode == "Live Feed":
             st.rerun()
         st.stop()
     view_time = features["timestamp"].iloc[0]
+    live_badge = (
+        '<span style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; '
+        'color: #34D399; padding: 2px 7px; font-family: monospace; font-size: 0.75rem; '
+        'font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">'
+        '● OPERATIONAL / LIVE</span>'
+    )
     status_line = (
-        f":material/sensors: **Live** • data.gov.sg NEA 5-minute rainfall • "
+        f"{live_badge} &nbsp; **data.gov.sg NEA Telemetry** &nbsp;•&nbsp; "
         f"latest reading `{view_time:%d %b %Y %H:%M} SGT`"
     )
     history_note = (
@@ -229,8 +560,14 @@ elif replay_days.store_available():
     storm_buttons(replay_day)
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
+    replay_badge = (
+        '<span style="background: rgba(245, 158, 11, 0.15); border: 1px solid #F59E0B; '
+        'color: #FBBF24; padding: 2px 7px; font-family: monospace; font-size: 0.75rem; '
+        'font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">'
+        '⟳ HISTORICAL REPLAY</span>'
+    )
     status_line = (
-        f":material/history: **Replay** • NEA gauge readings • `{view_time:%d %b %Y %H:%M} SGT`"
+        f"{replay_badge} &nbsp; **NEA Gauge Telemetry** &nbsp;•&nbsp; `{view_time:%d %b %Y %H:%M} SGT`"
     )
     history_note = "Features include the 72 hours of real readings before the day."
     if view.step_share < replay_days.SPARSE_SHARE:
@@ -251,7 +588,15 @@ else:
     )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
-    status_line = f":material/history: **Replay** • {event_name} • `{view_time:%d %b %Y %H:%M} SGT`"
+    replay_badge = (
+        '<span style="background: rgba(245, 158, 11, 0.15); border: 1px solid #F59E0B; '
+        'color: #FBBF24; padding: 2px 7px; font-family: monospace; font-size: 0.75rem; '
+        'font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">'
+        '⟳ HISTORICAL REPLAY</span>'
+    )
+    status_line = (
+        f"{replay_badge} &nbsp; **{event_name}** &nbsp;•&nbsp; `{view_time:%d %b %Y %H:%M} SGT`"
+    )
     history_note = "Features include the 72 hours of real readings before the replay window."
     day_events = replay_days.events_on(replay_days.PINNED_STORM, flood_events())
 
@@ -261,7 +606,7 @@ reporting_stations = int(features["reporting_stations"].iloc[0])
 
 # --- HEADER & KPIs -------------------------------------------------------------------------
 st.title("🌊 FloodSense Intelligence Center")
-st.markdown(status_line)
+st.markdown(status_line, unsafe_allow_html=True)
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
 
@@ -326,10 +671,81 @@ with map_col, st.container(border=True):
         style_key: "carto-darkmatter",
     }
     fig_map = map_func(df_results, **map_kwargs)  # type: ignore[misc]  # None only on very old plotly
+
+    # Format zone hover tooltips into industrial card format
+    for trace in fig_map.data:
+        if trace.name in TIER_COLORS:
+            trace.update(
+                hovertemplate=(
+                    "<b>[URA ZONE: %{hovertext}]</b><br>"
+                    "<span style='color:#9CA3AF;'>ALERT LEVEL:</span> %{customdata[0]}<br>"
+                    "<span style='color:#9CA3AF;'>30M RAIN:</span> %{customdata[2]:.1f} mm<br>"
+                    "<span style='color:#9CA3AF;'>P(FLOOD 60M):</span> %{customdata[1]:.4f}<extra></extra>"
+                ),
+            )
+
+    # Weather station / sensor dots layer: cool cyan spectrum
+    stns = load_station_snapshot()
+    if stns:
+        stn_lats = [s["lat"] for s in stns.values()]
+        stn_lons = [s["lon"] for s in stns.values()]
+        stn_names = [
+            f"<b>[NEA GAUGE: {sid}]</b><br>"
+            f"<span style='color:#9CA3AF;'>NAME:</span> {s.get('name', sid)}<br>"
+            f"<span style='color:#9CA3AF;'>STATUS:</span> ACTIVE TELEMETRY"
+            for sid, s in stns.items()
+        ]
+        trace_cls = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
+        if trace_cls:
+            fig_map.add_trace(
+                trace_cls(
+                    lat=stn_lats,
+                    lon=stn_lons,
+                    mode="markers",
+                    marker=dict(size=4, color="#38BDF8", opacity=0.75),
+                    name="Rain Gauges (NEA)",
+                    hoverinfo="text",
+                    hovertext=stn_names,
+                )
+            )
+
+    # 55 URA planning area polygon boundaries: thin 1px wireframe outlines
+    ura_geojson = load_ura_boundaries()
+    map_layers = []
+    if ura_geojson:
+        map_layers.append({
+            "sourcetype": "geojson",
+            "source": ura_geojson,
+            "type": "line",
+            "color": "rgba(75, 85, 99, 0.45)",
+            "line": {"width": 1.0},
+        })
+
+    map_layout_key = "map" if hasattr(px, "scatter_map") else "mapbox"
     fig_map.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         height=500,
-        legend=dict(yanchor="top", y=0.98, xanchor="left", x=0.02, bgcolor="rgba(0,0,0,0.6)"),
+        paper_bgcolor="#111827",
+        plot_bgcolor="#0B0F17",
+        hoverlabel=dict(
+            bgcolor="#111827",
+            bordercolor="#1F2937",
+            font_family="JetBrains Mono, monospace",
+            font_size=12,
+            font_color="#F3F4F6",
+        ),
+        legend=dict(
+            yanchor="top",
+            y=0.98,
+            xanchor="left",
+            x=0.02,
+            bgcolor="rgba(11, 15, 23, 0.88)",
+            bordercolor="#1F2937",
+            borderwidth=1,
+            font=dict(family="JetBrains Mono, monospace", size=10, color="#F3F4F6"),
+            title=dict(font=dict(family="Inter, sans-serif", size=10, color="#9CA3AF")),
+        ),
+        **{map_layout_key: {"style": "carto-darkmatter", "layers": map_layers}},
     )
     st.plotly_chart(fig_map)
     st.caption(f"{model_caption} {history_note} Each marker sits inside its URA planning area.")
@@ -338,12 +754,22 @@ with detail_col, st.container(border=True):
     st.subheader(f":material/analytics: Zone Diagnostic: `{selected_zone}`")
     zone_data = df_results[df_results["zone"] == selected_zone].iloc[0]
 
-    tier_badge = {
-        "High": ":red[**High Risk**]",
-        "Moderate": ":orange[**Moderate Risk**]",
-        "Low": ":green[**Low Risk**]",
+    tier_styles = {
+        "High": "background: rgba(239, 68, 68, 0.15); border: 1px solid #EF4444; color: #EF4444;",
+        "Moderate": "background: rgba(245, 158, 11, 0.15); border: 1px solid #F59E0B; color: #F59E0B;",
+        "Low": "background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; color: #94A3B8;",
+    }
+    tier_label = {
+        "High": "CRITICAL // HIGH RISK",
+        "Moderate": "ELEVATED // MODERATE RISK",
+        "Low": "NOMINAL // LOW RISK",
     }[zone_data["risk_tier"]]
-    st.markdown(f"**Status:** {tier_badge}")
+    tier_badge = (
+        f'<span style="{tier_styles[zone_data["risk_tier"]]} padding: 3px 8px; '
+        f'font-family: monospace; font-size: 0.8rem; font-weight: 700; '
+        f'letter-spacing: 0.06em;">{tier_label}</span>'
+    )
+    st.markdown(f"**Status:** {tier_badge}", unsafe_allow_html=True)
     thresholds = getattr(model, "thresholds", None) or default_thresholds()
     st.caption(
         f"Chance a flood is reported here in the next 60 min: "
@@ -375,29 +801,41 @@ with detail_col, st.container(border=True):
         go.Indicator(
             mode="gauge+number",
             value=rarity * 100,
-            title={"text": rarity_title, "font": {"size": 13}},
+            title={"text": rarity_title, "font": {"size": 12, "color": "#9CA3AF"}},
+            number={
+                "font": {"family": "JetBrains Mono, monospace", "size": 30, "color": "#F3F4F6"},
+                "valueformat": ".1f",
+                "suffix": "%",
+            },
             gauge={
-                "axis": {"range": [0, 100]},
+                "axis": {
+                    "range": [0, 100],
+                    "tickcolor": "#374151",
+                    "tickfont": {"family": "JetBrains Mono, monospace", "size": 9, "color": "#9CA3AF"},
+                },
                 "bar": {
-                    "color": "#00d26a"
+                    "color": "#06B6D4"
                     if rarity < 0.7
-                    else ("#faad14" if rarity < 0.9 else "#ff4d4f")
+                    else ("#F59E0B" if rarity < 0.9 else "#EF4444")
                 },
                 "steps": [
-                    {"range": [0, 70], "color": "rgba(82, 196, 26, 0.15)"},
-                    {"range": [70, 90], "color": "rgba(250, 173, 20, 0.25)"},
-                    {"range": [90, 100], "color": "rgba(255, 77, 79, 0.35)"},
+                    {"range": [0, 70], "color": "rgba(6, 182, 212, 0.12)"},
+                    {"range": [70, 90], "color": "rgba(245, 158, 11, 0.18)"},
+                    {"range": [90, 100], "color": "rgba(239, 68, 68, 0.25)"},
                 ],
                 "threshold": {
-                    "line": {"color": "white", "width": 3},
-                    "thickness": 0.75,
+                    "line": {"color": "#F3F4F6", "width": 2},
+                    "thickness": 0.8,
                     "value": 95.0,
                 },
             },
         )
     )
     fig_gauge.update_layout(
-        height=230, margin={"t": 30, "b": 10, "l": 20, "r": 20}, paper_bgcolor="rgba(0,0,0,0)"
+        height=230,
+        margin={"t": 30, "b": 10, "l": 20, "r": 20},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
     )
     st.plotly_chart(fig_gauge)
 
