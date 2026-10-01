@@ -4,12 +4,23 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from floodsense.common.config import settings
 from floodsense.features.feature_pipeline import FeaturePipeline
 from floodsense.labels.policy import event_window, label_rows
 from floodsense.models.training import LabelledData
 
 SGT = "Asia/Singapore"
 ZONES = ["BUKIT TIMAH", "BEDOK", "JURONG WEST"]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def unset_false_alarm_budgets():
+    """The repo's configured budgets were chosen on real data; tests start without them and set
+    their own where they need thresholds."""
+    saved = settings.false_alarm_budget_high, settings.false_alarm_budget_moderate
+    settings.false_alarm_budget_high = settings.false_alarm_budget_moderate = None
+    yield
+    settings.false_alarm_budget_high, settings.false_alarm_budget_moderate = saved
 
 
 @pytest.fixture(scope="module")

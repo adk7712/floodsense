@@ -1,0 +1,270 @@
+{
+  "row": {
+    "pr_auc": 0.01192211801424773,
+    "brier": 0.00014004958000756552,
+    "precision": 0.020278833967046894,
+    "recall": 0.10884353741496598,
+    "false_positive_rate": 0.0007394015916743189,
+    "false_alarm_ratio": 0.9797211660329531,
+    "tp": 32.0,
+    "fp": 1546.0,
+    "fn": 262.0,
+    "tn": 2089334.0,
+    "positives": 294.0,
+    "rows": 2091174.0
+  },
+  "events_high": {
+    "threshold": 0.00706,
+    "events": 30.0,
+    "hits": 12.0,
+    "hit_rate": 0.4,
+    "median_lead_minutes": 7.5,
+    "episodes": 250.0,
+    "false_episodes": 235.0,
+    "episode_false_alarm_ratio": 0.94,
+    "false_episodes_per_zone_year": 1.4242424242424243,
+    "false_alert_hours": 126.0
+  },
+  "hit_rate_ci90": [
+    0.26666666666666666,
+    0.5333333333333333
+  ],
+  "outcomes": [
+    {
+      "event_id": "2024-02-03-bukit-timah-dunearn-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2024-10-14-bukit-timah-dunearn-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2024-11-16-bukit-timah-bukit-timah-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2024-11-17-rochor-ophir-rd",
+      "zone": "ROCHOR",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2024-11-22-sembawang-woodlands-ave-10",
+      "zone": "SEMBAWANG",
+      "hit": true,
+      "first_alert": "2024-11-22T15:20:00+08:00",
+      "lead_minutes": -200.5
+    },
+    {
+      "event_id": "2024-11-22-toa-payoh-wan-tho-ave",
+      "zone": "TOA PAYOH",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2024-11-22-yishun-yishun-ave-7",
+      "zone": "YISHUN",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2024-12-29-bukit-timah-dunearn-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": true,
+      "first_alert": "2024-12-29T17:00:00+08:00",
+      "lead_minutes": 0.0
+    },
+    {
+      "event_id": "2025-01-10-marine-parade-jalan-seaview",
+      "zone": "MARINE PARADE",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-04-13-yishun-yishun-ave-7",
+      "zone": "YISHUN",
+      "hit": true,
+      "first_alert": "2025-04-13T13:40:00+08:00",
+      "lead_minutes": 10.0
+    },
+    {
+      "event_id": "2025-04-13-punggol-punggol-way",
+      "zone": "PUNGGOL",
+      "hit": true,
+      "first_alert": "2025-04-13T13:55:00+08:00",
+      "lead_minutes": 2.0
+    },
+    {
+      "event_id": "2025-04-13-sengkang-kpe-buangkok-east-dr",
+      "zone": "SENGKANG",
+      "hit": true,
+      "first_alert": "2025-04-13T14:00:00+08:00",
+      "lead_minutes": 5.0
+    },
+    {
+      "event_id": "2025-04-15-yishun-yishun-ave-7",
+      "zone": "YISHUN",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-04-20-bukit-timah-bukit-timah-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-04-20-newton-stevens-rd-balmoral-rd",
+      "zone": "NEWTON",
+      "hit": true,
+      "first_alert": "2025-04-20T17:10:00+08:00",
+      "lead_minutes": 10.0
+    },
+    {
+      "event_id": "2025-04-21-yishun-yishun-ave-7",
+      "zone": "YISHUN",
+      "hit": true,
+      "first_alert": "2025-04-21T15:25:00+08:00",
+      "lead_minutes": 5.0
+    },
+    {
+      "event_id": "2025-05-05-bukit-timah-kings-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-05-05-tanglin-woollerton-dr",
+      "zone": "TANGLIN",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-08-24-jurong-east-jurong-town-hall-rd",
+      "zone": "JURONG EAST",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-12-04-jurong-west-boon-lay-way",
+      "zone": "JURONG WEST",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-12-04-jurong-east-pandan-rd",
+      "zone": "JURONG EAST",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2025-12-04-boon-lay-pesawat-dr",
+      "zone": "BOON LAY",
+      "hit": true,
+      "first_alert": "2025-12-04T14:30:00+08:00",
+      "lead_minutes": 37.0
+    },
+    {
+      "event_id": "2025-12-12-bedok-upper-east-coast-rd",
+      "zone": "BEDOK",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2026-02-18-jurong-east-jurong-town-hall-rd",
+      "zone": "JURONG EAST",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2026-05-05-sengkang-kpe-buangkok-east-dr",
+      "zone": "SENGKANG",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2026-05-15-marine-parade-mountbatten-rd",
+      "zone": "MARINE PARADE",
+      "hit": false,
+      "first_alert": null,
+      "lead_minutes": null
+    },
+    {
+      "event_id": "2026-09-22-bukit-timah-kings-rd",
+      "zone": "BUKIT TIMAH",
+      "hit": true,
+      "first_alert": "2026-09-22T16:45:00+08:00",
+      "lead_minutes": 26.0
+    },
+    {
+      "event_id": "2026-09-27-queenstown-pasir-panjang-rd",
+      "zone": "QUEENSTOWN",
+      "hit": true,
+      "first_alert": "2026-09-27T11:35:00+08:00",
+      "lead_minutes": 22.0
+    },
+    {
+      "event_id": "2026-09-30-woodlands-riverside-rd",
+      "zone": "WOODLANDS",
+      "hit": true,
+      "first_alert": "2026-09-30T15:10:00+08:00",
+      "lead_minutes": 3.0
+    },
+    {
+      "event_id": "2026-09-30-lim-chu-kang-neo-tiew-rd",
+      "zone": "LIM CHU KANG",
+      "hit": true,
+      "first_alert": "2026-09-30T15:15:00+08:00",
+      "lead_minutes": 23.0
+    }
+  ],
+  "test_years": [
+    2024,
+    2025,
+    2026
+  ],
+  "model_provenance": {
+    "candidate": "rule_rain60",
+    "trained_rows": 5472630,
+    "trained_from": "2017-01-01 12:25:00+08:00",
+    "trained_to": "2023-12-31 23:40:00+08:00",
+    "selected_by": "mean out-of-fold event hit rate at [1.0, 2.0, 5.0, 10.0] false episodes per zone-year (tie: PR-AUC)",
+    "validation_years": [
+      2020,
+      2021,
+      2022,
+      2023
+    ],
+    "events_in_development": 36,
+    "label_horizon_minutes": 60,
+    "calibration": "platt",
+    "git_sha": "cac91ca"
+  },
+  "thresholds": {
+    "moderate": 0.003,
+    "high": 0.00706
+  }
+}

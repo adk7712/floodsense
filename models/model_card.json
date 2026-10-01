@@ -1,0 +1,716 @@
+{
+  "selected_candidate": "rule_rain60",
+  "generated_at": "2026-10-01T12:52:33.288863+00:00",
+  "feature_columns": [
+    "rain_5m",
+    "rain_15m",
+    "rain_30m",
+    "rain_60m",
+    "rain_120m",
+    "rain_decay_72h",
+    "storm_rarity_score"
+  ],
+  "thresholds": {
+    "moderate": 0.003,
+    "high": 0.00706
+  },
+  "calibration_method": "platt",
+  "provenance": {
+    "candidate": "rule_rain60",
+    "trained_rows": 5472630,
+    "trained_from": "2017-01-01 12:25:00+08:00",
+    "trained_to": "2023-12-31 23:40:00+08:00",
+    "selected_by": "mean out-of-fold event hit rate at [1.0, 2.0, 5.0, 10.0] false episodes per zone-year (tie: PR-AUC)",
+    "validation_years": [
+      2020,
+      2021,
+      2022,
+      2023
+    ],
+    "events_in_development": 36,
+    "label_horizon_minutes": 60,
+    "calibration": "platt",
+    "git_sha": "cac91ca"
+  },
+  "notes": [],
+  "candidates": {
+    "rule_rain30": {
+      "event_score": 0.45652173913043476,
+      "row_metrics_oof": {
+        "pr_auc": 0.01011955933224259,
+        "brier": 2.970447946884202e-05,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive_rate": 0.0,
+        "false_alarm_ratio": null,
+        "tp": 0.0,
+        "fp": 0.0,
+        "fn": 96.0,
+        "tn": 3305580.0,
+        "positives": 96.0,
+        "rows": 3305676.0
+      },
+      "ece": 8.801904591718538e-05,
+      "calibration_method": "platt",
+      "oof_rows": 3306950,
+      "folds": [
+        {
+          "validation_year": 2020,
+          "train_max_timestamp": "2019-12-29T18:50:00+08:00",
+          "train_rows": 2165680,
+          "validation_rows": 802029
+        },
+        {
+          "validation_year": 2021,
+          "train_max_timestamp": "2020-12-31T20:35:00+08:00",
+          "train_rows": 2967709,
+          "validation_rows": 817055
+        },
+        {
+          "validation_year": 2022,
+          "train_max_timestamp": "2021-12-31T23:55:00+08:00",
+          "train_rows": 3784764,
+          "validation_rows": 845475
+        },
+        {
+          "validation_year": 2023,
+          "train_max_timestamp": "2022-12-31T21:15:00+08:00",
+          "train_rows": 4630239,
+          "validation_rows": 842391
+        }
+      ]
+    },
+    "rule_rain60": {
+      "event_score": 0.4891304347826087,
+      "row_metrics_oof": {
+        "pr_auc": 0.00968694884288052,
+        "brier": 2.90382901540653e-05,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive_rate": 0.0,
+        "false_alarm_ratio": null,
+        "tp": 0.0,
+        "fp": 0.0,
+        "fn": 96.0,
+        "tn": 3305580.0,
+        "positives": 96.0,
+        "rows": 3305676.0
+      },
+      "ece": 5.503277016824973e-05,
+      "calibration_method": "platt",
+      "oof_rows": 3306950,
+      "folds": [
+        {
+          "validation_year": 2020,
+          "train_max_timestamp": "2019-12-29T18:50:00+08:00",
+          "train_rows": 2165680,
+          "validation_rows": 802029
+        },
+        {
+          "validation_year": 2021,
+          "train_max_timestamp": "2020-12-31T20:35:00+08:00",
+          "train_rows": 2967709,
+          "validation_rows": 817055
+        },
+        {
+          "validation_year": 2022,
+          "train_max_timestamp": "2021-12-31T23:55:00+08:00",
+          "train_rows": 3784764,
+          "validation_rows": 845475
+        },
+        {
+          "validation_year": 2023,
+          "train_max_timestamp": "2022-12-31T21:15:00+08:00",
+          "train_rows": 4630239,
+          "validation_rows": 842391
+        }
+      ]
+    },
+    "logistic": {
+      "event_score": 0.15217391304347824,
+      "row_metrics_oof": {
+        "pr_auc": 0.004029962008484686,
+        "brier": 2.9021536565712826e-05,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive_rate": 0.0,
+        "false_alarm_ratio": null,
+        "tp": 0.0,
+        "fp": 0.0,
+        "fn": 96.0,
+        "tn": 3305580.0,
+        "positives": 96.0,
+        "rows": 3305676.0
+      },
+      "ece": 4.124623351429789e-05,
+      "calibration_method": "platt",
+      "oof_rows": 3306950,
+      "folds": [
+        {
+          "validation_year": 2020,
+          "train_max_timestamp": "2019-12-29T18:50:00+08:00",
+          "train_rows": 2165680,
+          "validation_rows": 802029
+        },
+        {
+          "validation_year": 2021,
+          "train_max_timestamp": "2020-12-31T20:35:00+08:00",
+          "train_rows": 2967709,
+          "validation_rows": 817055
+        },
+        {
+          "validation_year": 2022,
+          "train_max_timestamp": "2021-12-31T23:55:00+08:00",
+          "train_rows": 3784764,
+          "validation_rows": 845475
+        },
+        {
+          "validation_year": 2023,
+          "train_max_timestamp": "2022-12-31T21:15:00+08:00",
+          "train_rows": 4630239,
+          "validation_rows": 842391
+        }
+      ]
+    },
+    "lightgbm": {
+      "event_score": 0.08695652173913043,
+      "row_metrics_oof": {
+        "pr_auc": 0.0053652182185332815,
+        "brier": 2.903603795280541e-05,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive_rate": 0.0,
+        "false_alarm_ratio": null,
+        "tp": 0.0,
+        "fp": 0.0,
+        "fn": 96.0,
+        "tn": 3305580.0,
+        "positives": 96.0,
+        "rows": 3305676.0
+      },
+      "ece": 3.3927996109440275e-05,
+      "calibration_method": "platt",
+      "oof_rows": 3306950,
+      "folds": [
+        {
+          "validation_year": 2020,
+          "train_max_timestamp": "2019-12-29T18:50:00+08:00",
+          "train_rows": 2165680,
+          "validation_rows": 802029
+        },
+        {
+          "validation_year": 2021,
+          "train_max_timestamp": "2020-12-31T20:35:00+08:00",
+          "train_rows": 2967709,
+          "validation_rows": 817055
+        },
+        {
+          "validation_year": 2022,
+          "train_max_timestamp": "2021-12-31T23:55:00+08:00",
+          "train_rows": 3784764,
+          "validation_rows": 845475
+        },
+        {
+          "validation_year": 2023,
+          "train_max_timestamp": "2022-12-31T21:15:00+08:00",
+          "train_rows": 4630239,
+          "validation_rows": 842391
+        }
+      ]
+    }
+  },
+  "tradeoff_selected": [
+    {
+      "threshold": 1e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 99.5,
+      "episodes": 42365.0,
+      "false_episodes": 42334.0,
+      "episode_false_alarm_ratio": 0.9992682638970849,
+      "false_episodes_per_zone_year": 192.42727272727274,
+      "false_alert_hours": 67805.66666666667
+    },
+    {
+      "threshold": 1.33e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 97.0,
+      "episodes": 39753.0,
+      "false_episodes": 39722.0,
+      "episode_false_alarm_ratio": 0.9992201846401529,
+      "false_episodes_per_zone_year": 180.55454545454546,
+      "false_alert_hours": 62039.75
+    },
+    {
+      "threshold": 1.77e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 97.0,
+      "episodes": 37373.0,
+      "false_episodes": 37342.0,
+      "episode_false_alarm_ratio": 0.9991705241752067,
+      "false_episodes_per_zone_year": 169.73636363636365,
+      "false_alert_hours": 56506.75
+    },
+    {
+      "threshold": 2.35e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 97.0,
+      "episodes": 34951.0,
+      "false_episodes": 34920.0,
+      "episode_false_alarm_ratio": 0.9991130439758519,
+      "false_episodes_per_zone_year": 158.72727272727272,
+      "false_alert_hours": 51187.083333333336
+    },
+    {
+      "threshold": 3.13e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 97.0,
+      "episodes": 32412.0,
+      "false_episodes": 32381.0,
+      "episode_false_alarm_ratio": 0.9990435641120573,
+      "false_episodes_per_zone_year": 147.18636363636364,
+      "false_alert_hours": 45997.833333333336
+    },
+    {
+      "threshold": 4.16e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 94.5,
+      "episodes": 29987.0,
+      "false_episodes": 29955.0,
+      "episode_false_alarm_ratio": 0.998932870910728,
+      "false_episodes_per_zone_year": 136.1590909090909,
+      "false_alert_hours": 41107.916666666664
+    },
+    {
+      "threshold": 5.54e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 94.5,
+      "episodes": 27674.0,
+      "false_episodes": 27643.0,
+      "episode_false_alarm_ratio": 0.9988798149887982,
+      "false_episodes_per_zone_year": 125.65,
+      "false_alert_hours": 36489.0
+    },
+    {
+      "threshold": 7.36e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 77.5,
+      "episodes": 25249.0,
+      "false_episodes": 25219.0,
+      "episode_false_alarm_ratio": 0.9988118341320449,
+      "false_episodes_per_zone_year": 114.63181818181818,
+      "false_alert_hours": 32255.166666666668
+    },
+    {
+      "threshold": 9.79e-05,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 62.5,
+      "episodes": 22986.0,
+      "false_episodes": 22957.0,
+      "episode_false_alarm_ratio": 0.9987383624815105,
+      "false_episodes_per_zone_year": 104.35,
+      "false_alert_hours": 28325.25
+    },
+    {
+      "threshold": 0.00013,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 48.0,
+      "episodes": 20891.0,
+      "false_episodes": 20863.0,
+      "episode_false_alarm_ratio": 0.9986597099229333,
+      "false_episodes_per_zone_year": 94.83181818181818,
+      "false_alert_hours": 24762.333333333332
+    },
+    {
+      "threshold": 0.000173,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 48.0,
+      "episodes": 18705.0,
+      "false_episodes": 18677.0,
+      "episode_false_alarm_ratio": 0.9985030740443731,
+      "false_episodes_per_zone_year": 84.89545454545454,
+      "false_alert_hours": 21383.166666666668
+    },
+    {
+      "threshold": 0.00023,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 45.5,
+      "episodes": 16621.0,
+      "false_episodes": 16595.0,
+      "episode_false_alarm_ratio": 0.9984357138559653,
+      "false_episodes_per_zone_year": 75.43181818181819,
+      "false_alert_hours": 18263.833333333332
+    },
+    {
+      "threshold": 0.000306,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 45.5,
+      "episodes": 14598.0,
+      "false_episodes": 14573.0,
+      "episode_false_alarm_ratio": 0.9982874366351555,
+      "false_episodes_per_zone_year": 66.24090909090908,
+      "false_alert_hours": 15394.166666666666
+    },
+    {
+      "threshold": 0.000408,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 40.5,
+      "episodes": 12555.0,
+      "false_episodes": 12529.0,
+      "episode_false_alarm_ratio": 0.9979291119076066,
+      "false_episodes_per_zone_year": 56.95,
+      "false_alert_hours": 12719.833333333334
+    },
+    {
+      "threshold": 0.000542,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 40.5,
+      "episodes": 10744.0,
+      "false_episodes": 10718.0,
+      "episode_false_alarm_ratio": 0.9975800446760983,
+      "false_episodes_per_zone_year": 48.71818181818182,
+      "false_alert_hours": 10376.416666666666
+    },
+    {
+      "threshold": 0.000721,
+      "events": 23.0,
+      "hits": 22.0,
+      "hit_rate": 0.9565217391304348,
+      "median_lead_minutes": 26.0,
+      "episodes": 9061.0,
+      "false_episodes": 9037.0,
+      "episode_false_alarm_ratio": 0.9973512857300518,
+      "false_episodes_per_zone_year": 41.07727272727273,
+      "false_alert_hours": 8265.0
+    },
+    {
+      "threshold": 0.000959,
+      "events": 23.0,
+      "hits": 21.0,
+      "hit_rate": 0.9130434782608695,
+      "median_lead_minutes": 25.0,
+      "episodes": 7347.0,
+      "false_episodes": 7323.0,
+      "episode_false_alarm_ratio": 0.9967333605553287,
+      "false_episodes_per_zone_year": 33.28636363636364,
+      "false_alert_hours": 6366.083333333333
+    },
+    {
+      "threshold": 0.00128,
+      "events": 23.0,
+      "hits": 20.0,
+      "hit_rate": 0.8695652173913043,
+      "median_lead_minutes": 29.0,
+      "episodes": 5808.0,
+      "false_episodes": 5784.0,
+      "episode_false_alarm_ratio": 0.9958677685950413,
+      "false_episodes_per_zone_year": 26.29090909090909,
+      "false_alert_hours": 4746.333333333333
+    },
+    {
+      "threshold": 0.0017,
+      "events": 23.0,
+      "hits": 19.0,
+      "hit_rate": 0.8260869565217391,
+      "median_lead_minutes": 31.0,
+      "episodes": 4486.0,
+      "false_episodes": 4466.0,
+      "episode_false_alarm_ratio": 0.9955416852429781,
+      "false_episodes_per_zone_year": 20.3,
+      "false_alert_hours": 3412.3333333333335
+    },
+    {
+      "threshold": 0.00226,
+      "events": 23.0,
+      "hits": 18.0,
+      "hit_rate": 0.782608695652174,
+      "median_lead_minutes": 30.5,
+      "episodes": 3321.0,
+      "false_episodes": 3302.0,
+      "episode_false_alarm_ratio": 0.9942788316772057,
+      "false_episodes_per_zone_year": 15.00909090909091,
+      "false_alert_hours": 2344.5
+    },
+    {
+      "threshold": 0.003,
+      "events": 23.0,
+      "hits": 17.0,
+      "hit_rate": 0.7391304347826086,
+      "median_lead_minutes": 31.0,
+      "episodes": 2340.0,
+      "false_episodes": 2320.0,
+      "episode_false_alarm_ratio": 0.9914529914529915,
+      "false_episodes_per_zone_year": 10.545454545454545,
+      "false_alert_hours": 1517.5833333333333
+    },
+    {
+      "threshold": 0.00399,
+      "events": 23.0,
+      "hits": 15.0,
+      "hit_rate": 0.6521739130434783,
+      "median_lead_minutes": 26.0,
+      "episodes": 1495.0,
+      "false_episodes": 1478.0,
+      "episode_false_alarm_ratio": 0.988628762541806,
+      "false_episodes_per_zone_year": 6.718181818181818,
+      "false_alert_hours": 908.6666666666666
+    },
+    {
+      "threshold": 0.00531,
+      "events": 23.0,
+      "hits": 15.0,
+      "hit_rate": 0.6521739130434783,
+      "median_lead_minutes": 26.0,
+      "episodes": 928.0,
+      "false_episodes": 913.0,
+      "episode_false_alarm_ratio": 0.9838362068965517,
+      "false_episodes_per_zone_year": 4.15,
+      "false_alert_hours": 507.4166666666667
+    },
+    {
+      "threshold": 0.00706,
+      "events": 23.0,
+      "hits": 12.0,
+      "hit_rate": 0.5217391304347826,
+      "median_lead_minutes": 37.5,
+      "episodes": 522.0,
+      "false_episodes": 510.0,
+      "episode_false_alarm_ratio": 0.9770114942528736,
+      "false_episodes_per_zone_year": 2.3181818181818183,
+      "false_alert_hours": 254.08333333333334
+    },
+    {
+      "threshold": 0.00939,
+      "events": 23.0,
+      "hits": 8.0,
+      "hit_rate": 0.34782608695652173,
+      "median_lead_minutes": 30.0,
+      "episodes": 247.0,
+      "false_episodes": 239.0,
+      "episode_false_alarm_ratio": 0.9676113360323887,
+      "false_episodes_per_zone_year": 1.0863636363636364,
+      "false_alert_hours": 108.0
+    },
+    {
+      "threshold": 0.0125,
+      "events": 23.0,
+      "hits": 7.0,
+      "hit_rate": 0.30434782608695654,
+      "median_lead_minutes": 20.0,
+      "episodes": 104.0,
+      "false_episodes": 96.0,
+      "episode_false_alarm_ratio": 0.9230769230769231,
+      "false_episodes_per_zone_year": 0.43636363636363634,
+      "false_alert_hours": 38.416666666666664
+    },
+    {
+      "threshold": 0.0166,
+      "events": 23.0,
+      "hits": 4.0,
+      "hit_rate": 0.17391304347826086,
+      "median_lead_minutes": 12.5,
+      "episodes": 33.0,
+      "false_episodes": 28.0,
+      "episode_false_alarm_ratio": 0.8484848484848485,
+      "false_episodes_per_zone_year": 0.12727272727272726,
+      "false_alert_hours": 12.083333333333334
+    },
+    {
+      "threshold": 0.0221,
+      "events": 23.0,
+      "hits": 1.0,
+      "hit_rate": 0.043478260869565216,
+      "median_lead_minutes": 40.0,
+      "episodes": 11.0,
+      "false_episodes": 9.0,
+      "episode_false_alarm_ratio": 0.8181818181818182,
+      "false_episodes_per_zone_year": 0.04090909090909091,
+      "false_alert_hours": 2.8333333333333335
+    },
+    {
+      "threshold": 0.0294,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 1.0,
+      "false_episodes": 1.0,
+      "episode_false_alarm_ratio": 1.0,
+      "false_episodes_per_zone_year": 0.004545454545454545,
+      "false_alert_hours": 0.08333333333333333
+    },
+    {
+      "threshold": 0.0391,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.052,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.0691,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.0919,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.122,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.163,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.216,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.288,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.383,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.509,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.677,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    },
+    {
+      "threshold": 0.9,
+      "events": 23.0,
+      "hits": 0.0,
+      "hit_rate": 0.0,
+      "median_lead_minutes": null,
+      "episodes": 0.0,
+      "false_episodes": 0.0,
+      "episode_false_alarm_ratio": null,
+      "false_episodes_per_zone_year": 0.0,
+      "false_alert_hours": 0.0
+    }
+  ]
+}

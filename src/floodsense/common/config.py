@@ -75,10 +75,12 @@ class Settings(BaseSettings):
         "auto"  # "platt", "isotonic", or "auto" (isotonic if enough positives)
     )
     isotonic_min_positives: int = 200
-    # False-alarm budgets (false High / Moderate alert episodes per zone per year). Deliberately
-    # unset: choose them from the trade-off report once real data is in.
-    false_alarm_budget_high: float | None = None
-    false_alarm_budget_moderate: float | None = None
+    # False-alarm budgets (false High / Moderate alert episodes per zone per year), chosen by the
+    # team on 2026-10-01 from the 2020-2023 out-of-fold trade-off curve (23 validation floods).
+    # High 2.5 -> ~44 mm/h, caught 12/23; Moderate 11 -> ~30 mm/h, caught 17/23. A "false" alarm is
+    # one not followed by a *reported* flood, so these overstate true false alarms.
+    false_alarm_budget_high: float | None = 2.5
+    false_alarm_budget_moderate: float | None = 11.0
 
     # NEA / data.gov.sg endpoints. The v2 API also serves history via ``?date=YYYY-MM-DD``.
     nea_api_primary: str = "https://api-open.data.gov.sg/v2/real-time/api/rainfall"

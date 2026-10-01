@@ -58,13 +58,20 @@ Open with 17 April 2021: the floods cleared within half an hour, so a warning ha
 
 ### Prototype status (honest)
 
-**Built:**
-- Gauge-to-zone interpolation with outage re-weighting
-- Rolling rainfall and wet-ground features
-- A dashboard that replays **real NEA gauge readings from 17 April 2021**
+**Built and measured on real data:**
+- 10 years of NEA 5-minute gauge readings (2017 to Sep 2026, 60.8M readings) interpolated to 55 planning areas. Missing gauges are left out of the interpolation, never treated as zero.
+- 66 flood events, each with a source link, a quoted sentence and a human sign-off
+- Time-based validation: models are chosen on 2020–23 and scored **once** on 2024–26
 
-**In progress:**
-- Training on the full gauge record, using flood labels that each have a cited source
+**What we found:**
+
+| Held-out test, 2024–26 (30 floods) | Floods caught | Median warning | False alarms per zone-year |
+|---|---|---|---|
+| Moderate (about 30 mm/h) | 21 (70%) | 15 min | 7.3 |
+| High (about 44 mm/h) | 12 (40%) (90% CI 27–53%) | 7.5 min | 1.6 |
+
+- **A transparent rainfall rule beat the ML models.** At matched false-alarm levels, 60-minute rainfall caught 7–15 of 23 validation floods; LightGBM caught 2.
+- **Gauges alone give only 10–15 minutes of warning.** The lead time has to come from radar nowcasting, which is next.
 
 <details><summary>Speaker notes</summary>
 
@@ -103,7 +110,7 @@ flowchart LR
 
 ### Live demo: replay the 17 April 2021 storm
 
-The demo steps through the real 5-minute gauge readings from that afternoon, zone by zone. It shows whether the risk for Bukit Timah and Ulu Pandan rises before the floods were reported, and how far ahead of them.
+The demo steps through the real 5-minute gauge readings from that afternoon, zone by zone. Bukit Timah reaches Moderate at 12:29 and High at 12:45, about an hour before Dunearn Road was reported flooded (1:44 pm). The earlier, synthetic-trained model peaked at 6.7% and never raised an alert. The same storm also put 22 zones on High, and most of them have no matching flood report, which is the false-alarm cost in miniature.
 
 ### Impact: a complement to PUB, not a replacement
 
