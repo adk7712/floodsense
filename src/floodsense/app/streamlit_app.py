@@ -1,31 +1,30 @@
 """
-FloodSense - Streamlit Command Center & Urban Drainage Intelligence Dashboard.
-Designed for Databricks Apps (Serverless SQL 2X-Small) and local preview.
-Compliant with Streamlit Best Practices:
-- Clean containers with border=True
-- Segmented controls for modes
-- Caching with @st.cache_resource
-- Material Symbols & responsive layout
-- Plotly 6+ scatter_map integration
+FloodSense - Streamlit dashboard.
+
+Two modes:
+- Replay: real NEA 5-minute station readings for the 17 April 2021 storm, scrubbed in time.
+- Live: the latest readings from data.gov.sg, with a few hours of history for rolling features.
+
+Zone features are recomputed from the readings for every view (and cached by input). Nothing is
+accumulated across reruns, so the page depends only on the selected mode, time and zone.
 """
 
-import json
+from typing import Any
 
 import joblib
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from floodsense.common.config import FEATURE_COLUMNS, settings
-from floodsense.data.synthetic_or_historical_loader import generate_april_2021_replay_slice
-from floodsense.features.feature_pipeline import FeaturePipeline
-from floodsense.ingestion.poller import NEAPoller
-from floodsense.spatial.idw_matrix import IDWMatrixEngine
+from floodsense.common.config import settings
+from floodsense.common.schemas import StationMetadata
+from floodsense.data.replay import load_replay
+from floodsense.features.zone_features import compute_zone_feature_table
+from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
+from floodsense.models.scoring import score_zone_features
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
-# Streamlit Page Config
 st.set_page_config(
     page_title="FloodSense | Urban Drainage Intelligence",
     page_icon="🌊",
@@ -33,178 +32,163 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+TIER_COLORS = {"High": "#ff4d4f", "Moderate": "#faad14", "Low": "#52c41a"}
+NUM_ZONES = len(URA_PLANNING_AREAS)
+REPLAY_DEFAULT_TIME = "12:15"  # island-wide peak of the 17 Apr 2021 storm in the replay data
+ZONE_META = (
+    pd.DataFrame.from_dict(URA_PLANNING_AREAS, orient="index")[["lat", "lon", "region"]]
+    .rename_axis("ura_planning_area")
+    .reset_index()
+)
+
 
 @st.cache_resource
-def load_resources():
-    """Cache models, IDW engine, and replay assets."""
-    engine = IDWMatrixEngine()
-    feat_pipe = FeaturePipeline()
-    model_path = settings.champion_model_path
-    model = None
-    if model_path.exists():
-        try:
-            model = joblib.load(model_path)
-        except Exception:
-            model = None
-
-    # Load replay slice
-    replay_file = settings.replay_file
-    if not replay_file.exists():
-        replay_file = generate_april_2021_replay_slice(output_path=str(replay_file))
-    with open(replay_file) as f:
-        replay_data = json.load(f)
-
-    return engine, feat_pipe, model, replay_data
+def load_model() -> tuple[Any | None, str]:
+    """Return (model or None, caption describing where risk scores come from)."""
+    path = settings.champion_model_path
+    if not path.exists():
+        return None, "No trained model found: risk tiers use a 30-minute rainfall heuristic."
+    try:
+        model = joblib.load(path)
+    except Exception as exc:  # unpickling can fail in many ways, e.g. a missing libomp
+        return None, (
+            f"Model could not be loaded ({type(exc).__name__}): "
+            "risk tiers use a 30-minute rainfall heuristic."
+        )
+    return model, (
+        "Risk tiers come from a prototype model trained on synthetic rainfall, so treat them "
+        "as illustrative. Rainfall values are real NEA measurements."
+    )
 
 
-engine, feat_pipe, champion_model, replay_data = load_resources()
+@st.cache_data(show_spinner="Computing replay features…")
+def replay_features(path: str) -> tuple[pd.DataFrame, str, int]:
+    """Features for every zone and step in the replay's display window (warm-up included in calc)."""
+    replay = load_replay(path)
+    table = compute_zone_feature_table(replay.snapshots, replay.stations)
+    in_window = (table["timestamp"] >= replay.display_start) & (
+        table["timestamp"] <= replay.display_end
+    )
+    return table[in_window].reset_index(drop=True), replay.event_name, len(replay.stations)
 
 
-# --- SIDEBAR CONTROLS ---
-st.sidebar.markdown("### :material/water_damage: **FloodSense AI**")
+@st.cache_data(ttl=300, show_spinner="Fetching live rainfall from data.gov.sg…")
+def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
+    """Latest zone features from live data, or (None, 0, error message)."""
+    try:
+        snapshots = NEAPoller().fetch_history(settings.live_history_hours)
+    except LiveFeedUnavailable as exc:
+        return None, 0, str(exc)
+    stations: dict[str, StationMetadata] = {}
+    for snap in snapshots:
+        stations.update(snap.stations)
+    table = compute_zone_feature_table(snapshots, stations)
+    latest = table[table["timestamp"] == table["timestamp"].max()].reset_index(drop=True)
+    return latest, len(stations), None
+
+
+model, model_caption = load_model()
+
+# --- SIDEBAR -------------------------------------------------------------------------------
+st.sidebar.markdown("### :material/water_damage: **FloodSense**")
 st.sidebar.caption("DAISI Challenge 2026 • Track B2: Climate Resilience")
 
-# Modern Segmented Control for Mode
 mode = st.sidebar.segmented_control(
-    "Operational Mode",
+    "Mode",
     options=["Live Feed", "Replay Storm"],
     default="Replay Storm",
-    help="Toggle between real-time data.gov.sg live stream and historical 17 Apr 2021 deluge replay.",
+    help="Live readings from data.gov.sg, or a replay of the real 17 Apr 2021 storm readings.",
 )
 
 st.sidebar.markdown("---")
 st.sidebar.subheader(":material/tune: Zone Diagnostic")
 selected_zone = st.sidebar.selectbox(
     "Select Planning Area",
-    options=sorted(list(URA_PLANNING_AREAS.keys())),
-    index=2,  # Default BUKIT TIMAH
+    options=sorted(URA_PLANNING_AREAS),
+    index=sorted(URA_PLANNING_AREAS).index("BUKIT TIMAH"),
 )
 
-# PUB Historical Drainage Trend Data
-PUB_HISTORICAL_DATA = pd.DataFrame(
-    {
-        "Year": [2022, 2023, 2024, 2025],
-        "Flood_Prone_Hectares": [28.0, 26.5, 24.2, 21.8],
-        "Severe_Incidents": [12, 10, 8, 6],
-    }
-)
-
-
-def compute_zone_predictions(zone_rainfall_records: list) -> pd.DataFrame:
-    """Computes features and model risk tiers for all 55 zones."""
-    records = []
-    for zr in zone_rainfall_records:
-        feat = feat_pipe.update_streaming_reading(zr)
-        feat_vector = np.array([[getattr(feat, c) for c in FEATURE_COLUMNS]])
-
-        if champion_model:
-            prob = float(champion_model.predict_proba(feat_vector)[0, 1])
-        else:
-            prob = min(1.0, feat.rain_30m / 45.0)
-
-        tier = (
-            "High"
-            if prob >= settings.risk_moderate_high
-            else ("Moderate" if prob >= settings.risk_low_moderate else "Low")
-        )
-        color = "#ff4d4f" if tier == "High" else ("#faad14" if tier == "Moderate" else "#52c41a")
-
-        records.append(
-            {
-                "zone": zr.ura_planning_area,
-                "lat": URA_PLANNING_AREAS[zr.ura_planning_area]["lat"],
-                "lon": URA_PLANNING_AREAS[zr.ura_planning_area]["lon"],
-                "region": URA_PLANNING_AREAS[zr.ura_planning_area]["region"],
-                "pub_monitored": feat.pub_monitored,
-                "rain_5m": feat.rain_5m,
-                "rain_15m": feat.rain_15m,
-                "rain_30m": feat.rain_30m,
-                "rain_60m": feat.rain_60m,
-                "rain_120m": feat.rain_120m,
-                "rain_decay_72h": feat.rain_decay_72h,
-                "rarity_score": feat.storm_rarity_score,
-                "return_period_years": feat.return_period_years,
-                "flood_probability": round(prob, 3),
-                "risk_tier": tier,
-                "marker_color": color,
-            }
-        )
-    return pd.DataFrame(records)
-
-
-# --- MAIN VIEW LOGIC ---
+# --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
 if mode == "Live Feed":
-    poller = NEAPoller(landing_dir=str(settings.landing_dir))
-    live_raw = poller.fetch_live_rainfall()
-    valid_readings = poller.parse_and_validate(live_raw)
-    station_dict = {r.station_id: r.rainfall_mm for r in valid_readings}
-    timestamp_str = (
-        valid_readings[0].timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
-        if valid_readings
-        else "Live Stream"
+    features, total_stations, live_error = live_features()
+    if features is None:
+        st.title("🌊 FloodSense Intelligence Center")
+        st.error(f"Live feed unavailable: {live_error}", icon=":material/cloud_off:")
+        st.info(
+            "No data is shown rather than substituting simulated rain. Switch to **Replay Storm**, "
+            "or retry. Setting `FLOODSENSE_DATA_GOV_API_KEY` avoids anonymous rate limits."
+        )
+        if st.button("Retry now"):
+            live_features.clear()
+            st.rerun()
+        st.stop()
+    view_time = features["timestamp"].iloc[0]
+    status_line = (
+        f":material/sensors: **Live** • data.gov.sg NEA 5-minute rainfall • "
+        f"latest reading `{view_time:%d %b %Y %H:%M} SGT`"
     )
-
-    zone_readings = engine.interpolate_rainfall(station_dict)
-    df_results = compute_zone_predictions(zone_readings)
-
-    status_badge = ":material/wifi: **LIVE CONNECTED** (NEA / data.gov.sg 5-min Stream)"
-    event_phase = "Real-Time Operational Monitoring"
-
+    history_note = (
+        f"Rolling features use the last {settings.live_history_hours:g} h of live readings, so the "
+        "72-hour wet-ground index is understated."
+    )
 else:
-    # Replay Mode
-    total_steps = replay_data["total_steps"]
-    step_idx = st.sidebar.slider(
-        "Replay Timeline Step (5-Min)",
-        min_value=0,
-        max_value=total_steps - 1,
-        value=26,  # Peak deluge timestep
-        help="Scrub through the 17 April 2021 major western flash flood storm timeline.",
+    table, event_name, total_stations = replay_features(str(settings.replay_file))
+    times = {f"{t:%H:%M}": t for t in sorted(table["timestamp"].unique())}
+    chosen = st.sidebar.select_slider(
+        "Replay time (SGT, 17 Apr 2021)",
+        options=list(times),
+        value=REPLAY_DEFAULT_TIME if REPLAY_DEFAULT_TIME in times else next(iter(times)),
+        help="Real NEA readings. Rain began around 11:30 and peaked island-wide around 12:15.",
     )
-    current_step_data = replay_data["timeline"][step_idx]
-    timestamp_str = current_step_data["timestamp"]
-    event_phase = current_step_data["event_phase"]
-    status_badge = (
-        f":material/history: **REPLAYING:** 17 Apr 2021 Event (Step {step_idx + 1}/{total_steps})"
-    )
+    view_time = times[chosen]
+    features = table[table["timestamp"] == view_time].reset_index(drop=True)
+    status_line = f":material/history: **Replay** • {event_name} • `{view_time:%d %b %Y %H:%M} SGT`"
+    history_note = "Features include the 72 hours of real readings before the replay window."
 
-    station_dict = {r["station_id"]: r["value"] for r in current_step_data["readings"]}
-    zone_readings = engine.interpolate_rainfall(station_dict)
-    df_results = compute_zone_predictions(zone_readings)
+df_results = score_zone_features(features, model).merge(ZONE_META, on="ura_planning_area")
+df_results["zone"] = df_results["ura_planning_area"]
+reporting_stations = int(features["reporting_stations"].iloc[0])
 
-
-# --- HEADER & KPI CARDS ---
+# --- HEADER & KPIs -------------------------------------------------------------------------
 st.title("🌊 FloodSense Intelligence Center")
-st.markdown(f"Status: {status_badge} • Timestamp: `{timestamp_str}` • Phase: *{event_phase}*")
+st.markdown(status_line)
 
 high_risk_count = int((df_results["risk_tier"] == "High").sum())
 mod_risk_count = int((df_results["risk_tier"] == "Moderate").sum())
-max_rain_30m = float(df_results["rain_30m"].max())
-peak_zone = df_results.sort_values(by="rain_30m", ascending=False).iloc[0]["zone"]
+peak = df_results.sort_values("rain_30m", ascending=False).iloc[0]
+wettest = df_results.sort_values("rain_decay_72h", ascending=False).iloc[0]
 
-# KPI Metrics in clean border containers
 kpi_cols = st.columns(5)
 with kpi_cols[0], st.container(border=True):
     st.metric(
-        label="High Risk Zones",
-        value=f"{high_risk_count} / 55",
+        label="High Risk",
+        value=f"{high_risk_count} / {NUM_ZONES}",
         delta=f"{high_risk_count} Alert" if high_risk_count > 0 else "Normal",
         delta_color="inverse",
     )
 with kpi_cols[1], st.container(border=True):
-    st.metric(label="Moderate Risk", value=f"{mod_risk_count} / 55")
+    st.metric(label="Moderate Risk", value=f"{mod_risk_count} / {NUM_ZONES}")
 with kpi_cols[2], st.container(border=True):
-    st.metric(label="Max 30-min Rain", value=f"{max_rain_30m:.1f} mm", delta=f"{peak_zone}")
+    st.metric(label="Max 30-min Rain", value=f"{peak['rain_30m']:.0f} mm", delta=peak["zone"])
 with kpi_cols[3], st.container(border=True):
-    st.metric(label="Lead Horizon", value="60 Mins", delta="Advance Warning")
+    st.metric(
+        label="Wet Ground (72h)",
+        value=f"{wettest['rain_decay_72h']:.0f} mm",
+        delta=wettest["zone"],
+        delta_color="off",
+    )
 with kpi_cols[4], st.container(border=True):
-    st.metric(label="Lakeflow Compute", value="2X-Small", delta="Serverless SQL")
+    st.metric(
+        label="Gauges Live",
+        value=f"{reporting_stations} / {total_stations}",
+        help="Zone rainfall weights re-balance automatically over the gauges that reported.",
+    )
 
-# --- MAP & ZONE DETAILS LAYOUT ---
+# --- MAP & ZONE DETAILS --------------------------------------------------------------------
 map_col, detail_col = st.columns([1.7, 1.3])
 
 with map_col, st.container(border=True):
-    st.subheader(":material/map: Singapore Urban Risk Map (55 URA Zones)")
-
+    st.subheader(f":material/map: Singapore Urban Risk Map ({NUM_ZONES} URA Zones)")
     map_func = getattr(px, "scatter_map", getattr(px, "scatter_mapbox", None))
     style_key = "map_style" if hasattr(px, "scatter_map") else "mapbox_style"
     map_kwargs = {
@@ -212,14 +196,14 @@ with map_col, st.container(border=True):
         "lon": "lon",
         "size": "rain_30m",
         "color": "risk_tier",
-        "color_discrete_map": {"High": "#ff4d4f", "Moderate": "#faad14", "Low": "#52c41a"},
+        "color_discrete_map": TIER_COLORS,
+        "category_orders": {"risk_tier": list(TIER_COLORS)},
         "hover_name": "zone",
         "hover_data": {
             "risk_tier": True,
             "flood_probability": True,
-            "rain_30m": ":.1f mm",
-            "rain_decay_72h": ":.1f mm",
-            "return_period_years": ":.1f yrs",
+            "rain_30m": ":.1f",
+            "rain_decay_72h": ":.1f",
             "lat": False,
             "lon": False,
         },
@@ -228,54 +212,51 @@ with map_col, st.container(border=True):
         "center": {"lat": 1.3521, "lon": 103.8198},
         style_key: "carto-darkmatter",
     }
-    fig_map = map_func(df_results, **map_kwargs)  # type: ignore[misc]  # getattr default is None only if plotly is too old
+    fig_map = map_func(df_results, **map_kwargs)  # type: ignore[misc]  # None only on very old plotly
     fig_map.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         height=500,
         legend=dict(yanchor="top", y=0.98, xanchor="left", x=0.02, bgcolor="rgba(0,0,0,0.6)"),
     )
     st.plotly_chart(fig_map)
+    st.caption(f"{model_caption} {history_note} Markers sit at planning-area centroids.")
 
 with detail_col, st.container(border=True):
     st.subheader(f":material/analytics: Zone Diagnostic: `{selected_zone}`")
     zone_data = df_results[df_results["zone"] == selected_zone].iloc[0]
 
-    tier_badge = (
-        ":red[**High Risk**]"
-        if zone_data["risk_tier"] == "High"
-        else (
-            ":orange[**Moderate Risk**]"
-            if zone_data["risk_tier"] == "Moderate"
-            else ":green[**Low Risk**]"
-        )
-    )
+    tier_badge = {
+        "High": ":red[**High Risk**]",
+        "Moderate": ":orange[**Moderate Risk**]",
+        "Low": ":green[**Low Risk**]",
+    }[zone_data["risk_tier"]]
     st.markdown(
-        f"**60-Min Inundation Probability:** `{zone_data['flood_probability'] * 100:.1f}%` • Status: {tier_badge}"
+        f"**Flood probability (next 60 min):** `{zone_data['flood_probability'] * 100:.1f}%` "
+        f"• Status: {tier_badge}"
     )
 
-    # Accumulation Breakdown
     z_col1, z_col2 = st.columns(2)
     with z_col1:
-        st.markdown(f"- **5-min Rain:** `{zone_data['rain_5m']} mm`")
-        st.markdown(f"- **15-min Rain:** `{zone_data['rain_15m']} mm`")
-        st.markdown(f"- **30-min Rain:** `{zone_data['rain_30m']} mm`")
+        st.markdown(f"- **5-min Rain:** `{zone_data['rain_5m']:.2f} mm`")
+        st.markdown(f"- **15-min Rain:** `{zone_data['rain_15m']:.2f} mm`")
+        st.markdown(f"- **30-min Rain:** `{zone_data['rain_30m']:.2f} mm`")
     with z_col2:
-        st.markdown(f"- **60-min Rain:** `{zone_data['rain_60m']} mm`")
-        st.markdown(f"- **72h Soil Decay Factor:** `{zone_data['rain_decay_72h']} mm`")
-        st.markdown(f"- **Return Period:** `{zone_data['return_period_years']} Years`")
+        st.markdown(f"- **60-min Rain:** `{zone_data['rain_60m']:.2f} mm`")
+        st.markdown(f"- **72h Wet-Ground Index:** `{zone_data['rain_decay_72h']:.1f} mm`")
+        st.markdown(f"- **Return Period (uncalibrated):** `{zone_data['return_period_years']} yrs`")
 
-    # Storm Rarity Gauge
+    rarity = float(zone_data["storm_rarity_score"])
     fig_gauge = go.Figure(
         go.Indicator(
             mode="gauge+number",
-            value=zone_data["rarity_score"] * 100,
-            title={"text": "Storm Rarity Index (% Percentile)", "font": {"size": 13}},
+            value=rarity * 100,
+            title={"text": "Storm Rarity Percentile (uncalibrated)", "font": {"size": 13}},
             gauge={
                 "axis": {"range": [0, 100]},
                 "bar": {
                     "color": "#00d26a"
-                    if zone_data["rarity_score"] < 0.7
-                    else ("#faad14" if zone_data["rarity_score"] < 0.9 else "#ff4d4f")
+                    if rarity < 0.7
+                    else ("#faad14" if rarity < 0.9 else "#ff4d4f")
                 },
                 "steps": [
                     {"range": [0, 70], "color": "rgba(82, 196, 26, 0.15)"},
@@ -295,29 +276,29 @@ with detail_col, st.container(border=True):
     )
     st.plotly_chart(fig_gauge)
 
-# --- HISTORICAL PUB TREND & MODEL EXPLANATION ---
-hist_col, arch_col = st.columns(2)
+# --- CONTEXT & STATUS ----------------------------------------------------------------------
+context_col, status_col = st.columns(2)
 
-with hist_col, st.container(border=True):
-    st.subheader(":material/trending_down: Singapore Flood-Prone Area Reduction (PUB 2022–2025)")
-    fig_pub = px.bar(
-        PUB_HISTORICAL_DATA,
-        x="Year",
-        y="Flood_Prone_Hectares",
-        text="Flood_Prone_Hectares",
-        title="PUB Long-Term Drainage Investment Impact (Hectares at Risk)",
-        color="Flood_Prone_Hectares",
-        color_continuous_scale="Blues_r",
+with context_col, st.container(border=True):
+    st.subheader(":material/info: Context")
+    st.markdown(
+        "- **17 Apr 2021:** 161.4 mm fell over western Singapore between 12:25 and 15:25; "
+        "Dunearn and Bukit Timah Roads flooded. "
+        "([PUB via Mothership](https://mothership.sg/2021/04/singapore-floods-april-17/))\n"
+        "- **Flood-prone land:** about 3,200 ha in the 1970s, under 25 ha by 2025. "
+        "([MSE, 4 Feb 2025](https://www.mse.gov.sg/latest-news/oral-reply-on-drainage-improvement-feb2025/))\n"
+        "- **PUB monitoring:** more than 1,000 water-level sensors and over 500 CCTV cameras. "
+        "([PUB](https://www.pub.gov.sg/Public/KeyInitiatives/Flood-Resilience/Flood-Forecasting-and-Monitoring))"
     )
-    fig_pub.update_traces(texttemplate="%{text:.1f} ha", textposition="outside")
-    fig_pub.update_layout(height=280, yaxis_range=[0, 35], paper_bgcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig_pub)
 
-with arch_col, st.container(border=True):
-    st.subheader(":material/memory: Databricks Serverless Lakeflow Stack")
-    st.markdown("""
-    - **Bronze Layer:** Real-time NEA JSON poller staged to Unity Catalog Volumes with Auto Loader.
-    - **Silver Layer:** Dynamic IDW spatial engine mapping station gauges to 55 URA zones with `@dlt.expect` quality gates.
-    - **Gold Layer:** Champion `LightGBM_CVSMOTE` model computing 60-min lead time risk probabilities and operational dispatch tiers.
-    - **Cost Cap:** Micro-batch architecture running on **2X-Small Serverless SQL**, zero continuous 24/7 idle spend.
-    """)
+with status_col, st.container(border=True):
+    st.subheader(":material/construction: Prototype Status")
+    st.markdown(
+        "- **Rainfall (real):** NEA 5-minute station readings from data.gov.sg, mapped to zones "
+        "with inverse-distance weights that re-balance when gauges drop out.\n"
+        "- **Features (real data):** rolling 5–120 min rainfall and a 72 h wet-ground index, "
+        "recomputed from the readings for every view.\n"
+        "- **Model (placeholder):** trained on synthetic rainfall; training on the real "
+        "2017–2026 gauge record with sourced flood labels is in progress.\n"
+        "- **Zones:** shown at planning-area centroids; boundary polygons to come."
+    )

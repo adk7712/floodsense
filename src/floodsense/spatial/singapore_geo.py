@@ -1,7 +1,13 @@
 """
 FloodSense - Singapore Geospatial Reference Data.
-Contains official definitions for 55 URA Planning Areas and ~55 NEA Automated Weather Stations.
+Planning-area centroids for the 55 URA Planning Areas, and NEA rainfall stations loaded from the
+reference snapshot of data.gov.sg station metadata.
 """
+
+import json
+from pathlib import Path
+
+from floodsense.common.config import settings
 
 # 55 URA Planning Areas with Centroids (lat, lon) and Region
 URA_PLANNING_AREAS: dict[str, dict] = {
@@ -82,57 +88,23 @@ URA_PLANNING_AREAS: dict[str, dict] = {
     },
 }
 
-# ~55 NEA Automated Weather Stations across Singapore
-NEA_WEATHER_STATIONS: dict[str, dict] = {
-    "S06": {"name": "Paya Lebar", "lat": 1.3584, "lon": 103.9057},
-    "S07": {"name": "Macritchie Reservoir", "lat": 1.3417, "lon": 103.8338},
-    "S08": {"name": "Lower Peirce Reservoir", "lat": 1.3701, "lon": 103.8271},
-    "S11": {"name": "Choa Chu Kang (Central)", "lat": 1.3819, "lon": 103.7386},
-    "S24": {"name": "Changi Climate Station", "lat": 1.3678, "lon": 103.9826},
-    "S29": {"name": "Pasir Ris (West)", "lat": 1.3863, "lon": 103.9412},
-    "S33": {"name": "Jurong Pier Road", "lat": 1.3081, "lon": 103.7100},
-    "S35": {"name": "Ulu Pandan", "lat": 1.3329, "lon": 103.7800},
-    "S36": {"name": "Mandai", "lat": 1.4130, "lon": 103.7900},
-    "S40": {"name": "Mandai Road", "lat": 1.4044, "lon": 103.7894},
-    "S43": {"name": "Kim Chuan Road", "lat": 1.3399, "lon": 103.8878},
-    "S44": {"name": "Nanyang Avenue", "lat": 1.3458, "lon": 103.6817},
-    "S46": {"name": "Dhoby Ghaut", "lat": 1.2994, "lon": 103.8461},
-    "S50": {"name": "Clementi Road", "lat": 1.3337, "lon": 103.7768},
-    "S60": {"name": "Sentosa", "lat": 1.2500, "lon": 103.8279},
-    "S64": {"name": "Ang Mo Kio Ave 5", "lat": 1.3764, "lon": 103.8492},
-    "S66": {"name": "Kranji Way", "lat": 1.4387, "lon": 103.7363},
-    "S69": {"name": "Upper Peirce Reservoir", "lat": 1.3700, "lon": 103.8050},
-    "S71": {"name": "Kent Ridge", "lat": 1.2923, "lon": 103.7815},
-    "S77": {"name": "Queenstown", "lat": 1.2937, "lon": 103.8125},
-    "S78": {"name": "Tanjong Katong", "lat": 1.3070, "lon": 103.8906},
-    "S79": {"name": "Somerset Road", "lat": 1.3004, "lon": 103.8372},
-    "S81": {"name": "Punggol Central", "lat": 1.4029, "lon": 103.9094},
-    "S84": {"name": "Simei", "lat": 1.3437, "lon": 103.9534},
-    "S88": {"name": "Toa Payoh North", "lat": 1.3422, "lon": 103.8489},
-    "S89": {"name": "Tuas South Ave 3", "lat": 1.3199, "lon": 103.6350},
-    "S90": {"name": "Bukit Panjang", "lat": 1.3746, "lon": 103.7600},
-    "S92": {"name": "Kallang Basin", "lat": 1.3133, "lon": 103.8622},
-    "S94": {"name": "Holland Road", "lat": 1.3175, "lon": 103.7981},
-    "S100": {"name": "Jurong West St 42", "lat": 1.3517, "lon": 103.7198},
-    "S104": {"name": "Admiralty", "lat": 1.4438, "lon": 103.7853},
-    "S106": {"name": "Pulau Ubin", "lat": 1.4166, "lon": 103.9673},
-    "S107": {"name": "East Coast Parkway", "lat": 1.3135, "lon": 103.9619},
-    "S108": {"name": "Marina Barrage", "lat": 1.2799, "lon": 103.8703},
-    "S109": {"name": "Ang Mo Kio Ave 8", "lat": 1.3606, "lon": 103.8542},
-    "S111": {"name": "Scotts Road", "lat": 1.3087, "lon": 103.8344},
-    "S112": {"name": "Lim Chu Kang Rd", "lat": 1.4385, "lon": 103.7014},
-    "S113": {"name": "Sembawang", "lat": 1.4556, "lon": 103.8250},
-    "S114": {"name": "Yishun Ave 7", "lat": 1.4330, "lon": 103.8390},
-    "S115": {"name": "Tuas South St 7", "lat": 1.2935, "lon": 103.6184},
-    "S116": {"name": "West Coast Highway", "lat": 1.2810, "lon": 103.7540},
-    "S117": {"name": "Banyan Road (Jurong Is)", "lat": 1.2560, "lon": 103.6790},
-    "S118": {"name": "Pasir Panjang Rd", "lat": 1.2790, "lon": 103.7910},
-    "S119": {"name": "Zion Road", "lat": 1.2917, "lon": 103.8300},
-    "S120": {"name": "Old Choa Chu Kang", "lat": 1.3712, "lon": 103.7225},
-    "S121": {"name": "Old Toh Tuck Rd", "lat": 1.3411, "lon": 103.7580},
-    "S122": {"name": "Sengkang East Way", "lat": 1.3900, "lon": 103.8967},
-    "S123": {"name": "Bukit Timah Road", "lat": 1.3250, "lon": 103.7850},
-}
+
+def load_station_snapshot(path: Path | None = None) -> dict[str, dict]:
+    """
+    NEA rainfall stations from the reference snapshot of data.gov.sg station metadata.
+
+    Returns ``{station_id: {"name", "lat", "lon"}}``. Live and replay data carry their own station
+    metadata (see ``RainfallSnapshot.stations``); this snapshot is the fallback for code that needs
+    a fixed station set, such as exporting IDW weights for the Databricks pipeline.
+    """
+    raw = json.loads((path or settings.station_snapshot_file).read_text())
+    return {
+        s["id"]: {"name": s["name"], "lat": s["latitude"], "lon": s["longitude"]}
+        for s in raw["stations"]
+    }
+
+
+NEA_WEATHER_STATIONS: dict[str, dict] = load_station_snapshot()
 
 
 def create_singapore_geojson() -> dict:

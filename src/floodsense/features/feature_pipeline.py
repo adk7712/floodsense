@@ -159,6 +159,9 @@ class FeaturePipeline:
         """
         Transforms a batch DataFrame of zone rainfall into full engineered feature set.
         df columns required: ['ura_planning_area', 'timestamp', 'rainfall_mm']
+
+        Rolling windows are counted in rows, so each zone's rows must be contiguous 5-minute
+        steps (see ``floodsense.features.zone_features`` for building such a grid).
         """
         df = df.sort_values(by=["ura_planning_area", "timestamp"]).reset_index(drop=True)
 
@@ -167,7 +170,8 @@ class FeaturePipeline:
             pub_mon = URA_PLANNING_AREAS.get(zone, {}).get("pub_monitored", 0)
             group = group.copy().reset_index(drop=True)
             rain_arr = group["rainfall_mm"].values
-            ts_arr = group["timestamp"].values
+            # tolist() keeps pandas Timestamps (and their timezone); .values would drop it.
+            ts_arr = group["timestamp"].tolist()
 
             n = len(rain_arr)
             # Compute rolling sums via convolution

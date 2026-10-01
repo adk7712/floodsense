@@ -40,12 +40,30 @@ src/floodsense/
   spatial/      Station and planning-area geometry, IDW interpolation
 tests/          pytest suite (unit, integration, e2e)
 models/         Bundled demo model and metadata
-data/replay/    Cached 17 April 2021 storm observations
+data/replay/    Real NEA readings for the 17 April 2021 storm (with 72 h warm-up)
+data/reference/ Snapshot of NEA rainfall-station metadata from data.gov.sg
 databricks/     Lakeflow pipeline for Databricks deployment
 docs/           Supporting documents
 ```
 
 Configuration (risk thresholds, feature columns, timing constants, API URLs, paths) lives in `src/floodsense/common/config.py` and can be overridden with `FLOODSENSE_*` environment variables.
+
+## Data
+
+- **Live mode** calls the data.gov.sg real-time rainfall API (v2). Anonymous use is rate-limited to a
+  few calls per ~10 s; set `FLOODSENSE_DATA_GOV_API_KEY` to use a key. If the API is unavailable the
+  app says so and shows nothing. It never substitutes simulated rain.
+- **Replay mode** uses `data/replay/2021-04-17_western_storm.json`: real 5-minute readings from
+  11:00 to 18:00 SGT on 17 April 2021, plus the 72 hours before, so rolling and wet-ground features
+  are fully formed. To rebuild it, or build another storm:
+
+  ```bash
+  uv run python -m floodsense.data.replay --event-name "17 April 2021 western Singapore flash floods" \
+      --start 2021-04-17T11:00 --end 2021-04-17T18:00
+  ```
+
+- Station names and coordinates come with each API response. `data/reference/nea_rainfall_stations.json`
+  is a fallback snapshot, used for example when exporting IDW weights.
 
 ## Development
 

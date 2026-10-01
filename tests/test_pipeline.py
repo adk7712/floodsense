@@ -6,9 +6,8 @@ Tests:
 3. Stream Optimization: Zero-rain pruning efficiency.
 4. Schema Contracts: Pydantic defensive data validation.
 5. Ground Truth Extractor: Unstructured alert parsing and target label attachment.
-6. Ingestion Poller: NEA API response validation and defensive synthetic fallback.
+6. Ingestion Poller: landing-volume staging (parsing is covered in test_phase2_correctness.py).
 7. Model Evaluation: Metric calculation (PR-AUC, FAR, Brier score).
-8. Replay Loader: 17 April 2021 storm slice verification.
 """
 
 import json
@@ -19,8 +18,6 @@ import pandas as pd
 import pytest
 
 from floodsense.common.schemas import RainfallReading
-from floodsense.data import synthetic_or_historical_loader as loader_module
-from floodsense.data.synthetic_or_historical_loader import generate_april_2021_replay_slice
 from floodsense.features.feature_pipeline import (
     DECAY_FACTOR_PER_STEP,
     FeaturePipeline,
@@ -145,15 +142,11 @@ def test_ground_truth_extractor():
     assert labeled.iloc[0]["flood_within_60min"] == 1
 
 
-def test_poller_and_validation(tmp_path):
-    """Verify NEA poller parsing and mock data generation."""
-    poller = NEAPoller(landing_dir=str(tmp_path))
-    payload = poller._generate_synthetic_payload()
-    valid_readings = poller.parse_and_validate(payload)
-
-    assert len(valid_readings) > 0
-    staged = poller.stage_payload_to_volume(payload)
-    assert staged.exists()
+def test_poller_stages_raw_payload(tmp_path):
+    """The poller writes raw payloads to the landing volume unchanged."""
+    payload = {"code": 0, "data": {"stations": [], "readings": []}}
+    staged = NEAPoller(landing_dir=tmp_path).stage_payload_to_volume(payload, "x.json")
+    assert json.loads(staged.read_text()) == payload
 
 
 def test_model_evaluation_metrics():
@@ -173,30 +166,3 @@ def test_geojson_generation():
     gj = create_singapore_geojson()
     assert gj["type"] == "FeatureCollection"
     assert len(gj["features"]) == len(URA_PLANNING_AREAS)
-
-
-class _FakeResponse:
-    """Minimal stand-in for requests.Response (legacy v1 data.gov.sg payload)."""
-
-    status_code = 200
-
-    def json(self):
-        return {
-            "items": [
-                {
-                    "timestamp": "2021-04-17T13:00:00+08:00",
-                    "readings": [{"station_id": "S77", "value": 1.2}],
-                }
-            ]
-        }
-
-
-def test_replay_slice_generation(tmp_path, monkeypatch):
-    """Verify replay slice generation (offline; requests.get is faked)."""
-    monkeypatch.setattr(loader_module.requests, "get", lambda *args, **kwargs: _FakeResponse())
-    out_file = tmp_path / "replay_test.json"
-    p = generate_april_2021_replay_slice(output_path=str(out_file), steps=2)
-    assert p.exists()
-    data = json.loads(p.read_text())
-    assert data["total_steps"] == 2
-    assert {"station_id": "S77", "value": 1.2} in data["timeline"][0]["readings"]

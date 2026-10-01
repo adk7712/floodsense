@@ -19,3 +19,14 @@ data/processed/
 *.egg-info/
 dist/
 build/
+
+# Secrets (e.g. FLOODSENSE_DATA_GOV_API_KEY) - never commit
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Coverage / notebooks
+htmlcov/
+.coverage.*
+.ipynb_checkpoints/

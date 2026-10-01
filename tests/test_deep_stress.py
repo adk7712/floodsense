@@ -1,6 +1,6 @@
 """
 FloodSense - Exhaustive Deep Stress Testing & Data Consistency Suite.
-Fuzzes all 55 URA planning areas, all 60 replay timesteps, and live feed transitions.
+Fuzzes all 55 URA planning areas and the replay timeline.
 Verifies physical invariants, mathematical monotonicity, and schema constraints.
 """
 
@@ -19,16 +19,16 @@ APP_PATH = str(Path(__file__).parent.parent / "src" / "floodsense" / "app" / "st
 
 @pytest.mark.integration
 def test_exhaustive_replay_sweep():
-    """Fuzz through all 60 steps of the 17 Apr 2021 storm replay and verify data invariants."""
+    """Sweep the 17 Apr 2021 replay every 30 minutes and verify KPI invariants."""
     at = AppTest.from_file(APP_PATH)
-    at.run(timeout=20)
+    at.run(timeout=60)
     assert not at.exception
 
-    slider = at.slider[0]
-    # Sweep every 5 steps from 0 to 59
-    for step in range(0, 60, 5):
-        slider.set_value(step)
-        at.run(timeout=10)
+    # Widget handles go stale after at.run(), so re-fetch them before every interaction.
+    for step in at.select_slider[0].options[::6]:
+        at.select_slider[0].set_value(step)
+        at.run(timeout=30)
+        assert at.select_slider[0].value == step
         assert not at.exception
 
         # Verify KPI metrics exist and have valid values
@@ -42,14 +42,14 @@ def test_exhaustive_replay_sweep():
 def test_all_55_ura_zones_inspection():
     """Fuzz all 55 URA planning areas in the deep dive dropdown to ensure zero rendering exceptions."""
     at = AppTest.from_file(APP_PATH)
-    at.run(timeout=20)
+    at.run(timeout=60)
     assert not at.exception
 
-    box = at.selectbox[0]
     for zone in URA_PLANNING_AREAS:
-        box.set_value(zone)
+        at.selectbox[0].set_value(zone)
         at.run(timeout=10)
         assert not at.exception
+        assert at.selectbox[0].value == zone
 
 
 def test_physical_and_mathematical_invariants():

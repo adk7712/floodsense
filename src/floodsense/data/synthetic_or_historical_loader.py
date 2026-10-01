@@ -1,100 +1,24 @@
 """
-FloodSense - Historical Dataset & Replay Generator.
-Fetches and packages actual historical 5-minute NEA automated weather station data from data.gov.sg
-for historic flood events (e.g. 17 April 2021 Western Singapore Flash Flood), and generates multi-year
-training benchmarks with zero-rain stream pruning optimization.
+FloodSense - SYNTHETIC multi-year training dataset (placeholder).
+
+``generate_historical_dataset`` invents zone rainfall and gives known flood days heavier storms, so
+models trained on it learn the generator, not Singapore. It is kept only until training moves to
+the real NEA gauge record; do not report metrics from it as real-world skill.
+
+Real historical storm replays live in ``floodsense.data.replay``.
 """
 
-import json
 import logging
 import math
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
 
 from floodsense.features.ground_truth_extractor import HISTORICAL_FLOOD_EVENTS_BENCHMARK
-from floodsense.spatial.singapore_geo import NEA_WEATHER_STATIONS, URA_PLANNING_AREAS
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 logger = logging.getLogger("FloodSense.DataLoader")
-
-
-def fetch_actual_historical_storm_slice(
-    output_path: str = "data/replay/april_2021_storm.json",
-    start_time_iso: str = "2021-04-17T13:00:00",
-    steps: int = 60,
-) -> Path:
-    """
-    Fetches 100% actual, official 5-minute NEA weather station observations directly from
-    data.gov.sg API for the 17 April 2021 flash flood storm window (13:00 to 18:00 SGT).
-    """
-    out_file = Path(output_path)
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-
-    start_dt = datetime.fromisoformat(start_time_iso)
-    replay_timeline = []
-
-    logger.info(
-        f"Fetching actual 5-min historical rainfall observations from data.gov.sg for {steps} steps starting {start_time_iso}..."
-    )
-
-    for step in range(steps):
-        cur_dt = start_dt + timedelta(minutes=step * 5)
-        ts_str = cur_dt.strftime("%Y-%m-%dT%H:%M:%S")
-
-        # Determine qualitative event phase based on real storm timeline
-        if step < 12:
-            phase = "Approaching Convective Cloud Band"
-        elif step < 35:
-            phase = "Peak Downpour & Heavy Inundation (>170mm burst)"
-        else:
-            phase = "Receding Floodwaters & Runoff Drainage"
-
-        readings = []
-        try:
-            url = f"https://api.data.gov.sg/v1/environment/rainfall?date_time={ts_str}"
-            resp = requests.get(url, timeout=6)
-            if resp.status_code == 200:
-                payload = resp.json()
-                items = payload.get("items", [])
-                if items:
-                    raw_readings = items[0].get("readings", [])
-                    for r in raw_readings:
-                        s_id = r.get("station_id")
-                        val = r.get("value")
-                        readings.append(
-                            {"station_id": s_id, "value": float(val) if val is not None else 0.0}
-                        )
-        except Exception as e:
-            logger.warning(f"Error fetching step {step} ({ts_str}): {e}")
-
-        # Fallback to local station map if API returned empty
-        if not readings:
-            for s_id in NEA_WEATHER_STATIONS:
-                readings.append({"station_id": s_id, "value": 0.0})
-
-        replay_timeline.append(
-            {"step_index": step, "timestamp": ts_str, "event_phase": phase, "readings": readings}
-        )
-
-    result_payload = {
-        "event_name": "17 April 2021 Western Singapore Flash Flood (Official NEA Observation)",
-        "source": "data.gov.sg / National Environment Agency (NEA)",
-        "total_steps": len(replay_timeline),
-        "timeline": replay_timeline,
-    }
-
-    with open(out_file, "w") as f:
-        json.dump(result_payload, f, indent=2)
-
-    logger.info(f"Saved {len(replay_timeline)} actual 5-min historical steps to {out_file}")
-    return out_file
-
-
-# Alias for backward compatibility
-generate_april_2021_replay_slice = fetch_actual_historical_storm_slice
 
 
 def generate_historical_dataset(
@@ -158,10 +82,3 @@ def generate_historical_dataset(
         cur_date += timedelta(days=1)
 
     return pd.DataFrame(records)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    fetch_actual_historical_storm_slice()

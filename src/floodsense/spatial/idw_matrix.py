@@ -97,6 +97,22 @@ class IDWMatrixEngine:
         rebalanced = rebalanced / col_sums
         return rebalanced
 
+    def interpolate_matrix(self, station_values: np.ndarray) -> np.ndarray:
+        """
+        Interpolate many timesteps at once, rebalancing weights per timestep.
+
+        ``station_values`` has shape ``(num_timesteps, num_stations)`` in ``self.station_ids``
+        order, with NaN for stations that did not report. Returns ``(num_timesteps, num_zones)``.
+        This is the same rebalanced IDW as ``interpolate_rainfall``:
+        ``sum_i(r_i * w_ij * m_i) / sum_i(w_ij * m_i)``. Timesteps with no reporting station give 0.
+        """
+        reporting = ~np.isnan(station_values)
+        numerator = np.where(reporting, station_values, 0.0) @ self.base_weights
+        denominator = reporting.astype(np.float64) @ self.base_weights
+        return np.divide(
+            numerator, denominator, out=np.zeros_like(numerator), where=denominator > 0
+        )
+
     def interpolate_rainfall(
         self, station_readings: dict[str, float], timestamp=None
     ) -> list[ZoneRainfall]:

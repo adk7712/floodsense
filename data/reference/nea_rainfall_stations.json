@@ -1,0 +1,899 @@
+{
+ "source": "data.gov.sg real-time rainfall API v2 (https://api-open.data.gov.sg/v2/real-time/api/rainfall), station metadata",
+ "method": "Union of the station lists returned for one sample date per year 2017-2026 plus 2026-10-01; name and coordinates are the most recently published. Live and replay data carry their own station metadata; this snapshot is only a fallback and the source for exported IDW weights.",
+ "sampled_dates": [
+  "2017-06-01",
+  "2018-06-01",
+  "2019-06-01",
+  "2020-06-01",
+  "2021-04-17",
+  "2022-06-01",
+  "2023-06-01",
+  "2024-06-01",
+  "2025-06-01",
+  "2026-06-01",
+  "2026-10-01"
+ ],
+ "stations": [
+  {
+   "id": "S06",
+   "name": "Paya Lebar Meteorological Station",
+   "latitude": 1.357,
+   "longitude": 103.904,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S07",
+   "name": "Macritchie Reservoir",
+   "latitude": 1.3418,
+   "longitude": 103.8339,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S08",
+   "name": "Lower Peirce Reservoir",
+   "latitude": 1.37,
+   "longitude": 103.8271,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S11",
+   "name": "Choa Chu Kang Road",
+   "latitude": 1.3746,
+   "longitude": 103.6938,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2021-04-17"
+  },
+  {
+   "id": "S23",
+   "name": "Tengah Meteorological Station",
+   "latitude": 1.3858,
+   "longitude": 103.7119,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S24",
+   "name": "Changi Meteorological Station",
+   "latitude": 1.3678,
+   "longitude": 103.9823,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S29",
+   "name": "Pasir Ris Drive 12",
+   "latitude": 1.387,
+   "longitude": 103.935,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2025-06-01"
+  },
+  {
+   "id": "S33",
+   "name": "Jurong Pier Road",
+   "latitude": 1.3082,
+   "longitude": 103.71,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S35",
+   "name": "Old Toh Tuck Road",
+   "latitude": 1.3325,
+   "longitude": 103.755,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S36",
+   "name": "Upper Serangoon Road",
+   "latitude": 1.3382,
+   "longitude": 103.8657,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2018-06-01"
+  },
+  {
+   "id": "S40",
+   "name": "Mandai Lake Road",
+   "latitude": 1.4067,
+   "longitude": 103.7832,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S43",
+   "name": "Kim Chuan Road",
+   "latitude": 1.3406,
+   "longitude": 103.8882,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S44",
+   "name": "Nanyang Avenue",
+   "latitude": 1.3458,
+   "longitude": 103.6817,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S46",
+   "name": "Sime Road",
+   "latitude": 1.3416,
+   "longitude": 103.8106,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2020-06-01"
+  },
+  {
+   "id": "S50",
+   "name": "Clementi Road",
+   "latitude": 1.3318,
+   "longitude": 103.7762,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S55",
+   "name": "Buangkok Green",
+   "latitude": 1.3837,
+   "longitude": 103.886,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2018-06-01"
+  },
+  {
+   "id": "S60",
+   "name": "Artillery Avenue (Sentosa)",
+   "latitude": 1.2504,
+   "longitude": 103.8275,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S61",
+   "name": "Chai Chee Street",
+   "latitude": 1.323,
+   "longitude": 103.9217,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2020-06-01"
+  },
+  {
+   "id": "S63",
+   "name": "International Road",
+   "latitude": 1.3275,
+   "longitude": 103.7042,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2017-06-01"
+  },
+  {
+   "id": "S64",
+   "name": "Bukit Panjang Road",
+   "latitude": 1.3823,
+   "longitude": 103.7607,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S66",
+   "name": "Kranji Reservoir",
+   "latitude": 1.4387,
+   "longitude": 103.736,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S69",
+   "name": "Upper Peirce Reservoir Park",
+   "latitude": 1.3704,
+   "longitude": 103.8046,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S71",
+   "name": "Kent Ridge Road",
+   "latitude": 1.2923,
+   "longitude": 103.7815,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S77",
+   "name": "Alexandra Road",
+   "latitude": 1.2937,
+   "longitude": 103.8127,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S78",
+   "name": "Poole Road",
+   "latitude": 1.307,
+   "longitude": 103.8907,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S79",
+   "name": "Somerset Road",
+   "latitude": 1.3003,
+   "longitude": 103.8372,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S80",
+   "name": "Sembawang Meteorological Station",
+   "latitude": 1.4247,
+   "longitude": 103.8201,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S81",
+   "name": "Punggol Central",
+   "latitude": 1.4028,
+   "longitude": 103.9095,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S82",
+   "name": "Tuas West Road",
+   "latitude": 1.3247,
+   "longitude": 103.6351,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2022-06-01"
+  },
+  {
+   "id": "S84",
+   "name": "Tampines Avenue 5",
+   "latitude": 1.3443,
+   "longitude": 103.9441,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S88",
+   "name": "Toa Payoh North",
+   "latitude": 1.3417,
+   "longitude": 103.8515,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S89",
+   "name": "Tuas Road",
+   "latitude": 1.31985,
+   "longitude": 103.66162,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2024-06-01"
+  },
+  {
+   "id": "S90",
+   "name": "Bukit Timah Road",
+   "latitude": 1.3191,
+   "longitude": 103.8193,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S91",
+   "name": "Yishun Avenue 5",
+   "latitude": 1.4301,
+   "longitude": 103.8308,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2020-06-01"
+  },
+  {
+   "id": "S92",
+   "name": "South Buona Vista Road",
+   "latitude": 1.2841,
+   "longitude": 103.7888,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S94",
+   "name": "Pasir Ris Street 51",
+   "latitude": 1.3679,
+   "longitude": 103.9489,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S100",
+   "name": "Sungei Kadut Street 3",
+   "latitude": 1.4172,
+   "longitude": 103.74855,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S101",
+   "name": "Corporation Road",
+   "latitude": 1.35053,
+   "longitude": 103.7134,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2018-06-01"
+  },
+  {
+   "id": "S102",
+   "name": "Semakau Island",
+   "latitude": 1.1902,
+   "longitude": 103.7657,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S104",
+   "name": "Woodlands Avenue 9",
+   "latitude": 1.4439,
+   "longitude": 103.7854,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S105",
+   "name": "Admiralty Road West",
+   "latitude": 1.45817,
+   "longitude": 103.79525,
+   "first_sampled": "2019-06-01",
+   "last_sampled": "2019-06-01"
+  },
+  {
+   "id": "S106",
+   "name": "Jalan Noordin (Pulau Ubin)",
+   "latitude": 1.4168,
+   "longitude": 103.9673,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S107",
+   "name": "East Coast Park",
+   "latitude": 1.3133,
+   "longitude": 103.962,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S108",
+   "name": "Marina Barrage",
+   "latitude": 1.2799,
+   "longitude": 103.8703,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S109",
+   "name": "Ang Mo Kio Avenue 5",
+   "latitude": 1.3793,
+   "longitude": 103.85,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S111",
+   "name": "Scotts Road",
+   "latitude": 1.3106,
+   "longitude": 103.8365,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S112",
+   "name": "Lim Chu Kang Road",
+   "latitude": 1.4388,
+   "longitude": 103.7017,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S113",
+   "name": "Marine Parade Road",
+   "latitude": 1.305,
+   "longitude": 103.9112,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S114",
+   "name": "Choa Chu Kang Avenue 4",
+   "latitude": 1.3821,
+   "longitude": 103.7381,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S115",
+   "name": "Tuas South Avenue 3",
+   "latitude": 1.2938,
+   "longitude": 103.6184,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S116",
+   "name": "Pasir Panjang Terminal",
+   "latitude": 1.2824,
+   "longitude": 103.7545,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S117",
+   "name": "Banyan Road (Jurong Island)",
+   "latitude": 1.2542,
+   "longitude": 103.6741,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S118",
+   "name": "Handy Road",
+   "latitude": 1.2994,
+   "longitude": 103.8461,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2023-06-01"
+  },
+  {
+   "id": "S119",
+   "name": "Nicoll Highway",
+   "latitude": 1.295,
+   "longitude": 103.8622,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S120",
+   "name": "Botanic Garden",
+   "latitude": 1.3087,
+   "longitude": 103.818,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S121",
+   "name": "Old Choa Chu Kang Road",
+   "latitude": 1.3738,
+   "longitude": 103.7217,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S122",
+   "name": "Sembawang Road",
+   "latitude": 1.41731,
+   "longitude": 103.8249,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2021-04-17"
+  },
+  {
+   "id": "S123",
+   "name": "Towner Road",
+   "latitude": 1.3214,
+   "longitude": 103.8577,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S127",
+   "name": "Kallang Practice Track",
+   "latitude": 1.30574,
+   "longitude": 103.87817,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S129",
+   "name": "Bedok Stadium",
+   "latitude": 1.32575,
+   "longitude": 103.93969,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S130",
+   "name": "Clementi Stadium",
+   "latitude": 1.31052,
+   "longitude": 103.76343,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-06-01"
+  },
+  {
+   "id": "S132",
+   "name": "Jurong West Stadium",
+   "latitude": 1.33786,
+   "longitude": 103.69538,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S148",
+   "name": "Pasir Ris Walk",
+   "latitude": 1.3715,
+   "longitude": 103.9642,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S180",
+   "name": "Taman Jurong Greens",
+   "latitude": 1.33701,
+   "longitude": 103.71828,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S184",
+   "name": "Sengkang East Avenue",
+   "latitude": 1.38256,
+   "longitude": 103.89852,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S187",
+   "name": "Coronation Road",
+   "latitude": 1.32251,
+   "longitude": 103.80139,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S201",
+   "name": "Sunset Way",
+   "latitude": 1.32319,
+   "longitude": 103.76714,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S202",
+   "name": "S202",
+   "latitude": 1.30968,
+   "longitude": 103.7578,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2022-06-01"
+  },
+  {
+   "id": "S203",
+   "name": "Pasir Panjang",
+   "latitude": 1.29164,
+   "longitude": 103.7702,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-06-01"
+  },
+  {
+   "id": "S204",
+   "name": "S204",
+   "latitude": 1.40081,
+   "longitude": 103.88217,
+   "first_sampled": "2022-06-01",
+   "last_sampled": "2023-06-01"
+  },
+  {
+   "id": "S205",
+   "name": "S205",
+   "latitude": 1.38829,
+   "longitude": 103.9116,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2023-06-01"
+  },
+  {
+   "id": "S207",
+   "name": "S207",
+   "latitude": 1.32485,
+   "longitude": 103.95836,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2024-06-01"
+  },
+  {
+   "id": "S208",
+   "name": "Changi East Close",
+   "latitude": 1.31363,
+   "longitude": 104.00317,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S209",
+   "name": "Yishun Ring Road",
+   "latitude": 1.42111,
+   "longitude": 103.84472,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S210",
+   "name": "Woodlands Centre Road",
+   "latitude": 1.44003,
+   "longitude": 103.76904,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S211",
+   "name": "Kranji Road",
+   "latitude": 1.42918,
+   "longitude": 103.75711,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S212",
+   "name": "S212",
+   "latitude": 1.31835,
+   "longitude": 103.93574,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2024-06-01"
+  },
+  {
+   "id": "S213",
+   "name": "Coronation Walk",
+   "latitude": 1.32427,
+   "longitude": 103.8097,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S214",
+   "name": "Tanjong Rhu",
+   "latitude": 1.29911,
+   "longitude": 103.88289,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S215",
+   "name": "Geylang East Central",
+   "latitude": 1.31944,
+   "longitude": 103.88194,
+   "first_sampled": "2018-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S216",
+   "name": "Ang Mo Kio Avenue 10",
+   "latitude": 1.36019,
+   "longitude": 103.85335,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S217",
+   "name": "Bishan Street 13",
+   "latitude": 1.35028,
+   "longitude": 103.855,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S218",
+   "name": "Bukit Batok Street 34",
+   "latitude": 1.36491,
+   "longitude": 103.75065,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S219",
+   "name": "Yio Chu Kang Road",
+   "latitude": 1.37998,
+   "longitude": 103.87639,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S220",
+   "name": "Compassvale Lane",
+   "latitude": 1.38666,
+   "longitude": 103.89797,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S221",
+   "name": "Hougang Avenue 1",
+   "latitude": 1.35691,
+   "longitude": 103.89088,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S222",
+   "name": "Henderson Road",
+   "latitude": 1.28987,
+   "longitude": 103.82364,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S223",
+   "name": "Margaret Drive",
+   "latitude": 1.29984,
+   "longitude": 103.80264,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S224",
+   "name": "Airport Boulevard",
+   "latitude": 1.34394,
+   "longitude": 103.98386,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S226",
+   "name": "Malan Road",
+   "latitude": 1.27472,
+   "longitude": 103.80389,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S227",
+   "name": "Woodlands Drive 62",
+   "latitude": 1.43944,
+   "longitude": 103.80389,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S228",
+   "name": "Jurong West Street 73",
+   "latitude": 1.34703,
+   "longitude": 103.70073,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S229",
+   "name": "Jurong West Street 42",
+   "latitude": 1.35167,
+   "longitude": 103.72195,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S230",
+   "name": "West Coast Road",
+   "latitude": 1.30167,
+   "longitude": 103.76444,
+   "first_sampled": "2021-04-17",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S300",
+   "name": "Bedok Reservoir",
+   "latitude": 1.34301,
+   "longitude": 103.91971,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S301",
+   "name": "Neo Tiew Lane 2",
+   "latitude": 1.41532,
+   "longitude": 103.72871,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S302",
+   "name": "Tengeh Reservoir",
+   "latitude": 1.33813,
+   "longitude": 103.66303,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S303",
+   "name": "Ponyan Reservoir",
+   "latitude": 1.38375,
+   "longitude": 103.65817,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S305",
+   "name": "Sarimbum Reservoir",
+   "latitude": 1.4216,
+   "longitude": 103.68127,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S306",
+   "name": "Murnane Service Reservoir",
+   "latitude": 1.35085,
+   "longitude": 103.78596,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S307",
+   "name": "Pulau Tekong Reservoir",
+   "latitude": 1.41076,
+   "longitude": 104.04156,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S308",
+   "name": "Seletar Reservoir",
+   "latitude": 1.40158,
+   "longitude": 103.80814,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S900",
+   "name": "Seletar Meteorological Station",
+   "latitude": 1.4114,
+   "longitude": 103.8627,
+   "first_sampled": "2017-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S902",
+   "name": "Yishun Walk",
+   "latitude": 1.41457,
+   "longitude": 103.83106,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S903",
+   "name": "Lorong Kismis",
+   "latitude": 1.33742,
+   "longitude": 103.76699,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S904",
+   "name": "Holland Grove Road",
+   "latitude": 1.31622,
+   "longitude": 103.7837,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S905",
+   "name": "Hillcrest Road",
+   "latitude": 1.3308,
+   "longitude": 103.8045,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S907",
+   "name": "Rivervale Drive",
+   "latitude": 1.39316,
+   "longitude": 103.87412,
+   "first_sampled": "2026-10-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S908",
+   "name": "Fernvale Lane",
+   "latitude": 1.39027,
+   "longitude": 103.87412,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  },
+  {
+   "id": "S909",
+   "name": "Seraya Road",
+   "latitude": 1.30568,
+   "longitude": 103.90093,
+   "first_sampled": "2026-06-01",
+   "last_sampled": "2026-10-01"
+  }
+ ]
+}
