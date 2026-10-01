@@ -136,3 +136,23 @@ def test_backfill_writes_months_and_resumes(tmp_path, monkeypatch):
     assert fake.days == [date(2025, 2, 1), date(2025, 2, 2), date(2025, 2, 3)]
     brs.build_station_table()
     assert set(rainfall_store.stations_at(datetime(2025, 2, 1))) == {"S9"}
+
+
+def test_gapfill_adds_only_missing_steps(store, monkeypatch):
+    """Sparse bulk days are topped up from the API; bulk readings win where both exist."""
+    fake = FakePoller()
+    monkeypatch.setattr("floodsense.ingestion.poller.NEAPoller", lambda: fake)
+    monkeypatch.setattr(brs, "sparse_days", lambda year: [date(2021, 3, 1), date(2021, 3, 5)])
+    added = brs.gapfill(2021, day_delay_sec=0)
+    assert fake.days == [date(2021, 3, 1), date(2021, 3, 5)] and added == 4
+    df = rainfall_store.read_rainfall(datetime(2021, 3, 1), datetime(2021, 3, 6))
+    assert set(df["station_id"]) == {"S1", "S2", "S9"}
+
+    fake.days.clear()
+    brs.gapfill(2021, day_delay_sec=0)  # resumable: filled days are not refetched
+    assert fake.days == []
+
+
+def test_sparse_days_counts_grid_steps(store):
+    days = brs.sparse_days(2021)
+    assert date(2021, 3, 1) in days and date(2021, 1, 1) in days and len(days) == 365

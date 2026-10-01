@@ -22,11 +22,13 @@
 |---|---|---|
 | 2017–2024 | data.gov.sg collection 2279, "Historical Rainfall across Singapore" (NEA): one CSV per year, ~0.8–1.3 GB, one row per station per 5 minutes | `download`, then `convert` |
 | 2025 → yesterday | The data.gov.sg real-time rainfall API's `?date=` history (the same API the live app and the replay use) | `backfill` |
+| Sparse days in the bulk CSVs (158 days with under 90% of 5-minute steps, 92 of them in 2018, including most of August 2018) | The same API | `gapfill`; bulk readings win wherever both exist |
 
 ```bash
 uv run python -m floodsense.data.build_rainfall_store download   # ~9 GB of CSVs into data/raw/rainfall/bulk/
 uv run python -m floodsense.data.build_rainfall_store convert    # -> readings/year=YYYY/part-bulk.parquet, stations.parquet
 uv run python -m floodsense.data.build_rainfall_store backfill   # -> readings/year=YYYY/part-api-YYYY-MM.parquet
+uv run python -m floodsense.data.build_rainfall_store gapfill    # -> readings/year=YYYY/part-api-gapfill.parquet
 ```
 
 - **Resumable:** every step can be re-run. Downloads skip complete files, the backfill skips finished months, and `data/raw/rainfall/manifest.json` records sources, checksums and row counts.
@@ -35,6 +37,7 @@ uv run python -m floodsense.data.build_rainfall_store backfill   # -> readings/y
   - Early records are stamped one second before the 5-minute grid (`09:59:59`), so they are snapped to it.
   - Only the `TB1 Rainfall 5 Minute Total F` series in mm is kept; other series, values outside 0–100 mm and exact duplicates are dropped and counted.
 - **Missing is not dry:** zero readings are stored like any other value. A station with no row at a step didn't report, and nothing fills it in.
+- **Size:** the CSVs hold 48.5M readings for 2017–2024 (4.6–7.1M a year) from 54–80 stations a year.
 - **Station metadata comes from the CSVs' own coordinates.** A station that moved gets one row per location, with `valid_from` / `valid_to`.
 - **Agreement with the API:** the 17 Apr 2021 bulk data matches the API replay exactly in timestamps, stations and coordinates. Values differ only by the API rounding to 2 decimals while the CSV keeps the gauges' 3 (0.408 vs 0.41 mm).
 

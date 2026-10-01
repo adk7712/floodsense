@@ -10,6 +10,7 @@ Sources (both published by NEA on data.gov.sg):
     python -m floodsense.data.build_rainfall_store download [--years 2017 2018 ...]
     python -m floodsense.data.build_rainfall_store convert  [--years ...] [--keep-raw]
     python -m floodsense.data.build_rainfall_store backfill [--start 2025-01-01] [--end YYYY-MM-DD]
+    python -m floodsense.data.build_rainfall_store gapfill  [--years ...]
     python -m floodsense.data.build_rainfall_store stations
 
 Writes the layout described in ``floodsense.data.rainfall_store``. Every step is resumable, and
@@ -357,6 +358,51 @@ def backfill(start: date, end: date, day_delay_sec: float = 1.0) -> None:
         month = nxt
 
 
+def sparse_days(year: int, min_step_share: float = 0.9) -> list[date]:
+    """Days of ``year`` where fewer than ``min_step_share`` of the 288 steps have any reading."""
+    path = settings.rainfall_readings_dir / f"year={year}"
+    if not path.exists():
+        return []
+    stamps = pd.read_parquet(path, columns=["timestamp"])["timestamp"].drop_duplicates()
+    per_day = stamps.dt.date.value_counts()
+    last = min(date(year, 12, 31), datetime.now(settings.tzinfo).date() - timedelta(days=1))
+    days = pd.date_range(date(year, 1, 1), last).date
+    return [d for d in days if per_day.get(d, 0) < min_step_share * 288]
+
+
+def gapfill(year: int, day_delay_sec: float = 1.0) -> int:
+    """
+    Fill sparse days in the bulk data from the API (the same NEA readings, served live).
+
+    Writes ``readings/year=YYYY/part-api-gapfill.parquet``; ``read_rainfall`` prefers the bulk part
+    wherever both have a reading, so this only adds steps the bulk file lacks. Days the API cannot
+    fill either stay sparse. Returns the number of readings added.
+    """
+    from floodsense.ingestion.poller import NEAPoller
+
+    days = sparse_days(year)
+    path = settings.rainfall_readings_dir / f"year={year}" / "part-api-gapfill.parquet"
+    done = set(pd.read_parquet(path)["timestamp"].dt.date) if path.exists() else set()
+    todo = [d for d in days if d not in done]
+    logger.info("%d: %d sparse days, %d still to fetch", year, len(days), len(todo))
+    poller = NEAPoller()
+    for day in todo:
+        readings, seen = _snapshots_to_frames(_fetch_day(poller, day))
+        readings = readings[readings["timestamp"].dt.date == day]
+        if path.exists():
+            readings = pd.concat([pd.read_parquet(path), readings], ignore_index=True)
+        readings = _dedupe_sorted(readings, {"duplicates": 0})
+        _write_atomic(readings.astype({"station_id": "string"}), path)
+        _write_atomic(seen, sightings_dir() / f"api-gapfill-{day.isoformat()}.parquet")
+        time.sleep(day_delay_sec)
+    added = len(pd.read_parquet(path)) if path.exists() else 0
+    _update_manifest(
+        f"readings_{year}_api_gapfill",
+        {"source": settings.nea_api_primary, "sparse_days": len(days), "rows": added},
+    )
+    return added
+
+
 # =============================================================================================
 # stations
 # =============================================================================================
@@ -432,6 +478,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     p = sub.add_parser("backfill")
     p.add_argument("--start", type=date.fromisoformat, default=date(max(BULK_DATASETS) + 1, 1, 1))
     p.add_argument("--end", type=date.fromisoformat, default=None, help="default: yesterday (SGT)")
+    p = sub.add_parser("gapfill", help="fill days the bulk CSVs barely cover from the API")
+    p.add_argument("--years", type=int, nargs="+", default=sorted(BULK_DATASETS))
     sub.add_parser("stations")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -454,6 +502,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.cmd == "backfill":
         end = args.end or (datetime.now(settings.tzinfo).date() - timedelta(days=1))
         backfill(args.start, end)
+        build_station_table()
+    elif args.cmd == "gapfill":
+        for year in args.years:
+            logger.info("%d: %d readings from the API gap-fill", year, gapfill(year))
         build_station_table()
     else:
         build_station_table()
