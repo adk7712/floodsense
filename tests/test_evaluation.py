@@ -149,7 +149,7 @@ def test_imprecise_event_accepts_alerts_inside_the_uncertainty():
     scored = _probs("09:00", "14:00", on=[("12:00", "12:05")])
     _, outcomes, _ = evaluate_alerts(scored, [w], 0.5, zone_years=1.0, horizon=H)
     assert outcomes[0].hit  # the flood may not have started yet at 12:00
-    assert outcomes[0].lead_minutes == -15  # conservative: measured against start_lo
+    assert outcomes[0].lead_minutes == 0  # measured against the reported start (12:00)
 
 
 # --- trade-off and selection ----------------------------------------------------------------

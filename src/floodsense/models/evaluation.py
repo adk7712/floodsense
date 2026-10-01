@@ -8,8 +8,8 @@ Row level      certain-label rows only: PR-AUC, Brier, precision/recall, the fal
 Event level    did a High alert fire in time for each flood, and how early?
                An event is hit when an alert occurs at some t in [start_lo - H, start_hi): the flood
                could start within that alert's horizon. Lead time is measured from the start of
-               the alert episode containing the first such alert to start_lo (conservative for
-               imprecise reports).
+               the alert episode containing the first such alert to the reported start (the
+               midpoint of the start interval, i.e. the start itself for exact reports).
 
 Alert episodes contiguous runs of alert steps in one zone - what people actually experience.
                An episode is a false alarm unless a flood's span [start_lo - H, end_hi] overlaps it.
@@ -87,7 +87,7 @@ class EventOutcome:
     zone: str
     hit: bool
     first_alert: pd.Timestamp | None
-    lead_minutes: float | None  # start_lo - start of the alert episode; None when missed
+    lead_minutes: float | None  # reported start - alert episode start; None when missed
 
 
 def alert_episodes(
@@ -156,7 +156,8 @@ def evaluate_alerts(
             continue
         first = timely.sort_values("start").iloc[0]
         first_alert = max(first["start"], window_lo)
-        lead = (w.start_lo - first["start"]) / pd.Timedelta(minutes=1)
+        reported_start = w.start_lo + (w.start_hi - w.start_lo) / 2
+        lead = (reported_start - first["start"]) / pd.Timedelta(minutes=1)
         outcomes.append(EventOutcome(w.event_id, w.zone, True, first_alert, float(lead)))
 
     n_events = len(outcomes)

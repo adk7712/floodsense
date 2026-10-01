@@ -65,6 +65,38 @@ Configuration (risk thresholds, feature columns, timing constants, API URLs, pat
 - Station names and coordinates come with each API response. `data/reference/nea_rainfall_stations.json`
   is a fallback snapshot, used for example when exporting IDW weights.
 
+## Training and evaluation
+
+These commands need the Phase 3 data (the historical rainfall store and sourced flood events; see
+[docs/phase3-handoff.md](docs/phase3-handoff.md)). Until it exists they stop with a pointer to that
+document. They never fall back to synthetic data.
+
+```bash
+uv run python -m floodsense.features.build_features --start-year 2017 --end-year 2026
+uv run python -m floodsense.models.train             # CV, selection, calibration; prints the trade-off table
+uv run python -m floodsense.models.train --final-report   # scores 2024+ once (needs budgets, see below)
+uv run python -m floodsense.models.backtest --replay data/replay/2021-04-17_western_storm.json \
+    --model legacy --event "BUKIT TIMAH|2021-04-17T13:30|approx_hour"
+```
+
+How the numbers are kept honest:
+
+- **Labels.** A row is positive if a flood *starts* within the next 60 minutes. Rows where the zone
+  may already be flooding are excluded. Imprecise report times give partial labels instead of
+  invented exact times (`src/floodsense/labels/policy.py`).
+- **Validation.** Forward-chaining cross-validation by year, with rarity curves refitted inside each
+  fold. 2024 onwards is the test set and is scored once, by `--final-report`.
+- **Metrics.** The false-alarm *ratio* FP/(FP+TP), event hit rate and lead time, and false-alarm
+  *episodes* per zone-year, alongside PR-AUC and Brier score. Calibration is cross-fitted, so it is
+  never scored on the data it was fitted to.
+- **Thresholds.** High and Moderate thresholds are chosen under a false-alarm budget
+  (`FLOODSENSE_FALSE_ALARM_BUDGET_HIGH`, `FLOODSENSE_FALSE_ALARM_BUDGET_MODERATE`; false alert
+  episodes per zone per year). The budgets are deliberately unset: pick them from the trade-off table
+  that training prints.
+
+Runs are logged to MLflow (`sqlite:///mlflow.db` by default; `uv run mlflow ui --backend-store-uri
+sqlite:///mlflow.db`).
+
 ## Development
 
 ```bash

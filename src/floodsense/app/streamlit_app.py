@@ -246,7 +246,7 @@ with detail_col, st.container(border=True):
     with z_col2:
         st.markdown(f"- **60-min Rain:** `{zone_data['rain_60m']:.2f} mm`")
         st.markdown(f"- **72h Wet-Ground Index:** `{zone_data['rain_decay_72h']:.1f} mm`")
-        st.markdown(f"- **Return Period (uncalibrated):** `{zone_data['return_period_years']} yrs`")
+        st.markdown(f"- **120-min Rain:** `{zone_data['rain_120m']:.2f} mm`")
 
     rarity = float(zone_data["storm_rarity_score"])
     fig_gauge = go.Figure(
