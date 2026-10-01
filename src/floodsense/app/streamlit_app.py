@@ -11,7 +11,6 @@ accumulated across reruns, so the page depends only on the selected mode, time a
 
 from typing import Any
 
-import joblib
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -22,6 +21,7 @@ from floodsense.common.schemas import StationMetadata
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
+from floodsense.models.artifact import load_model
 from floodsense.models.scoring import score_zone_features
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
@@ -43,22 +43,25 @@ ZONE_META = (
 
 
 @st.cache_resource
-def load_model() -> tuple[Any | None, str]:
+def get_model() -> tuple[Any | None, str]:
     """Return (model or None, caption describing where risk scores come from)."""
-    path = settings.champion_model_path
-    if not path.exists():
-        return None, "No trained model found: risk tiers use a 30-minute rainfall heuristic."
     try:
-        model = joblib.load(path)
+        model = load_model()
     except Exception as exc:  # unpickling can fail in many ways, e.g. a missing libomp
         return None, (
             f"Model could not be loaded ({type(exc).__name__}): "
             "risk tiers use a 30-minute rainfall heuristic."
         )
-    return model, (
-        "Risk tiers come from a prototype model trained on synthetic rainfall, so treat them "
-        "as illustrative. Rainfall values are real NEA measurements."
-    )
+    if model is None:
+        return None, "No trained model found: risk tiers use a 30-minute rainfall heuristic."
+    if model.is_synthetic:
+        return model, (
+            "Risk tiers come from a prototype model trained on synthetic rainfall, so treat them "
+            "as illustrative. Rainfall values are real NEA measurements."
+        )
+    trained = model.provenance.get("training_period", "real NEA data")
+    tiers = "budgeted thresholds" if model.thresholds else "default thresholds (budget not set)"
+    return model, f"Risk from a model trained on {trained}, with {tiers}."
 
 
 @st.cache_data(show_spinner="Computing replay features…")
@@ -87,7 +90,7 @@ def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     return latest, len(stations), None
 
 
-model, model_caption = load_model()
+model, model_caption = get_model()
 
 # --- SIDEBAR -------------------------------------------------------------------------------
 st.sidebar.markdown("### :material/water_damage: **FloodSense**")

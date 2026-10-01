@@ -15,7 +15,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Repo root, computed once: src/floodsense/common/config.py -> parents[3].
 _DEFAULT_ROOT_DIR = Path(__file__).resolve().parents[3]
 
-# Order matters: this is the model input vector layout.
+# Input layout of the legacy bundled model (models/champion_model.joblib, trained on synthetic data).
+# New models carry their own feature list in the artifact; see MODEL_FEATURE_COLUMNS.
 FEATURE_COLUMNS: list[str] = [
     "rain_5m",
     "rain_15m",
@@ -26,6 +27,20 @@ FEATURE_COLUMNS: list[str] = [
     "storm_rarity_score",
     "return_period_years",
     "pub_monitored",
+]
+
+
+# Features used by models trained in Phase 4. Excludes ``return_period_years`` (the percentile ->
+# years mapping is not valid) and ``pub_monitored`` (hand-assigned, unsourced). The rarity score
+# is recomputed from ``rain_30m`` with quantiles fitted on each model's training years.
+MODEL_FEATURE_COLUMNS: list[str] = [
+    "rain_5m",
+    "rain_15m",
+    "rain_30m",
+    "rain_60m",
+    "rain_120m",
+    "rain_decay_72h",
+    "storm_rarity_score",
 ]
 
 
@@ -43,6 +58,19 @@ class Settings(BaseSettings):
     step_minutes: float = 5.0
     prediction_lead_time_minutes: int = 60
     timezone: str = "Asia/Singapore"
+
+    # Training / evaluation (Phase 4). Years are calendar years in SGT.
+    cv_first_validation_year: int = 2020  # forward-chaining CV validates 2020..last_training_year
+    last_training_year: int = 2023
+    test_start_year: int = 2024  # scored once, by `train --final-report`
+    calibration_method: str = (
+        "auto"  # "platt", "isotonic", or "auto" (isotonic if enough positives)
+    )
+    isotonic_min_positives: int = 200
+    # False-alarm budgets (false High / Moderate alert episodes per zone per year). Deliberately
+    # unset: choose them from the trade-off report once real data is in.
+    false_alarm_budget_high: float | None = None
+    false_alarm_budget_moderate: float | None = None
 
     # NEA / data.gov.sg endpoints. The v2 API also serves history via ``?date=YYYY-MM-DD``.
     nea_api_primary: str = "https://api-open.data.gov.sg/v2/real-time/api/rainfall"
@@ -75,6 +103,11 @@ class Settings(BaseSettings):
     @property
     def models_dir(self) -> Path:
         return self.root_dir / "models"
+
+    @property
+    def flood_model_path(self) -> Path:
+        """Phase 4 model artifact (``FloodModel``)."""
+        return self.models_dir / "flood_model.joblib"
 
     @property
     def champion_model_path(self) -> Path:
