@@ -53,6 +53,8 @@ def score_zone_features(features: pd.DataFrame, model: Any | None) -> pd.DataFra
     scored = features.copy()
     probs = predict_probabilities(scored, model)
     thresholds = getattr(model, "thresholds", None) or default_thresholds()
-    scored["flood_probability"] = np.round(probs, 3)
-    scored["risk_tier"] = [risk_tier(p, thresholds) for p in scored["flood_probability"]]
+    # Unrounded: calibrated flood probabilities sit around 0.001-0.03, so rounding before the
+    # tiers are applied would move zones across the 0.003 / 0.00706 thresholds. Round for display.
+    scored["flood_probability"] = probs
+    scored["risk_tier"] = [risk_tier(p, thresholds) for p in probs]
     return scored

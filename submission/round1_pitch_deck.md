@@ -111,7 +111,7 @@ flowchart LR
 
 ### Live demo: replay the 17 April 2021 storm
 
-The demo steps through the real 5-minute gauge readings from that afternoon, zone by zone. Bukit Timah reaches Moderate at 12:29 and High at 12:45, about an hour before Dunearn Road was reported flooded (1:44 pm). The earlier, synthetic-trained model peaked at 6.7% and never raised an alert. The same storm also put 22 zones on High, and most of them have no matching flood report, which is the false-alarm cost in miniature.
+The demo steps through the real 5-minute gauge readings from that afternoon, zone by zone. Bukit Timah reaches Moderate at 12:25 and High at 12:45, about an hour before Dunearn Road was reported flooded (1:44 pm). The earlier, synthetic-trained model peaked at 6.7% and never raised an alert. The same storm also put 24 of 55 zones on High, and most of them have no matching flood report, which is the false-alarm cost in miniature.
 
 ### Impact: a complement to PUB, not a replacement
 

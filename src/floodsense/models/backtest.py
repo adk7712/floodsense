@@ -9,8 +9,8 @@ This is the baseline every future model has to beat, so it is deliberately plain
 
 - Features are computed over the WHOLE replay (so the 72 h warm-up is used) and only then cut to the
   display window, exactly like the app.
-- Probabilities are rounded to 3 decimals before thresholds apply, as ``score_zone_features`` does,
-  so a zone's alert times here match the tier the app would have shown.
+- Thresholds apply to unrounded probabilities, as in ``score_zone_features`` and the evaluation,
+  so a zone's alert times here match the tier the app shows and the numbers in the final report.
 - Events are never invented: with none supplied and no event file, the summary says why.
 
 Usage:
@@ -46,7 +46,6 @@ from floodsense.models.scoring import default_thresholds, predict_probabilities
 logger = logging.getLogger("FloodSense.Backtest")
 
 PRECISIONS = ("exact", "approx_15min", "approx_hour", "day_only")
-PROB_DECIMALS = 3  # score_zone_features rounds to this before applying thresholds
 TIMELINE_ZONES = 8
 DAYS_PER_YEAR = 365.25
 
@@ -242,7 +241,7 @@ def run_backtest(
 
     thresholds_from_model = getattr(scorer, "thresholds", None)
     thresholds = dict(thresholds_from_model) if thresholds_from_model else default_thresholds()
-    probs = np.round(predict_probabilities(features, scorer), PROB_DECIMALS)
+    probs = predict_probabilities(features, scorer)  # unrounded, as the app and evaluation
     scored = pd.DataFrame(
         {
             "ura_planning_area": features["ura_planning_area"],
@@ -303,7 +302,6 @@ def run_backtest(
             "values": thresholds,
             "source": "model" if thresholds_from_model else "default",
         },
-        "probability_rounding_decimals": PROB_DECIMALS,
         "n_zones": len(zones),
         "n_timesteps": int(scored["timestamp"].nunique()),
         "events": {
@@ -422,7 +420,7 @@ def format_report(summary: dict[str, Any], top: int = 15) -> str:
     for z in shown:
         r = zones[z]
         lines.append(
-            f"{z:<24}{r['peak_probability']:>6.3f}  {_fmt_time(r['peak_time']):>5}  "
+            f"{z:<24}{r['peak_probability']:>7.4f}  {_fmt_time(r['peak_time']):>5}  "
             f"{_fmt_time(r['first_moderate']):>12}  {_fmt_time(r['first_high']):>8}"
         )
     if len(shown) < len(order):

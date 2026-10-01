@@ -77,9 +77,8 @@ def test_peak_matches_direct_scoring(heuristic_run):
     features = features[(stamps >= replay.display_start) & (stamps <= replay.display_end)]
     probs = predict_probabilities(features, None)
     mask = (features["ura_planning_area"] == "BUKIT TIMAH").to_numpy()
-    # The backtest rounds to 3 decimals like score_zone_features, so allow half a unit.
     assert summary["zones"]["BUKIT TIMAH"]["peak_probability"] == pytest.approx(
-        probs[mask].max(), abs=5.1e-4
+        probs[mask].max(), rel=1e-9
     )
     # Alert times are consistent with the recorded peak and thresholds.
     t = summary["thresholds"]["values"]

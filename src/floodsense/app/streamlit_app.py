@@ -217,7 +217,7 @@ with map_col, st.container(border=True):
         "hover_name": "zone",
         "hover_data": {
             "risk_tier": True,
-            "flood_probability": True,
+            "flood_probability": ":.4f",
             "rain_30m": ":.1f",
             "rain_decay_72h": False,
             "lat": False,
