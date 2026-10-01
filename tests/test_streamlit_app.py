@@ -26,8 +26,15 @@ def test_streamlit_app_mode_toggle():
     at.run(timeout=15)
     assert not at.exception
 
-    if at.segmented_control:
+    seg = None
+    if hasattr(at, "segmented_control") and at.segmented_control:
         seg = at.segmented_control[0]
+    elif hasattr(at.sidebar, "button_group") and at.sidebar.button_group:
+        seg = at.sidebar.button_group[0]
+    elif hasattr(at, "button_group") and at.button_group:
+        seg = at.button_group[0]
+
+    if seg:
         # Switch to Live Feed
         seg.set_value("Live Feed")
         at.run(timeout=15)

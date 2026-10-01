@@ -115,7 +115,8 @@ class IDWMatrixEngine:
         )
 
         # Matrix multiply: (num_stations,) @ (num_stations, num_zones) -> (num_zones,)
-        zone_rainfall_values = r_vec @ weights
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            zone_rainfall_values = r_vec @ weights
 
         results = []
         for j, z_name in enumerate(self.zone_names):

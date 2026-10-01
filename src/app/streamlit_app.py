@@ -48,7 +48,12 @@ def load_resources():
     engine = IDWMatrixEngine()
     feat_pipe = FeaturePipeline()
     model_path = ROOT_DIR / "models" / "champion_model.joblib"
-    model = joblib.load(model_path) if model_path.exists() else None
+    model = None
+    if model_path.exists():
+        try:
+            model = joblib.load(model_path)
+        except Exception:
+            model = None
 
     # Load replay slice
     replay_file = ROOT_DIR / "data" / "replay" / "april_2021_storm.json"
