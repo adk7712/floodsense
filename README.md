@@ -2,7 +2,7 @@
 
 FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning areas, one hour ahead. It ingests 5-minute NEA rainfall gauge readings from data.gov.sg, interpolates them to planning areas with inverse-distance weighting, derives rainfall-accumulation and storm-rarity features, and scores each zone with a classifier. A Streamlit dashboard shows the result as a risk map, with a replay of the 17 April 2021 western Singapore storm. Built for the DAISI Challenge 2026, Track B2.
 
-> **Status: prototype.** The bundled model (`models/champion_model.joblib`) was trained on **synthetic** rainfall and labels, so its reported metrics are not meaningful and must not be read as real-world skill. Training on real historical data is in progress.
+> **Status: prototype.** The bundled model (`models/champion_model.joblib`) was trained on **synthetic** rainfall and labels, so its reported metrics are not meaningful and must not be read as real-world skill. Training on real historical data is in progress: the data work is specified in [docs/phase3-handoff.md](docs/phase3-handoff.md), with acceptance tests in `tests/test_phase3_contract.py`.
 
 ## Quickstart
 

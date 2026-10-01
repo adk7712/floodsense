@@ -92,5 +92,28 @@ class Settings(BaseSettings):
     def landing_dir(self) -> Path:
         return self.root_dir / "data" / "raw" / "landing_volume"
 
+    # Phase 3 data products (see docs/phase3-handoff.md)
+    @property
+    def rainfall_dir(self) -> Path:
+        """Historical station rainfall store. Local only (gitignored)."""
+        return self.root_dir / "data" / "raw" / "rainfall"
+
+    @property
+    def rainfall_readings_dir(self) -> Path:
+        """Readings as Parquet partitioned by year (``year=YYYY/``); nothing else lives here."""
+        return self.rainfall_dir / "readings"
+
+    @property
+    def rainfall_stations_file(self) -> Path:
+        return self.rainfall_dir / "stations.parquet"
+
+    @property
+    def zone_polygons_file(self) -> Path:
+        return self.root_dir / "data" / "reference" / "ura_planning_areas_mp2019.geojson"
+
+    @property
+    def flood_events_file(self) -> Path:
+        return self.root_dir / "data" / "reference" / "flood_events.csv"
+
 
 settings = Settings()
