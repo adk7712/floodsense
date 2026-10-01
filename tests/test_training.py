@@ -1,8 +1,8 @@
 """
 Tests for the training core (Phase 4, workstream C).
 
-The fixture is SYNTHETIC and lives only here: storms in three zones over 2018-2025 where a flood
-starts 20 minutes after 30-minute rain first exceeds 30 mm. It exists to exercise the protocol
+The `data` fixture (tests/conftest.py) is SYNTHETIC: storms in three zones over 2018-2025 where
+a flood starts 20 minutes after 30-minute rain first exceeds 30 mm. It exists to exercise the protocol
 (folds, leakage, calibration, thresholds), not to produce numbers anyone should quote.
 """
 
@@ -11,62 +11,16 @@ import pandas as pd
 import pytest
 
 from floodsense.common.config import MODEL_FEATURE_COLUMNS, settings
-from floodsense.features.feature_pipeline import FeaturePipeline
-from floodsense.labels.policy import label_rows
 from floodsense.models import training
 from floodsense.models.calibration import (
     expected_calibration_error,
     fit_calibrator,
     reliability_table,
 )
-from floodsense.models.training import LabelledData, choose_thresholds, final_report, train
+from floodsense.models.training import choose_thresholds, final_report, train
 
 SGT = "Asia/Singapore"
 ZONES = ["BUKIT TIMAH", "BEDOK", "JURONG WEST"]
-
-
-@pytest.fixture(scope="module")
-def data() -> LabelledData:
-    rng = np.random.default_rng(42)
-    frames, events = [], []
-    for year in range(2018, 2026):
-        for zone in ZONES:
-            for s in range(15):
-                start = pd.Timestamp(f"{year}-01-01", tz=SGT) + pd.Timedelta(
-                    days=int(20 * s + rng.integers(0, 15)), hours=13
-                )
-                stamps = pd.date_range(start, periods=48, freq="5min")
-                peak = rng.gamma(2.0, 3.5)  # mm per 5 min at the storm peak
-                shape = np.exp(-(((np.arange(48) - 20) / 6.0) ** 2))
-                rain = np.round(peak * shape + rng.uniform(0, 0.3, 48), 1)
-                df = pd.DataFrame(
-                    {"ura_planning_area": zone, "timestamp": stamps, "rainfall_mm": rain}
-                )
-                feats = FeaturePipeline().process_batch_dataframe(df, prune_zero_rain=False)
-                frames.append(feats)
-                crossing = feats.index[feats["rain_30m"] > 30.0]
-                if len(crossing):
-                    t0 = feats.loc[crossing[0], "timestamp"] + pd.Timedelta(minutes=20)
-                    events.append(
-                        type(
-                            "Ev",
-                            (),
-                            dict(
-                                ura_planning_area=zone,
-                                timestamp_start=t0.to_pydatetime(),
-                                timestamp_end=(t0 + pd.Timedelta(minutes=45)).to_pydatetime(),
-                                time_precision="exact",
-                                event_id=f"{zone}-{year}-{s}",
-                            ),
-                        )()
-                    )
-    features = pd.concat(frames, ignore_index=True)
-    labels, report = label_rows(features, events)
-    from floodsense.labels.policy import event_window
-
-    windows = [event_window(e) for e in events]
-    assert not report.events_without_rows
-    return LabelledData(features, labels["label_prob"], windows)
 
 
 @pytest.fixture(scope="module")

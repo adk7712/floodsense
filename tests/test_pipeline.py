@@ -25,7 +25,6 @@ from floodsense.features.feature_pipeline import (
 )
 from floodsense.features.ground_truth_extractor import GroundTruthExtractor
 from floodsense.ingestion.poller import NEAPoller
-from floodsense.models.train import evaluate_model_predictions
 from floodsense.spatial.idw_matrix import IDWMatrixEngine, haversine_distance_km
 from floodsense.spatial.singapore_geo import (
     URA_PLANNING_AREAS,
@@ -147,18 +146,6 @@ def test_poller_stages_raw_payload(tmp_path):
     payload = {"code": 0, "data": {"stations": [], "readings": []}}
     staged = NEAPoller(landing_dir=tmp_path).stage_payload_to_volume(payload, "x.json")
     assert json.loads(staged.read_text()) == payload
-
-
-def test_model_evaluation_metrics():
-    """Verify that evaluate_model_predictions computes PR-AUC and False Alarm Rate."""
-    y_true = np.array([0, 0, 0, 0, 1, 1])
-    y_prob = np.array([0.05, 0.1, 0.2, 0.8, 0.9, 0.95])
-    metrics = evaluate_model_predictions(y_true, y_prob, threshold=0.5)
-
-    assert "pr_auc" in metrics
-    assert "false_alarm_rate" in metrics
-    assert metrics["pr_auc"] > 0.8
-    assert metrics["recall"] == 1.0
 
 
 def test_geojson_generation():

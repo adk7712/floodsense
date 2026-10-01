@@ -1,215 +1,389 @@
 """
-FloodSense - ML Model Training, Evaluation & Unity Catalog Registry.
-Implements:
-1. Heuristic Rule Baseline (PUB 25mm / 30min rule).
-2. Primary Champion: Class-Weighted Logistic Regression with calibrated thresholds.
-3. Challenger: LightGBM with strict In-Fold SMOTE (CV-SMOTE).
-4. Strict Temporal Validation: Train 2017–2023, Unseen Test 2024–2026.
-5. Imbalance-robust metrics: PR-AUC, Brier Score, False-Alarm Rate (FAR).
-6. MLflow experiment tracking and model artifact serialization.
+FloodSense - Training CLI (I/O and experiment tracking around ``floodsense.models.training``).
+
+    python -m floodsense.models.train                       # train, calibrate, save, log
+    python -m floodsense.models.train --final-report        # score the test years, once
+    python -m floodsense.models.train --final-report --force
+
+Training reads the feature store (``floodsense.features.build_features``) and the sourced flood
+events; there is no synthetic fallback. It prints the selected candidate's hit-rate / false-alarm
+trade-off table, which is how the false-alarm budgets (``settings.false_alarm_budget_*``) are
+chosen. Thresholds are only selected once both budgets are set.
 """
 
+import argparse
+import dataclasses
 import json
 import logging
+import math
+import tempfile
+from collections.abc import Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 import joblib
-import lightgbm as lgb
-import mlflow
-import numpy as np
 import pandas as pd
-from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline as ImbPipeline
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    average_precision_score,
-    brier_score_loss,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 
-from floodsense.common.config import FEATURE_COLUMNS, settings
-from floodsense.data.synthetic_or_historical_loader import generate_historical_dataset
-from floodsense.features.feature_pipeline import FeaturePipeline
-from floodsense.features.ground_truth_extractor import GroundTruthExtractor
+from floodsense.common.config import settings
+from floodsense.data import flood_events
+from floodsense.features.build_features import HANDOFF_DOC, DataUnavailableError, load_feature_store
+from floodsense.labels.policy import event_window, label_rows
+from floodsense.models.artifact import FloodModel, git_sha
+from floodsense.models.training import (
+    CandidateResult,
+    LabelledData,
+    TrainingRun,
+    final_report,
+    train,
+)
 
 logger = logging.getLogger("FloodSense.Trainer")
 
-# Single source of truth lives in floodsense.common.config (FEATURE_COLUMNS is re-exported).
-OPERATIONAL_THRESHOLDS = settings.operational_thresholds
+EXPERIMENT = "floodsense"
+RAW_COUNTS = {"tp", "fp", "fn", "tn", "positives", "rows"}
+TRADEOFF_COLUMNS = [
+    "threshold",
+    "hit_rate",
+    "hits",
+    "events",
+    "false_episodes_per_zone_year",
+    "episode_false_alarm_ratio",
+    "median_lead_minutes",
+    "false_alert_hours",
+]
 
 
-def evaluate_model_predictions(
-    y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.50
-) -> dict[str, float]:
-    """
-    Computes imbalance-resilient classification and calibration metrics.
-    """
-    y_pred = (y_prob >= threshold).astype(int)
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (len(y_true), 0, 0, 0)
+def model_card_path() -> Path:
+    return settings.models_dir / "model_card.json"
 
-    pr_auc = average_precision_score(y_true, y_prob) if sum(y_true) > 0 else 0.0
-    roc_auc = roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else 0.5
-    brier = brier_score_loss(y_true, y_prob)
-    prec = precision_score(y_true, y_pred, zero_division=0)
-    rec = recall_score(y_true, y_pred, zero_division=0)
-    f1 = f1_score(y_true, y_pred, zero_division=0)
-    far = fp / (fp + tn) if (fp + tn) > 0 else 0.0
 
+def final_report_path() -> Path:
+    return settings.models_dir / "final_report.json"
+
+
+# --------------------------------------------------------------------------------------------
+# Data
+# --------------------------------------------------------------------------------------------
+
+
+def load_training_data() -> LabelledData:
+    """Feature store + sourced flood events -> labelled data. Fails loudly if either is missing."""
+    features = load_feature_store()  # raises DataUnavailableError with build instructions
+    try:
+        events = flood_events.load_flood_events()
+    except (NotImplementedError, FileNotFoundError) as exc:
+        raise DataUnavailableError(
+            f"Flood events are not available ({exc}). See {HANDOFF_DOC} (deliverable c)."
+        ) from exc
+    if not events:
+        raise DataUnavailableError(f"No flood events loaded. See {HANDOFF_DOC} (deliverable c).")
+
+    labels, report = label_rows(features, events)
+    logger.info(
+        "Labelled %d rows from %d events (horizon %s): %s",
+        len(features),
+        len(report.events_used),
+        report.horizon,
+        report.counts,
+    )
+    if report.events_without_rows:
+        logger.warning(
+            "%d events have no feature rows (zone or period missing) and are unused: %s",
+            len(report.events_without_rows),
+            report.events_without_rows,
+        )
+    windows = [event_window(e) for e in events]
+    return LabelledData(features, labels["label_prob"], windows)
+
+
+# --------------------------------------------------------------------------------------------
+# Serialisation helpers
+# --------------------------------------------------------------------------------------------
+
+
+def _jsonable(obj: Any) -> Any:
+    """Recursively convert to strict JSON: Timestamps -> ISO, dataclasses -> dicts, NaN -> null."""
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return _jsonable(dataclasses.asdict(obj))
+    if isinstance(obj, dict):
+        return {str(k): _jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple | set):
+        return [_jsonable(v) for v in obj]
+    if isinstance(obj, pd.DataFrame):
+        return _jsonable(obj.to_dict(orient="records"))
+    if obj is pd.NaT:
+        return None
+    if isinstance(obj, pd.Timestamp | datetime):
+        return obj.isoformat()
+    if hasattr(obj, "item") and not isinstance(obj, str | bytes):  # numpy scalar
+        return _jsonable(obj.item())
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if obj is None or isinstance(obj, str | int | bool):
+        return obj
+    return str(obj)
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_jsonable(payload), indent=2, allow_nan=False) + "\n")
+
+
+def _model_card(run: TrainingRun) -> dict[str, Any]:
+    model = run.model
     return {
-        "pr_auc": round(float(pr_auc), 4),
-        "roc_auc": round(float(roc_auc), 4),
-        "brier_score": round(float(brier), 5),
-        "precision": round(float(prec), 4),
-        "recall": round(float(rec), 4),
-        "f1_score": round(float(f1), 4),
-        "false_alarm_rate": round(float(far), 4),
-        "true_positives": int(tp),
-        "false_positives": int(fp),
-        "false_negatives": int(fn),
-        "true_negatives": int(tn),
+        "selected_candidate": run.selected,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "feature_columns": model.feature_columns,
+        "thresholds": model.thresholds,
+        "calibration_method": run.results[run.selected].calibrator.method,
+        "provenance": model.provenance,
+        "notes": run.notes,
+        "candidates": {
+            name: {
+                "row_metrics_oof": result.row,
+                "ece": result.ece,
+                "calibration_method": result.calibrator.method,
+                "oof_rows": len(result.oof),
+                "folds": result.folds,
+            }
+            for name, result in run.results.items()
+        },
+        "tradeoff_selected": run.results[run.selected].curve,
     }
 
 
-def train_and_evaluate_all():
-    """Main training orchestration pipeline."""
-    logger.info("Step 1: Generating multi-year historical dataset (2017–2026)...")
-    raw_df = generate_historical_dataset(start_year=2017, end_year=2026, num_storm_days_per_year=35)
+# --------------------------------------------------------------------------------------------
+# Plots
+# --------------------------------------------------------------------------------------------
 
-    logger.info("Step 2: Engineering multi-scale features and storm rarity...")
-    feat_pipe = FeaturePipeline()
-    feat_df = feat_pipe.process_batch_dataframe(raw_df, prune_zero_rain=True)
 
-    logger.info("Step 3: Attaching Ground Truth flood event labels...")
-    gt_extractor = GroundTruthExtractor()
-    labeled_df = gt_extractor.attach_labels_to_feature_df(
-        feat_df, lead_time_minutes=settings.prediction_lead_time_minutes
+def _reliability_figure(result: CandidateResult) -> Any:
+    import plotly.graph_objects as go
+
+    t = result.reliability[result.reliability["weight"] > 0]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(x=[0, 1], y=[0, 1], mode="lines", name="perfect", line={"dash": "dash"})
     )
-    labeled_df["timestamp"] = pd.to_datetime(labeled_df["timestamp"])
-
-    # Strict temporal train/test split: Train on 2017–2023, Evaluate on 2024–2026
-    train_df = labeled_df[labeled_df["timestamp"].dt.year <= 2023].copy()
-    test_df = labeled_df[labeled_df["timestamp"].dt.year >= 2024].copy()
-
-    X_train = train_df[FEATURE_COLUMNS].values
-    y_train = train_df["flood_within_60min"].values
-    X_test = test_df[FEATURE_COLUMNS].values
-    y_test = test_df["flood_within_60min"].values
-
-    logger.info(
-        f"Train Set (2017-2023): {len(train_df)} samples, {y_train.sum()} floods ({y_train.mean() * 100:.2f}%)"
+    fig.add_trace(
+        go.Scatter(
+            x=t["mean_predicted"],
+            y=t["observed_rate"],
+            mode="lines+markers",
+            name=result.name,
+            customdata=t["weight"],
+            hovertemplate="predicted %{x:.3f}<br>observed %{y:.3f}<br>weight %{customdata:.1f}",
+        )
     )
-    logger.info(
-        f"Test Set  (2024-2026): {len(test_df)} samples, {y_test.sum()} floods ({y_test.mean() * 100:.2f}%)"
+    fig.update_layout(
+        title=f"Reliability (out-of-fold, cross-fitted): {result.name}, ECE {result.ece:.3f}",
+        xaxis_title="Predicted probability",
+        yaxis_title="Observed frequency",
+        template="plotly_white",
     )
+    return fig
 
-    # MLflow Setup
-    mlflow.set_experiment("FloodSense_Urban_Drainage_Intelligence")
 
-    # --- 1. Baseline: Heuristic Rule Model (rain_30m >= 25.0) ---
-    with mlflow.start_run(run_name="01_Baseline_Rule_Heuristic"):
-        rule_prob_test = (test_df["rain_30m"].values >= 25.0).astype(float)
-        baseline_metrics = evaluate_model_predictions(y_test, rule_prob_test, threshold=0.5)
-        mlflow.log_params({"model_type": "RuleHeuristic", "threshold_mm": 25.0})
-        mlflow.log_metrics(baseline_metrics)
-        logger.info(
-            f"Baseline Heuristic -> PR-AUC: {baseline_metrics['pr_auc']}, FAR: {baseline_metrics['false_alarm_rate']}, F1: {baseline_metrics['f1_score']}"
-        )
+def _tradeoff_figure(result: CandidateResult) -> Any:
+    import plotly.graph_objects as go
 
-    # --- 2. Primary Champion: Class-Weighted Logistic Regression ---
-    with mlflow.start_run(run_name="02_Primary_Logistic_Regression"):
-        lr_pipeline = Pipeline(
-            [
-                ("scaler", StandardScaler()),
-                (
-                    "classifier",
-                    LogisticRegression(
-                        class_weight="balanced", C=0.5, max_iter=1000, random_state=42
-                    ),
-                ),
-            ]
+    c = result.curve
+    fig = go.Figure(
+        go.Scatter(
+            x=c["false_episodes_per_zone_year"],
+            y=c["hit_rate"],
+            mode="lines+markers",
+            name=result.name,
+            customdata=c["threshold"],
+            hovertemplate=(
+                "threshold %{customdata:.2f}<br>false episodes / zone-year %{x:.3f}"
+                "<br>hit rate %{y:.3f}"
+            ),
         )
-        lr_pipeline.fit(X_train, y_train)
-        lr_probs = lr_pipeline.predict_proba(X_test)[:, 1]
-        lr_metrics = evaluate_model_predictions(
-            y_test, lr_probs, threshold=OPERATIONAL_THRESHOLDS["low_moderate"]
-        )
-        mlflow.log_params({"model_type": "ClassWeightedLogisticRegression", "C": 0.5})
-        mlflow.log_metrics(lr_metrics)
-        logger.info(
-            f"Primary Logistic Regression -> PR-AUC: {lr_metrics['pr_auc']}, Recall: {lr_metrics['recall']}, FAR: {lr_metrics['false_alarm_rate']}"
-        )
-
-    # --- 3. Challenger: LightGBM with In-Fold SMOTE ---
-    with mlflow.start_run(run_name="03_Challenger_LightGBM_CVSMOTE"):
-        lgb_pipeline = ImbPipeline(
-            [
-                ("smote", SMOTE(sampling_strategy=0.2, random_state=42)),
-                (
-                    "classifier",
-                    lgb.LGBMClassifier(
-                        n_estimators=100,
-                        learning_rate=0.05,
-                        max_depth=4,
-                        num_leaves=15,
-                        subsample=0.8,
-                        colsample_bytree=0.8,
-                        random_state=42,
-                        verbose=-1,
-                    ),
-                ),
-            ]
-        )
-        lgb_pipeline.fit(X_train, y_train)
-        lgb_probs = lgb_pipeline.predict_proba(X_test)[:, 1]
-        lgb_metrics = evaluate_model_predictions(
-            y_test, lgb_probs, threshold=OPERATIONAL_THRESHOLDS["low_moderate"]
-        )
-        mlflow.log_params({"model_type": "LightGBM_CVSMOTE", "n_estimators": 100, "max_depth": 4})
-        mlflow.log_metrics(lgb_metrics)
-        logger.info(
-            f"Challenger LightGBM -> PR-AUC: {lgb_metrics['pr_auc']}, Recall: {lgb_metrics['recall']}, FAR: {lgb_metrics['false_alarm_rate']}"
-        )
-
-    # Select Champion based on PR-AUC & False Alarm Rate
-    champion_pipeline = (
-        lr_pipeline if lr_metrics["pr_auc"] >= lgb_metrics["pr_auc"] else lgb_pipeline
     )
-    champion_name = (
-        "ClassWeightedLogisticRegression"
-        if champion_pipeline == lr_pipeline
-        else "LightGBM_CVSMOTE"
+    fig.update_layout(
+        title=f"Hit rate vs false alarms: {result.name}",
+        xaxis_title="False alert episodes per zone-year",
+        yaxis_title="Event hit rate",
+        template="plotly_white",
     )
-    champion_metrics = lr_metrics if champion_pipeline == lr_pipeline else lgb_metrics
+    return fig
 
-    # Save winning champion artifact
-    models_dir = settings.models_dir
-    models_dir.mkdir(parents=True, exist_ok=True)
-    model_path = settings.champion_model_path
-    joblib.dump(champion_pipeline, model_path)
 
-    metadata = {
-        "champion_name": champion_name,
-        "feature_columns": FEATURE_COLUMNS,
-        "operational_thresholds": OPERATIONAL_THRESHOLDS,
-        "metrics_2024_2026_test": champion_metrics,
-        "baseline_comparison": baseline_metrics,
-        "training_date": pd.Timestamp.now().isoformat(),
-    }
-    with open(models_dir / "model_metadata.json", "w") as f:
-        json.dump(metadata, f, indent=2)
+def _print_tradeoff(result: CandidateResult) -> None:
+    table = result.curve[TRADEOFF_COLUMNS].to_string(index=False, float_format=lambda v: f"{v:.3f}")
+    print(f"\nTrade-off table for the selected candidate ({result.name}):")
+    print("Choose settings.false_alarm_budget_high / _moderate from the false-episode column.\n")
+    print(table)
+    print()
 
-    logger.info(f"Winning Champion Model ({champion_name}) serialized to {model_path}")
-    return metadata
+
+# --------------------------------------------------------------------------------------------
+# Training
+# --------------------------------------------------------------------------------------------
+
+
+def _finite_metrics(metrics: dict[str, float]) -> dict[str, float]:
+    return {k: float(v) for k, v in metrics.items() if v is not None and math.isfinite(v)}
+
+
+def _select_experiment(mlflow: Any, tracking_uri: str | None) -> None:
+    """Point MLflow at ``tracking_uri`` (default: a SQLite file in the repo root; the file-store
+    backend is deprecated) and select the experiment. For SQLite stores the artifacts go in a
+    ``mlruns/`` directory next to the database; both are gitignored."""
+    uri = tracking_uri or f"sqlite:///{settings.root_dir / 'mlflow.db'}"
+    mlflow.set_tracking_uri(uri)
+    if uri.startswith("sqlite:///") and ":memory:" not in uri:
+        client = mlflow.MlflowClient()
+        if client.get_experiment_by_name(EXPERIMENT) is None:
+            artifacts = Path(uri.removeprefix("sqlite:///")).parent / "mlruns"
+            client.create_experiment(EXPERIMENT, artifact_location=artifacts.as_uri())
+    mlflow.set_experiment(EXPERIMENT)
+
+
+def run_training(data: LabelledData, tracking_uri: str | None = None) -> TrainingRun:
+    """Train, save the model and model card, log to MLflow, print the trade-off table."""
+    import mlflow  # optional dependency: `uv sync --extra train`
+
+    run = train(data)
+    model_path = run.model.save()
+    card = _model_card(run)
+    _write_json(model_card_path(), card)
+    logger.info("Saved %s (selected: %s) and %s", model_path, run.selected, model_card_path())
+
+    _select_experiment(mlflow, tracking_uri)
+    with mlflow.start_run(run_name=f"train-{run.selected}"):
+        mlflow.log_params(
+            {
+                "selected": run.selected,
+                "calibration": run.results[run.selected].calibrator.method,
+                "git_sha": git_sha() or "unknown",
+                "last_training_year": settings.last_training_year,
+                "false_alarm_budgets_set": run.model.thresholds is not None,
+            }
+        )
+        mlflow.log_artifact(str(model_card_path()))
+        for name, result in run.results.items():
+            with mlflow.start_run(run_name=name, nested=True), tempfile.TemporaryDirectory() as tmp:
+                mlflow.log_params(
+                    {
+                        "candidate": name,
+                        "feature_columns": ",".join(run.model.feature_columns),
+                        "validation_years": ",".join(
+                            str(f["validation_year"]) for f in result.folds
+                        ),
+                    }
+                )
+                row = {k: v for k, v in result.row.items() if k not in RAW_COUNTS}
+                mlflow.log_metrics(_finite_metrics({**row, "ece": result.ece}))
+                out = Path(tmp)
+                _reliability_figure(result).write_html(out / "reliability.html")
+                result.curve.to_csv(out / "tradeoff_curve.csv", index=False)
+                _tradeoff_figure(result).write_html(out / "tradeoff_curve.html")
+                for artifact in sorted(out.iterdir()):
+                    mlflow.log_artifact(str(artifact))
+
+    _print_tradeoff(run.results[run.selected])
+    for note in run.notes:
+        logger.warning(note)
+    return run
+
+
+# --------------------------------------------------------------------------------------------
+# Final report
+# --------------------------------------------------------------------------------------------
+
+
+def run_final_report(
+    data: LabelledData,
+    model_path: Path | None = None,
+    force: bool = False,
+    tracking_uri: str | None = None,
+) -> dict[str, Any]:
+    """Score the test years with the saved model. Refuses to run twice unless ``force``."""
+    out_path = final_report_path()
+    if out_path.exists() and not force:
+        raise FileExistsError(
+            f"{out_path} already exists. The test years are meant to be scored once; "
+            "pass force=True (--force) to overwrite it deliberately."
+        )
+    model_path = model_path or settings.flood_model_path
+    if not model_path.exists():
+        raise FileNotFoundError(f"No trained model at {model_path}; run training first")
+    model = joblib.load(model_path)
+    if not isinstance(model, FloodModel):
+        raise TypeError(f"{model_path} is not a FloodModel")
+
+    report = final_report(model, data)
+    payload = _jsonable(
+        {**report, "model_provenance": model.provenance, "thresholds": model.thresholds}
+    )
+    _write_json(out_path, payload)
+    logger.info("Final report written to %s", out_path)
+
+    import mlflow
+
+    _select_experiment(mlflow, tracking_uri)
+    with mlflow.start_run(run_name="final-report"):
+        mlflow.log_params(
+            {
+                "model_path": str(model_path),
+                "selected": model.provenance.get("candidate", "unknown"),
+                "test_years": ",".join(str(y) for y in report["test_years"]),
+                "git_sha": git_sha() or "unknown",
+            }
+        )
+        row = {k: v for k, v in report["row"].items() if k not in RAW_COUNTS}
+        lo, hi = report["hit_rate_ci90"]
+        mlflow.log_metrics(
+            _finite_metrics(
+                {
+                    **{f"row_{k}": v for k, v in row.items()},
+                    **{f"events_{k}": v for k, v in report["events_high"].items()},
+                    "hit_rate_ci90_lo": lo,
+                    "hit_rate_ci90_hi": hi,
+                }
+            )
+        )
+        mlflow.log_artifact(str(out_path))
+    return payload  # type: ignore[no-any-return]
+
+
+# --------------------------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------------------------
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Train the FloodSense model on real data.")
+    parser.add_argument(
+        "--final-report", action="store_true", help="score the test years with the saved model"
+    )
+    parser.add_argument("--force", action="store_true", help="overwrite an existing final report")
+    parser.add_argument("--tracking-uri", default=None, help="MLflow tracking URI")
+    args = parser.parse_args(argv)
+    if args.force and not args.final_report:
+        parser.error("--force only applies with --final-report")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+    try:
+        data = load_training_data()
+        if args.final_report:
+            report = run_final_report(data, force=args.force, tracking_uri=args.tracking_uri)
+            print(
+                json.dumps(
+                    {k: report[k] for k in ("test_years", "events_high", "hit_rate_ci90")}, indent=2
+                )
+            )
+        else:
+            run_training(data, tracking_uri=args.tracking_uri)
+    except (DataUnavailableError, FileExistsError, FileNotFoundError, ValueError) as exc:
+        logger.error("%s", exc)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    train_and_evaluate_all()
+    raise SystemExit(main())

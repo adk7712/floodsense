@@ -1,5 +1,6 @@
 {
-  "champion_name": "LightGBM_CVSMOTE",
+  "data": "synthetic",
+  "note": "The metrics below come from synthetic data that encodes the label (see docs/phase3-handoff.md) and must not be quoted. Kept only because artifact.load_model reads feature_columns.",
   "feature_columns": [
     "rain_5m",
     "rain_15m",
@@ -15,7 +16,7 @@
     "low_moderate": 0.25,
     "moderate_high": 0.65
   },
-  "metrics_2024_2026_test": {
+  "synthetic_placeholder_metrics": {
     "pr_auc": 0.5557,
     "roc_auc": 0.902,
     "brier_score": 0.00594,
@@ -28,7 +29,7 @@
     "false_negatives": 48,
     "true_negatives": 157045
   },
-  "baseline_comparison": {
+  "synthetic_placeholder_baseline": {
     "pr_auc": 0.0037,
     "roc_auc": 0.674,
     "brier_score": 0.06837,
