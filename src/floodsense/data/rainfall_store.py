@@ -5,7 +5,8 @@ Built by ``floodsense.data.build_rainfall_store`` from NEA's official data (data
 for 2017-2024, the rainfall API after that). Accepted by tests/test_phase3_contract.py; Phase 4
 (labels, training, backtests) calls these functions.
 
-On-disk layout under ``settings.rainfall_dir`` (gitignored, never committed):
+On-disk layout under ``settings.rainfall_dir`` (readings and stations.parquet are committed, about
+18 MB; the raw CSVs, sightings and manifest stay local):
 
     data/raw/rainfall/
       readings/year=2017/part-*.parquet ... readings/year=2026/part-*.parquet

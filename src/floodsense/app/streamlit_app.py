@@ -2,13 +2,16 @@
 FloodSense - Streamlit dashboard.
 
 Two modes:
-- Replay: real NEA 5-minute station readings for the 17 April 2021 storm, scrubbed in time.
+- Replay: real NEA 5-minute station readings for any day in the rainfall store (2017 onward),
+  scrubbed in time, with the major reported storms one click away. Without the store, the
+  recorded 17 April 2021 storm only.
 - Live: the latest readings from data.gov.sg, with a few hours of history for rolling features.
 
 Zone features are recomputed from the readings for every view (and cached by input). Nothing is
 accumulated across reruns, so the page depends only on the selected mode, time and zone.
 """
 
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -16,8 +19,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from floodsense.app import replay_days
 from floodsense.common.config import settings
-from floodsense.common.schemas import StationMetadata
+from floodsense.common.schemas import FloodEvent, StationMetadata
+from floodsense.data.flood_events import load_flood_events
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
@@ -42,7 +47,7 @@ LIVE_WET_GROUND_NOTE = (
     f" In Live mode it is built from only the last {settings.live_history_hours:g} hours of "
     "readings, so it reads low."
 )
-REPLAY_DEFAULT_TIME = "12:15"  # island-wide peak of the 17 Apr 2021 storm in the replay data
+REPLAY_DEFAULT_TIME = "12:15"  # where the 17 Apr 2021 demo opens; other days open at their peak
 ZONE_META = (
     pd.DataFrame.from_dict(URA_PLANNING_AREAS, orient="index")[["lat", "lon", "region"]]
     .rename_axis("ura_planning_area")
@@ -88,6 +93,28 @@ def replay_features(path: str) -> tuple[pd.DataFrame, str, int]:
     return table[in_window].reset_index(drop=True), replay.event_name, len(replay.stations)
 
 
+@st.cache_data(show_spinner="Loading rainfall for that day…")
+def day_features(day_iso: str) -> replay_days.DayView:
+    return replay_days.day_view(date.fromisoformat(day_iso))
+
+
+@st.cache_data
+def store_range() -> tuple[date, date]:
+    return replay_days.store_date_range()
+
+
+@st.cache_data
+def flood_events() -> list[FloodEvent]:
+    try:
+        return load_flood_events()
+    except (FileNotFoundError, ValueError):
+        return []
+
+
+def _pick_day(day: date) -> None:
+    st.session_state["replay_date"] = day
+
+
 @st.cache_data(ttl=300, show_spinner="Fetching live rainfall from data.gov.sg…")
 def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     """Latest zone features from live data, or (None, 0, error message)."""
@@ -124,6 +151,8 @@ selected_zone = st.sidebar.selectbox(
 )
 
 # --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
+replay_warning: str | None = None
+day_events: list[FloodEvent] | None = None  # reported floods for the replayed day
 if mode == "Live Feed":
     features, total_stations, live_error = live_features()
     if features is None:
@@ -146,6 +175,63 @@ if mode == "Live Feed":
         f"Rolling features use the last {settings.live_history_hours:g} h of live readings, so the "
         "72-hour wet-ground index is understated."
     )
+elif replay_days.store_available():
+    first_day, last_day = store_range()
+    st.session_state.setdefault("replay_date", replay_days.PINNED_STORM)
+    replay_day = st.sidebar.date_input(
+        "Replay date (SGT)",
+        key="replay_date",
+        min_value=first_day,
+        max_value=last_day,
+        format="DD/MM/YYYY",
+        help=f"Any day with NEA gauge readings, {first_day:%d %b %Y} to {last_day:%d %b %Y}.",
+    )
+    st.sidebar.caption("Major storms (days with the most reported floods):")
+    for storm_day, label in replay_days.featured_storms(flood_events()):
+        st.sidebar.button(
+            label,
+            key=f"storm-{storm_day}",
+            on_click=_pick_day,
+            args=(storm_day,),
+            width="stretch",
+            type="primary" if storm_day == replay_day else "secondary",
+        )
+    view = day_features(replay_day.isoformat())
+    if view.features.empty:
+        st.title("🌊 FloodSense Intelligence Center")
+        st.warning(
+            f"NEA has no rain-gauge readings for {replay_day:%d %b %Y}. It is one of the gaps in "
+            "NEA's record, so there is nothing to replay. Missing data is not shown as dry. "
+            "Pick another date.",
+            icon=":material/cloud_off:",
+        )
+        st.stop()
+    table, total_stations = view.features, view.total_stations
+    times = {f"{t:%H:%M}": t for t in sorted(table["timestamp"].unique())}
+    default = (
+        REPLAY_DEFAULT_TIME
+        if replay_day == replay_days.PINNED_STORM and REPLAY_DEFAULT_TIME in times
+        else f"{replay_days.default_time(table):%H:%M}"
+    )
+    chosen = st.sidebar.select_slider(
+        f"Replay time (SGT, {replay_day:%d %b %Y})",
+        options=list(times),
+        value=default,
+        key=f"replay-time-{replay_day}",
+        help="Opens at the day's heaviest island-wide 30-minute rain.",
+    )
+    view_time = times[chosen]
+    features = table[table["timestamp"] == view_time].reset_index(drop=True)
+    status_line = (
+        f":material/history: **Replay** • NEA gauge readings • `{view_time:%d %b %Y %H:%M} SGT`"
+    )
+    history_note = "Features include the 72 hours of real readings before the day."
+    if view.step_share < replay_days.SPARSE_SHARE:
+        replay_warning = (
+            f"NEA's record for this day is patchy: only {view.step_share:.0%} of 5-minute steps "
+            "have any reading. Gaps are left as gaps, so rainfall may be understated."
+        )
+    day_events = replay_days.events_on(replay_day, flood_events())
 else:
     table, event_name, total_stations = replay_features(str(settings.replay_file))
     times = {f"{t:%H:%M}": t for t in sorted(table["timestamp"].unique())}
@@ -153,12 +239,14 @@ else:
         "Replay time (SGT, 17 Apr 2021)",
         options=list(times),
         value=REPLAY_DEFAULT_TIME if REPLAY_DEFAULT_TIME in times else next(iter(times)),
-        help="Real NEA readings. Rain began around 11:30 and peaked island-wide around 12:15.",
+        help="Real NEA readings. The rainfall store is not available here, so only this storm "
+        "can be replayed.",
     )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
     status_line = f":material/history: **Replay** • {event_name} • `{view_time:%d %b %Y %H:%M} SGT`"
     history_note = "Features include the 72 hours of real readings before the replay window."
+    day_events = replay_days.events_on(replay_days.PINNED_STORM, flood_events())
 
 df_results = score_zone_features(features, model).merge(ZONE_META, on="ura_planning_area")
 df_results["zone"] = df_results["ura_planning_area"]
@@ -167,6 +255,8 @@ reporting_stations = int(features["reporting_stations"].iloc[0])
 # --- HEADER & KPIs -------------------------------------------------------------------------
 st.title("🌊 FloodSense Intelligence Center")
 st.markdown(status_line)
+if replay_warning:
+    st.warning(replay_warning, icon=":material/warning:")
 
 high_risk_count = int((df_results["risk_tier"] == "High").sum())
 mod_risk_count = int((df_results["risk_tier"] == "Moderate").sum())
@@ -309,10 +399,27 @@ context_col, status_col = st.columns(2)
 
 with context_col, st.container(border=True):
     st.subheader(":material/info: Context")
+    if day_events is not None:
+        if day_events:
+            lines = []
+            for e in day_events:
+                when = (
+                    "time not reported"
+                    if e.time_precision == "day_only"
+                    else f"{e.timestamp_start:%H:%M}"
+                    + ("" if e.time_precision == "exact" else " (approx.)")
+                )
+                lines.append(
+                    f"- **{when}** · {e.ura_planning_area.title()}: {e.location_raw} "
+                    f"([{e.source_name}]({e.source_url}))"
+                )
+            st.markdown("**Reported floods this day:**\n" + "\n".join(lines))
+        else:
+            st.markdown(
+                "**Reported floods this day:** none in our 66 sourced events. Many floods are "
+                "never reported, so this doesn't mean none happened."
+            )
     st.markdown(
-        "- **17 Apr 2021:** 161.4 mm fell over western Singapore between 12:25 and 15:25; "
-        "Dunearn and Bukit Timah Roads flooded. "
-        "([PUB via Mothership](https://mothership.sg/2021/04/singapore-floods-april-17/))\n"
         "- **Flood-prone land:** about 3,200 ha in the 1970s, under 25 ha by 2025. "
         "([MSE, 4 Feb 2025](https://www.mse.gov.sg/latest-news/oral-reply-on-drainage-improvement-feb2025/))\n"
         "- **PUB monitoring:** more than 1,000 water-level sensors and over 500 CCTV cameras. "

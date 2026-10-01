@@ -1,6 +1,6 @@
 # FloodSense
 
-FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning areas, one hour ahead. It ingests 5-minute NEA rainfall gauge readings from data.gov.sg, interpolates them to planning areas with inverse-distance weighting, derives rainfall-accumulation and storm-rarity features, and scores each zone with a classifier. A Streamlit dashboard shows the result as a risk map, with a replay of the 17 April 2021 western Singapore storm. Built for the DAISI Challenge 2026, Track B2.
+FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning areas, one hour ahead. It ingests 5-minute NEA rainfall gauge readings from data.gov.sg, interpolates them to planning areas with inverse-distance weighting, derives rainfall-accumulation and storm-rarity features, and scores each zone with a classifier. A Streamlit dashboard shows the result as a risk map, live or replayed for any day since 2017, with the major reported storms one click away. Built for the DAISI Challenge 2026, Track B2.
 
 > **Status: prototype.** The bundled model (`models/champion_model.joblib`) was trained on **synthetic** rainfall and labels, so its reported metrics are not meaningful and must not be read as real-world skill. Training on real historical data is in progress: the data work is specified in [docs/phase3-handoff.md](docs/phase3-handoff.md), with acceptance tests in `tests/test_phase3_contract.py`.
 
@@ -33,15 +33,17 @@ On macOS, LightGBM needs OpenMP (`brew install libomp`).
 src/floodsense/
   app/          Streamlit dashboard
   common/       Pydantic schemas and central config (config.py)
-  data/         Historical replay fetcher and synthetic dataset generator
+  data/         Rainfall store (build and load), sourced flood events, replay files
+  serving/      Pandas core shared by the app and the Databricks pipeline
   features/     Rolling-rainfall features, storm rarity, ground-truth labels
   ingestion/    NEA rainfall poller
   models/       Training and evaluation
   spatial/      Station and planning-area geometry, IDW interpolation
 tests/          pytest suite (unit, integration, e2e)
 models/         Bundled demo model and metadata
+data/raw/rainfall/  NEA 5-minute rainfall store, 2017 onward (~18 MB Parquet, committed)
 data/replay/    Real NEA readings for the 17 April 2021 storm (with 72 h warm-up)
-data/reference/ Snapshot of NEA rainfall-station metadata from data.gov.sg
+data/reference/ Station snapshot, URA planning-area polygons, sourced flood events
 databricks/     Lakeflow pipeline for Databricks deployment
 docs/           Supporting documents
 ```
@@ -53,7 +55,10 @@ Configuration (risk thresholds, feature columns, timing constants, API URLs, pat
 - **Live mode** calls the data.gov.sg real-time rainfall API (v2). Anonymous use is rate-limited to a
   few calls per ~10 s; set `FLOODSENSE_DATA_GOV_API_KEY` to use a key. If the API is unavailable the
   app says so and shows nothing. It never substitutes simulated rain.
-- **Replay mode** uses `data/replay/2021-04-17_western_storm.json`: real 5-minute readings from
+- **Replay mode** replays any day in the committed rainfall store (`data/raw/rainfall/`, built by
+  `floodsense.data.build_rainfall_store`; see docs/phase3-handoff.md). Pick a date, or one of the
+  storms with the most reported floods. Days missing from NEA's record are flagged, never shown as
+  dry. Without the store it falls back to `data/replay/2021-04-17_western_storm.json`: real 5-minute readings from
   11:00 to 18:00 SGT on 17 April 2021, plus the 72 hours before, so rolling and wet-ground features
   are fully formed. To rebuild it, or build another storm:
 

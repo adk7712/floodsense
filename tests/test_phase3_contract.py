@@ -115,6 +115,10 @@ def test_every_year_is_densely_covered(daily_totals):
 
 
 @needs_rainfall
+@pytest.mark.skipif(
+    not (settings.rainfall_dir / "manifest.json").exists(),
+    reason="freshness is checked where the store is built (the committed copy is a snapshot)",
+)
 def test_the_record_reaches_the_present(daily_totals):
     last = max(_year(daily_totals, _now().year).index.get_level_values("day"))
     assert (_now().date() - last).days <= 31, f"store ends {last}; run the backfill"

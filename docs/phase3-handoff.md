@@ -9,7 +9,7 @@
 1. **Never fabricate data.** No synthetic fallbacks, no random or zero values when a download fails, no placeholder rows, no copying one period into another. If data is missing, fail loudly or leave a gap.
 2. **Nothing hand-typed when a source exists.** Coordinates, boundaries and events come from a file or API, and the code that produced them is in the repo.
 3. **Every flood event has a `source_url` someone has opened**, plus a quoted sentence from it. If an event can't be sourced, drop it.
-4. **Raw data stays out of git.** `data/raw/` is gitignored; small reference files in `data/reference/` are committed.
+4. **Raw data stays out of git, except the finished store.** The downloaded CSVs, sightings and manifest under `data/raw/` stay local. The converted rainfall store (`data/raw/rainfall/readings/` and `stations.parquet`, ~18 MB) is committed so the app can replay any day without a rebuild. Small reference files in `data/reference/` are committed.
 5. **Timestamps are timezone-aware Singapore time** (`Asia/Singapore`). Use `floodsense.common.timeutil.to_sgt`.
 
 **Why the rules are this strict:** a first attempt at this phase passed an earlier, weaker version of the contract tests with a store that held one copied storm plus zero-rain filler, and an event list whose links mostly returned 404 or redirected to a news site's home page. The tests now check what the data *contains*, and the events need a human sign-off.

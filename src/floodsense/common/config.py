@@ -138,7 +138,7 @@ class Settings(BaseSettings):
     # Phase 3 data products (see docs/phase3-handoff.md)
     @property
     def rainfall_dir(self) -> Path:
-        """Historical station rainfall store. Local only (gitignored)."""
+        """Historical station rainfall store (readings and stations committed; raw downloads local)."""
         return self.root_dir / "data" / "raw" / "rainfall"
 
     @property
