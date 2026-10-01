@@ -133,11 +133,13 @@ scikit-learn==1.9.1
     #   sklearn-compat
 scipy==1.17.1 ; python_full_version < '3.12'
     # via
+    #   floodsense
     #   imbalanced-learn
     #   lightgbm
     #   scikit-learn
 scipy==1.18.1 ; python_full_version >= '3.12'
     # via
+    #   floodsense
     #   imbalanced-learn
     #   lightgbm
     #   scikit-learn

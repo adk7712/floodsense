@@ -1,26 +1,56 @@
 """
 FloodSense - Feature Engineering & Storm Rarity Engine.
-Implements:
-1. Multi-scale rolling accumulations (15m, 30m, 60m, 120m).
-2. 72-hour antecedent soil moisture decay factor (half-life = 24 hours).
-3. Extreme-value storm rarity & return period quantile estimation per zone.
-4. PUB monitored bias correction flag.
-5. Zero-rain stream pruning optimization (>85% data reduction).
+
+Turns per-zone 5-minute rainfall into the model's feature table, fully vectorised
+(no Python loop over rows; the only Python loop is over the planning areas):
+
+1. Rolling rainfall accumulations over 15, 30, 60 and 120 minutes (3/6/12/24 rows). Windows are
+   counted in rows within each zone and are partial at a zone's start.
+2. 72-hour antecedent rainfall decay (half-life = 24 hours), an exponentially weighted running sum
+   computed with a linear filter.
+3. Storm rarity score and return period per zone, interpolated from empirical 30-minute rainfall
+   quantiles (see ``StormRarityEstimator``).
+4. PUB monitored flag.
+5. Optional pruning of dry rows (no rain in the last 120 minutes and negligible antecedent decay).
+
+Features are returned unrounded; rounding is a display concern. The only rounded comparison is the
+pruning decision, which uses 2 dp so that the set of kept rows is unchanged.
 """
 
 import math
 
 import numpy as np
 import pandas as pd
+from scipy.signal import lfilter
 
 from floodsense.common.config import settings
-from floodsense.common.schemas import ZoneFeatureVector, ZoneRainfall
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 # Half-life of 24 hours (288 five-minute intervals), derived from config
 HALF_LIFE_STEPS = settings.decay_half_life_hours * 60.0 / settings.step_minutes
 DECAY_LAMBDA_PER_STEP = math.log(2.0) / HALF_LIFE_STEPS  # ~0.002407 per 5-min step
 DECAY_FACTOR_PER_STEP = math.exp(-DECAY_LAMBDA_PER_STEP)  # ~0.997596
+
+# Rolling-window lengths in rows (15/30/60/120 minutes at 5-minute steps)
+WINDOW_ROWS = {"rain_15m": 3, "rain_30m": 6, "rain_60m": 12, "rain_120m": 24}
+
+# Quantile levels of the fitted rainfall distribution, and the return period (years) anchored at each
+QUANTILE_LEVELS = np.array([0.50, 0.80, 0.95, 0.98, 0.995, 0.999])
+RETURN_PERIOD_ANCHORS = np.array([0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
+
+FEATURE_COLUMNS = [
+    "ura_planning_area",
+    "timestamp",
+    "rain_5m",
+    "rain_15m",
+    "rain_30m",
+    "rain_60m",
+    "rain_120m",
+    "rain_decay_72h",
+    "storm_rarity_score",
+    "return_period_years",
+    "pub_monitored",
+]
 
 
 class StormRarityEstimator:
@@ -61,97 +91,50 @@ class StormRarityEstimator:
                 q_vals = np.quantile(active_bursts, [0.50, 0.80, 0.95, 0.98, 0.995, 0.999])
                 self.zone_quantiles[zone] = q_vals
 
+    def score_array(self, zone: str, rain_30m: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Vectorised storm rarity score [0.0, 1.0] and return period in years (unrounded).
+
+        - rain <= 0.1 mm: (0, 0)
+        - below the first quantile: score scales linearly to 0.5, return period 0.1
+        - between the first and last quantile: piecewise-linear interpolation of the score on
+          the quantile levels and of the return period on the anchors
+        - at or above the last quantile: score 1.0, return period grows linearly beyond 10 years
+        """
+        r = np.asarray(rain_30m, dtype=np.float64)
+        q = np.asarray(self.zone_quantiles.get(zone, self.default_quantiles), dtype=np.float64)
+
+        # np.interp is continuous, so r == q[i] gives exactly the anchor value at i.
+        score = np.interp(r, q, QUANTILE_LEVELS)
+        rp = np.interp(r, q, RETURN_PERIOD_ANCHORS)
+
+        below = r < q[0]
+        score = np.where(below, 0.5 * r / q[0], score)
+        rp = np.where(below, 0.1, rp)
+
+        above = r >= q[-1]
+        score = np.where(above, 1.0, score)
+        rp = np.where(above, 10.0 + 20.0 * (r - q[-1]) / max(1.0, float(q[-1])), rp)
+
+        quiet = r <= 0.1
+        return np.where(quiet, 0.0, score), np.where(quiet, 0.0, rp)
+
     def compute_rarity_and_return_period(self, zone: str, rain_30m: float) -> tuple[float, float]:
         """
-        Calculates storm rarity score [0.0, 1.0] and estimated return period in years.
+        Calculates storm rarity score [0.0, 1.0] and estimated return period in years,
+        rounded for display (4 dp and 2 dp). See ``score_array`` for the unrounded batch version.
         """
-        if rain_30m <= 0.1:
-            return 0.0, 0.0
-
-        quantiles = self.zone_quantiles.get(zone, self.default_quantiles)
-        # Empirical quantile interpolation
-        if rain_30m < quantiles[0]:
-            score = 0.5 * (rain_30m / quantiles[0])
-            return_period = 0.1
-        elif rain_30m >= quantiles[-1]:
-            score = 1.0
-            excess = (rain_30m - quantiles[-1]) / max(1.0, quantiles[-1])
-            return_period = 10.0 + excess * 20.0
-        else:
-            # Interpolate within quantiles
-            idx = np.searchsorted(quantiles, rain_30m)
-            base_p = [0.50, 0.80, 0.95, 0.98, 0.995, 0.999]
-            p_low = base_p[idx - 1]
-            p_high = base_p[idx]
-            q_low = quantiles[idx - 1]
-            q_high = quantiles[idx]
-            frac = (rain_30m - q_low) / (q_high - q_low)
-            score = p_low + frac * (p_high - p_low)
-
-            # Map percentile to return period in years
-            # p=0.80 ~ 0.5yr, p=0.95 ~ 1yr, p=0.98 ~ 2yr, p=0.995 ~ 5yr, p=0.999 ~ 10yr
-            rp_anchors = [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
-            return_period = rp_anchors[idx - 1] + frac * (rp_anchors[idx] - rp_anchors[idx - 1])
-
-        return round(float(score), 4), round(float(return_period), 2)
+        score, rp = self.score_array(zone, np.array([rain_30m], dtype=np.float64))
+        return round(float(score[0]), 4), round(float(rp[0]), 2)
 
 
 class FeaturePipeline:
     """
-    Stateful and batch feature generation for FloodSense.
+    Batch feature generation for FloodSense.
     """
 
     def __init__(self):
         self.rarity_estimator = StormRarityEstimator()
-        # Per-zone state tracking for live streaming: decay state and rolling buffers
-        self.zone_decay_state: dict[str, float] = {z: 0.0 for z in URA_PLANNING_AREAS}
-        self.zone_rolling_buffer: dict[str, list[float]] = {z: [] for z in URA_PLANNING_AREAS}
-
-    def update_streaming_reading(self, reading: ZoneRainfall) -> ZoneFeatureVector:
-        """
-        Process a single incoming 5-minute zone rainfall reading in real-time.
-        Maintains $O(1)$ memory and compute efficiency.
-        """
-        zone = reading.ura_planning_area
-        rain_5m = float(reading.rainfall_mm)
-
-        # Update 72h exponential decay state recursively: R_decay(t) = R(t) + factor * R_decay(t-1)
-        prev_decay = self.zone_decay_state.get(zone, 0.0)
-        curr_decay = round(rain_5m + DECAY_FACTOR_PER_STEP * prev_decay, 2)
-        self.zone_decay_state[zone] = curr_decay
-
-        # Update rolling buffer (max 24 steps = 120 min)
-        buf = self.zone_rolling_buffer.setdefault(zone, [])
-        buf.append(rain_5m)
-        if len(buf) > 24:
-            buf.pop(0)
-
-        # Compute rolling window sums
-        rain_15m = round(sum(buf[-3:]), 2)
-        rain_30m = round(sum(buf[-6:]), 2)
-        rain_60m = round(sum(buf[-12:]), 2)
-        rain_120m = round(sum(buf[-24:]), 2)
-
-        # Compute storm rarity & return period
-        rarity_score, return_period = self.rarity_estimator.compute_rarity_and_return_period(
-            zone, rain_30m
-        )
-
-        pub_mon = URA_PLANNING_AREAS.get(zone, {}).get("pub_monitored", 0)
-
-        return ZoneFeatureVector(
-            ura_planning_area=zone,
-            timestamp=reading.timestamp,
-            rain_5m=rain_5m,
-            rain_15m=rain_15m,
-            rain_30m=rain_30m,
-            rain_60m=rain_60m,
-            rain_120m=rain_120m,
-            rain_decay_72h=curr_decay,
-            storm_rarity_score=rarity_score,
-            return_period_years=return_period,
-            pub_monitored=pub_mon,
-        )
 
     def process_batch_dataframe(
         self, df: pd.DataFrame, prune_zero_rain: bool = True
@@ -162,59 +145,61 @@ class FeaturePipeline:
 
         Rolling windows are counted in rows, so each zone's rows must be contiguous 5-minute
         steps (see ``floodsense.features.zone_features`` for building such a grid).
+
+        Features are not rounded. With ``prune_zero_rain`` a row is dropped when its 120-minute
+        rain rounds to 0.00 mm and its decay rounds to below 1.00 (the comparison is rounded; the
+        returned values are not).
         """
         df = df.sort_values(by=["ura_planning_area", "timestamp"]).reset_index(drop=True)
 
-        feature_records = []
-        for zone, group in df.groupby("ura_planning_area"):
-            pub_mon = URA_PLANNING_AREAS.get(zone, {}).get("pub_monitored", 0)
-            group = group.copy().reset_index(drop=True)
-            rain_arr = group["rainfall_mm"].values
-            # tolist() keeps pandas Timestamps (and their timezone); .values would drop it.
-            ts_arr = group["timestamp"].tolist()
+        zone_codes, zone_names = pd.factorize(df["ura_planning_area"], sort=True)
+        rain = df["rainfall_mm"].to_numpy(dtype=np.float64)
+        n_rows = len(rain)
 
-            n = len(rain_arr)
-            # Compute rolling sums via convolution
-            w15 = np.convolve(rain_arr, np.ones(3), mode="full")[:n]
-            w30 = np.convolve(rain_arr, np.ones(6), mode="full")[:n]
-            w60 = np.convolve(rain_arr, np.ones(12), mode="full")[:n]
-            w120 = np.convolve(rain_arr, np.ones(24), mode="full")[:n]
+        out = {col: np.empty(n_rows) for col in WINDOW_ROWS}
+        decay = np.empty(n_rows)
+        score = np.empty(n_rows)
+        rp = np.empty(n_rows)
 
-            # Compute recursive 72h decay
-            decay_arr = np.zeros(n, dtype=np.float64)
-            running_decay = 0.0
-            for k in range(n):
-                running_decay = rain_arr[k] + DECAY_FACTOR_PER_STEP * running_decay
-                decay_arr[k] = running_decay
+        # Rows are sorted by zone, so each zone is one contiguous slice.
+        bounds = np.flatnonzero(np.diff(zone_codes)) + 1
+        starts = np.concatenate(([0], bounds))
+        stops = np.concatenate((bounds, [n_rows]))
+        for zone, lo, hi in zip(zone_names, starts, stops, strict=True):
+            zone_rain = rain[lo:hi]
+            n = hi - lo
+            for col, window in WINDOW_ROWS.items():
+                # Full convolution truncated to n gives partial windows at the zone's start.
+                out[col][lo:hi] = np.convolve(zone_rain, np.ones(window), mode="full")[:n]
+            decay[lo:hi] = lfilter([1.0], [1.0, -DECAY_FACTOR_PER_STEP], zone_rain)
+            score[lo:hi], rp[lo:hi] = self.rarity_estimator.score_array(
+                zone, out["rain_30m"][lo:hi]
+            )
 
-            for k in range(n):
-                r5 = float(rain_arr[k])
-                r15 = float(round(w15[k], 2))
-                r30 = float(round(w30[k], 2))
-                r60 = float(round(w60[k], 2))
-                r120 = float(round(w120[k], 2))
-                dec = float(round(decay_arr[k], 2))
+        pub_by_zone = np.array(
+            [URA_PLANNING_AREAS.get(z, {}).get("pub_monitored", 0) for z in zone_names],
+            dtype=np.int64,
+        )
 
-                # Zero-rain optimization: prune quiet dry periods unless antecedent decay exists
-                if prune_zero_rain and r120 == 0.0 and dec < 1.0:
-                    continue
+        features = pd.DataFrame(
+            {
+                "ura_planning_area": df["ura_planning_area"],
+                "timestamp": df["timestamp"],
+                "rain_5m": rain,
+                "rain_15m": out["rain_15m"],
+                "rain_30m": out["rain_30m"],
+                "rain_60m": out["rain_60m"],
+                "rain_120m": out["rain_120m"],
+                "rain_decay_72h": decay,
+                "storm_rarity_score": score,
+                "return_period_years": rp,
+                "pub_monitored": pub_by_zone[zone_codes],
+            }
+        )
 
-                score, rp = self.rarity_estimator.compute_rarity_and_return_period(zone, r30)
+        if prune_zero_rain:
+            # Zero-rain pruning: drop quiet dry periods unless antecedent decay exists.
+            quiet = (np.round(out["rain_120m"], 2) == 0.0) & (np.round(decay, 2) < 1.0)
+            features = features[~quiet].reset_index(drop=True)
 
-                feature_records.append(
-                    {
-                        "ura_planning_area": zone,
-                        "timestamp": ts_arr[k],
-                        "rain_5m": r5,
-                        "rain_15m": r15,
-                        "rain_30m": r30,
-                        "rain_60m": r60,
-                        "rain_120m": r120,
-                        "rain_decay_72h": dec,
-                        "storm_rarity_score": score,
-                        "return_period_years": rp,
-                        "pub_monitored": pub_mon,
-                    }
-                )
-
-        return pd.DataFrame(feature_records)
+        return features[FEATURE_COLUMNS]
