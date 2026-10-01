@@ -185,3 +185,14 @@ def test_cli_heuristic(tmp_path, capsys):
 def test_cli_rejects_bad_event(tmp_path):
     with pytest.raises(SystemExit):
         main(["--model", "heuristic", "--event", "nonsense", "--out", str(tmp_path)])
+
+
+def test_rows_without_active_rain_score_zero():
+    """The active-rain gate applies to models too, matching what the feature store keeps."""
+
+    class AlwaysHigh:
+        def predict_proba(self, features):
+            return np.ones(len(features))
+
+    features = pd.DataFrame({"rain_30m": [0.0, 0.0, 5.0], "rain_120m": [0.0, 0.19, 5.0]})
+    assert predict_probabilities(features, AlwaysHigh()).tolist() == [0.0, 0.0, 1.0]

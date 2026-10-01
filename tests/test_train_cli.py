@@ -54,7 +54,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, snapshots: list[Any]) -> None:
 
 
 def _quiet(frame: pd.DataFrame) -> pd.Series:
-    return (np.round(frame["rain_120m"], 2) == 0.0) & (np.round(frame["rain_decay_72h"], 2) < 1.0)
+    return frame["rain_120m"] < settings.active_rain_min_mm_120m
 
 
 @pytest.fixture(scope="module")
@@ -162,13 +162,15 @@ def test_station_metadata_union_prefers_later_snapshots(replay):
     assert build_features._station_union([b, a])[sid].latitude == a.stations[sid].latitude
 
 
-def test_build_without_a_rainfall_store_fails_with_a_pointer(tmp_path):
+def test_build_without_a_rainfall_store_fails_with_a_pointer(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "root_dir", tmp_path)  # no data/raw/rainfall here
     with pytest.raises(DataUnavailableError, match=r"docs/phase3-handoff\.md"):
-        build_feature_store(2021, 2021, tmp_path)  # the stubs raise NotImplementedError
+        build_feature_store(2021, 2021, tmp_path)
     assert not list(tmp_path.rglob("*.parquet"))
 
 
-def test_build_cli_reports_missing_store(tmp_path):
+def test_build_cli_reports_missing_store(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "root_dir", tmp_path)
     assert (
         build_features.main(
             ["--start-year", "2021", "--end-year", "2021", "--out-dir", str(tmp_path)]

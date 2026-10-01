@@ -32,10 +32,20 @@ def risk_tier(probability: float, thresholds: dict[str, float] | None = None) ->
 
 
 def predict_probabilities(features: pd.DataFrame, model: Any | None) -> np.ndarray:
-    """Model probabilities (``model.predict_proba(features_df)``) or the rainfall heuristic."""
+    """
+    Model probabilities (``model.predict_proba(features_df)``) or the rainfall heuristic.
+
+    Rows failing the active-rain gate (``settings.active_rain_min_mm_120m``) score 0: the feature
+    store leaves them out of training, so the model has never seen them.
+    """
     if model is not None:
-        return np.asarray(model.predict_proba(features), dtype=float)
-    return np.clip(features["rain_30m"].to_numpy(dtype=float) / HEURISTIC_FULL_SCALE_MM_30M, 0, 1)
+        probs = np.asarray(model.predict_proba(features), dtype=float)
+    else:
+        probs = np.clip(
+            features["rain_30m"].to_numpy(dtype=float) / HEURISTIC_FULL_SCALE_MM_30M, 0, 1
+        )
+    active = features["rain_120m"].to_numpy(dtype=float) >= settings.active_rain_min_mm_120m
+    return np.where(active, probs, 0.0)
 
 
 def score_zone_features(features: pd.DataFrame, model: Any | None) -> pd.DataFrame:

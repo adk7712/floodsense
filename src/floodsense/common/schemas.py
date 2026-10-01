@@ -85,10 +85,16 @@ class ZoneRainfall(BaseModel):
 
 
 class FloodEvent(BaseModel):
-    """Ground truth flood event extracted from official PUB/LTA alerts or news reports."""
+    """A flood event from a cited source (see ``floodsense.data.flood_events``) or a parsed alert."""
 
-    timestamp_start: datetime = Field(..., description="Start timestamp of the flash flood event")
+    event_id: str = Field(
+        default="", description="Unique id, e.g. '2021-04-17-bukit-timah-dunearn'"
+    )
+    timestamp_start: datetime = Field(..., description="When flooding began, normalised to SGT")
     timestamp_end: datetime | None = Field(None, description="End/clearance timestamp if available")
+    time_precision: Literal["exact", "approx_15min", "approx_hour", "day_only"] = Field(
+        default="approx_hour", description="How precisely the source gives the start time"
+    )
     location_raw: str = Field(
         ..., description="Raw text location, e.g. 'Dunearn Road near Sime Darby Centre'"
     )
@@ -98,12 +104,27 @@ class FloodEvent(BaseModel):
     severity: Literal["Minor", "Moderate", "Severe"] = Field(
         ..., description="Severity classification"
     )
-    source_reference: str = Field(
-        ..., description="Source citation, e.g. 'PUB Flash Flood Warning Twitter / Telegram'"
+    cause: Literal["rain", "rain_tide", "other"] = Field(default="rain")
+    source_url: str = Field(default="", description="Article / PUB post the event was taken from")
+    source_name: str = Field(default="", description="e.g. 'PUB press release', 'CNA'")
+    evidence_quote: str = Field(
+        default="", description="Sentence from the source naming place and time"
     )
+    verified_by: str = Field(default="", description="Who opened the source and confirmed the row")
+    notes: str = Field(default="")
     geocoding_confidence: float = Field(
-        ..., ge=0.0, le=1.0, description="Confidence score of polygon mapping"
+        default=1.0, ge=0.0, le=1.0, description="Confidence score of polygon mapping"
     )
+
+    @field_validator("timestamp_start")
+    @classmethod
+    def normalise_start(cls, v: datetime) -> datetime:
+        return to_sgt(v)
+
+    @field_validator("timestamp_end")
+    @classmethod
+    def normalise_end(cls, v: datetime | None) -> datetime | None:
+        return to_sgt(v) if v is not None else None
 
 
 class ZoneFeatureVector(BaseModel):

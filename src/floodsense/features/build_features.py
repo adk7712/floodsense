@@ -8,8 +8,8 @@ one Parquet file per calendar month (Singapore time):
 
 Each month is computed from its own snapshots plus a 72-hour warm-up before the month starts, so
 the wet-ground decay feature is continuous across month boundaries; the warm-up rows are dropped
-before writing. Dry rows are pruned (see ``prune_dry_rows``) to keep the store small; the labelling
-and evaluation code treats absent rows as "no alert".
+before writing. Rows failing the active-rain gate are pruned (see ``prune_dry_rows``); the labelling
+and evaluation code treats absent rows as "no alert", which is what the scorer would give them.
 
     python -m floodsense.features.build_features --start-year 2017 --end-year 2026
 
@@ -22,7 +22,6 @@ from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from floodsense.common.config import settings
@@ -45,14 +44,15 @@ def default_store_dir() -> Path:
 
 
 def prune_dry_rows(features: pd.DataFrame) -> pd.DataFrame:
-    """Drop quiet dry rows, mirroring ``FeaturePipeline.process_batch_dataframe(prune_zero_rain=
-    True)`` (feature_pipeline.py): 120-minute rain rounds to 0.00 mm and decay rounds to < 1.00.
-    The rule is mirrored here because the pipeline prunes before the warm-up rows can be dropped.
+    """Keep only rows that pass the active-rain gate (``settings.active_rain_min_mm_120m``).
+
+    The scoring layer (``floodsense.models.scoring.predict_probabilities``) gives gated rows a
+    probability of 0, so an absent row and a scored dry row mean the same thing: no alert. On real
+    data this keeps roughly a fifth of rows; the earlier "dry and decay < 1" rule kept nearly all
+    of them, because Singapore's 72-hour wetness rarely falls that low.
     """
-    quiet = (np.round(features["rain_120m"], 2) == 0.0) & (
-        np.round(features["rain_decay_72h"], 2) < 1.0
-    )
-    return features[~quiet].reset_index(drop=True)
+    active = features["rain_120m"].to_numpy(dtype=float) >= settings.active_rain_min_mm_120m
+    return features[active].reset_index(drop=True)
 
 
 def _month_bounds(year: int, month: int) -> tuple[pd.Timestamp, pd.Timestamp]:

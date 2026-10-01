@@ -1,11 +1,16 @@
 """
 Phase 3 acceptance contract (see docs/phase3-handoff.md).
 
-Phase 3 is done when every test here passes locally with the historical rainfall store present.
-Until then:
+Phase 3 is done when every test here passes locally with the historical rainfall store present,
+and ``pytest -m network tests/test_phase3_contract.py`` passes too. Until then:
 - rainfall-store tests SKIP when data/raw/rainfall/ is absent (it is gitignored, so CI always skips)
 - zone-polygon and flood-event tests XFAIL while their committed files are missing
 - calling a loader that still raises NotImplementedError counts as pending (xfail), not a failure
+
+The checks are deliberately about the *content* of the data, not just its shape: the first version
+of this contract was satisfied by a store holding one copied storm and empty zero-rain filler.
+Coverage, plausible annual totals, distinct years and a spot-check against the live API now make
+that impossible, and every event needs a source someone has opened and signed off.
 """
 
 import json
@@ -14,6 +19,7 @@ from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -22,6 +28,10 @@ from floodsense.data.replay import load_replay
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 PENDING = "Phase 3 deliverable pending (docs/phase3-handoff.md)"
+FIRST_YEAR = 2017
+STEPS_PER_DAY = 288
+# The API publishes 2 decimals; the bulk CSVs keep the gauges' 3 (e.g. 0.408 vs 0.41).
+API_ROUNDING_MM = 0.0051
 
 
 def call_or_pending(fn: Callable[..., Any], *args: Any) -> Any:
@@ -46,15 +56,98 @@ needs_rainfall = pytest.mark.skipif(
 )
 
 
+def _now() -> pd.Timestamp:
+    return pd.Timestamp.now(tz=settings.tzinfo)
+
+
+def _store_years() -> list[int]:
+    return list(range(FIRST_YEAR, _now().year + 1))
+
+
 @pytest.fixture(scope="module")
 def year_2021() -> pd.DataFrame:
-    return pd.read_parquet(settings.rainfall_readings_dir, filters=[("year", "=", 2021)])
+    return pd.read_parquet(settings.rainfall_readings_dir / "year=2021")
+
+
+@pytest.fixture(scope="module")
+def daily_totals() -> dict[int, pd.DataFrame]:
+    """Per year: station x day matrix of rainfall totals, plus each station's step coverage."""
+    out = {}
+    for year in _store_years():
+        path = settings.rainfall_readings_dir / f"year={year}"
+        if not path.exists():
+            continue
+        df = pd.read_parquet(path, columns=["station_id", "timestamp", "rainfall_mm"])
+        df["day"] = df["timestamp"].dt.tz_convert(settings.tzinfo).dt.date
+        out[year] = df.groupby(["station_id", "day"])["rainfall_mm"].agg(["sum", "size", "max"])
+    return out
+
+
+def _year(daily_totals: dict[int, pd.DataFrame], year: int) -> pd.DataFrame:
+    assert year in daily_totals, f"{year}: no readings in the store"
+    return daily_totals[year]
+
+
+def _year_days(year: int, totals: pd.DataFrame) -> int:
+    """Days in the year, or up to the last day present for the current, unfinished year."""
+    if year < _now().year:
+        return 366 if pd.Timestamp(year=year, month=12, day=31).dayofyear == 366 else 365
+    last = max(totals.index.get_level_values("day"))
+    return (pd.Timestamp(last) - pd.Timestamp(year=year, month=1, day=1)).days + 1
 
 
 @needs_rainfall
 def test_rainfall_partitions_cover_the_record():
     years = {int(p.name.split("=", 1)[1]) for p in settings.rainfall_readings_dir.glob("year=*")}
-    assert set(range(2017, 2027)) <= years, f"missing years: {set(range(2017, 2027)) - years}"
+    missing = set(_store_years()) - years
+    assert not missing, f"missing years: {sorted(missing)}"
+
+
+@needs_rainfall
+def test_every_year_is_densely_covered(daily_totals):
+    """At least 40 stations report >= 80% of the year's 5-minute steps (NEA runs ~60-70)."""
+    for year in _store_years():
+        totals = _year(daily_totals, year)
+        steps = totals["size"].groupby(level="station_id").sum()
+        coverage = steps / (_year_days(year, totals) * STEPS_PER_DAY)
+        dense = int((coverage >= 0.8).sum())
+        assert dense >= 40, f"{year}: only {dense} stations cover >= 80% of the year"
+
+
+@needs_rainfall
+def test_the_record_reaches_the_present(daily_totals):
+    last = max(_year(daily_totals, _now().year).index.get_level_values("day"))
+    assert (_now().date() - last).days <= 31, f"store ends {last}; run the backfill"
+
+
+@needs_rainfall
+def test_annual_rainfall_is_plausible(daily_totals):
+    """Singapore gets roughly 1,400-3,500 mm a year; wet days and intense bursts every year."""
+    for year in _store_years():
+        totals = _year(daily_totals, year)
+        if year == _now().year:
+            continue  # a partial year has no meaningful annual total
+        per_station = totals["sum"].groupby(level="station_id").sum()
+        steps = totals["size"].groupby(level="station_id").sum()
+        full = per_station[steps >= 0.9 * _year_days(year, totals) * STEPS_PER_DAY]
+        assert len(full) >= 20, f"{year}: too few full-coverage stations to judge"
+        assert 1000 <= full.median() <= 4500, f"{year}: median annual total {full.median():.0f} mm"
+        island = totals["sum"].groupby(level="day").mean()
+        wet_share = (island > 0.1).mean()
+        assert 0.25 <= wet_share <= 0.9, f"{year}: {wet_share:.0%} of days wet"
+        assert totals["max"].max() >= 10, f"{year}: no 5-minute burst of 10 mm or more"
+
+
+@needs_rainfall
+def test_years_are_not_copies_of_each_other(daily_totals):
+    island = {
+        y: t["sum"].groupby(level="day").mean().to_numpy()[:360] for y, t in daily_totals.items()
+    }
+    years = sorted(y for y, v in island.items() if len(v) == 360)
+    for i, a in enumerate(years):
+        for b in years[i + 1 :]:
+            corr = np.corrcoef(island[a], island[b])[0, 1]
+            assert corr < 0.9, f"{a} and {b} daily rainfall correlate at {corr:.2f}"
 
 
 @needs_rainfall
@@ -91,27 +184,53 @@ def test_every_station_with_readings_has_metadata(year_2021):
     assert not missing, f"stations with readings but no metadata: {sorted(missing)}"
 
 
+def _assert_same_readings(got: list, want: list, label: str) -> None:
+    assert [s.timestamp for s in got] == [s.timestamp for s in want], f"{label}: steps differ"
+    for g, w in zip(got, want, strict=True):
+        assert set(g.readings) == set(w.readings), (
+            f"{label} {g.timestamp}: station sets differ; "
+            f"only in store {sorted(set(g.readings) - set(w.readings))}, "
+            f"only in API {sorted(set(w.readings) - set(g.readings))}"
+        )
+        for sid, mm in w.readings.items():
+            assert g.readings[sid] == pytest.approx(mm, abs=API_ROUNDING_MM), f"{g.timestamp} {sid}"
+        assert set(g.readings) <= set(g.stations), "snapshot is missing station metadata"
+
+
 @needs_rainfall
 def test_store_matches_the_verified_replay(replay):
-    """The 17 Apr 2021 replay was fetched from the data.gov.sg API and verified; a correct loader
-    reproduces it exactly. Differences here mean the loader (or the source) is wrong."""
+    """The 17 Apr 2021 replay was fetched from the data.gov.sg API; the store must agree with it.
+    (Necessary, not sufficient: the coverage and network checks guard against a copied replay.)"""
     from floodsense.data.rainfall_store import load_snapshots
 
-    # The whole replay: 72 h warm-up (14-17 Apr) plus the storm window, ~950 five-minute steps.
     start, end = replay.snapshots[0].timestamp, replay.snapshots[-1].timestamp
     snaps = call_or_pending(load_snapshots, start, end)
-    expected = replay.snapshots
+    _assert_same_readings(snaps, replay.snapshots, "replay")
 
-    assert [s.timestamp for s in snaps] == [s.timestamp for s in expected]
-    for got, want in zip(snaps, expected, strict=True):
-        assert set(got.readings) == set(want.readings), (
-            f"{got.timestamp}: station sets differ; "
-            f"only in store {sorted(set(got.readings) - set(want.readings))}, "
-            f"only in API {sorted(set(want.readings) - set(got.readings))}"
+
+@needs_rainfall
+@pytest.mark.network
+def test_store_matches_the_live_api_on_random_days():
+    """Random evening windows across the record must match what the API serves today."""
+    from floodsense.data.rainfall_store import load_snapshots
+    from floodsense.ingestion.poller import NEAPoller
+
+    rng = np.random.default_rng(20260401)
+    poller = NEAPoller(max_attempts=4, timeout_sec=30)
+    last_day = _now().normalize() - pd.Timedelta(days=2)
+    span = (last_day - pd.Timestamp(f"{FIRST_YEAR}-01-01", tz=settings.tzinfo)).days
+    for offset in sorted(rng.choice(span, size=4, replace=False)):
+        day = pd.Timestamp(f"{FIRST_YEAR}-01-01", tz=settings.tzinfo) + pd.Timedelta(
+            days=int(offset)
         )
-        for sid, mm in want.readings.items():
-            assert got.readings[sid] == pytest.approx(mm, abs=1e-6), f"{got.timestamp} {sid}"
-        assert set(got.readings) <= set(got.stations), "snapshot is missing station metadata"
+        # Late evening: the API pages newest-first, so this needs one or two calls per day.
+        start = (day + pd.Timedelta(hours=22)).to_pydatetime()
+        end = (day + pd.Timedelta(hours=23, minutes=55)).to_pydatetime()
+        _assert_same_readings(
+            call_or_pending(load_snapshots, start, end),
+            poller.fetch_range(start, end),
+            str(day.date()),
+        )
 
 
 @needs_rainfall
@@ -173,30 +292,24 @@ def test_zone_reference_points_lie_inside_their_polygons(zone_polygons):
 # (c) Sourced flood events - data/reference/flood_events.csv (committed)
 # =============================================================================================
 
-EVENT_COLUMNS = {
-    "event_id",
-    "timestamp_start",
-    "timestamp_end",
-    "time_precision",
-    "location_raw",
-    "ura_planning_area",
-    "severity",
-    "cause",
-    "source_url",
-    "source_name",
-    "notes",
-}
+# Events need sources in every period the model is fitted or scored on.
+MIN_SIGNED_OFF = 20
+MIN_SIGNED_OFF_TEST_YEARS = 5
 
 
 @pytest.fixture(scope="module")
 def events_csv() -> pd.DataFrame:
     if not settings.flood_events_file.exists():
         pytest.xfail(f"{settings.flood_events_file.name} missing: {PENDING}")
-    return pd.read_csv(settings.flood_events_file, dtype=str, keep_default_na=False)
+    from floodsense.data.flood_events import read_events_csv
+
+    return read_events_csv()
 
 
 def test_events_have_the_agreed_columns(events_csv):
-    assert set(events_csv.columns) == EVENT_COLUMNS
+    from floodsense.data.flood_events import EVENT_COLUMNS
+
+    assert list(events_csv.columns) == EVENT_COLUMNS
     assert len(events_csv) > 0
 
 
@@ -204,6 +317,10 @@ def test_every_event_is_sourced(events_csv):
     bad = events_csv.loc[~events_csv["source_url"].str.match(r"^https?://\S+$"), "event_id"]
     assert bad.empty, f"events without a usable source_url: {list(bad)}"
     assert (events_csv["source_name"].str.strip() != "").all()
+    quoted = events_csv["evidence_quote"].str.strip().str.len() >= 20
+    assert quoted.all(), (
+        f"events without an evidence quote: {list(events_csv.loc[~quoted, 'event_id'])}"
+    )
 
 
 def test_event_fields_use_allowed_values(events_csv):
@@ -221,6 +338,7 @@ def test_event_times_are_sgt_and_within_the_rainfall_record(events_csv):
         start = pd.Timestamp(row["timestamp_start"])
         assert start.utcoffset() == timedelta(hours=8), f"{row['event_id']}: not SGT"
         assert pd.Timestamp("2017-01-01T00:00+08:00") <= start, f"{row['event_id']}: before 2017"
+        assert start <= pd.Timestamp.now(tz="Asia/Singapore"), f"{row['event_id']}: in the future"
         if row["timestamp_end"]:
             assert pd.Timestamp(row["timestamp_end"]) >= start, f"{row['event_id']}: ends early"
 
@@ -228,12 +346,50 @@ def test_event_times_are_sgt_and_within_the_rainfall_record(events_csv):
 def test_events_load_through_the_schema(events_csv):
     from floodsense.data.flood_events import load_flood_events
 
-    events = call_or_pending(load_flood_events)
+    events = call_or_pending(load_flood_events, None, True)
     assert len(events) == len(events_csv)
     for ev in events:
         assert ev.timestamp_start.utcoffset() == timedelta(hours=8)
-        assert getattr(ev, "source_url", "").startswith("http")
-        assert getattr(ev, "cause", None) in {"rain", "rain_tide", "other"}
+        assert ev.source_url.startswith("http")
+        assert ev.cause in {"rain", "rain_tide", "other"}
+
+
+def test_enough_events_are_signed_off(events_csv):
+    """A person has opened each training event's source and confirmed place and time."""
+    signed = events_csv[events_csv["verified_by"].str.strip() != ""]
+    years = pd.to_datetime(signed["timestamp_start"].str[:10]).dt.year
+    assert len(signed) >= MIN_SIGNED_OFF, (
+        f"{len(signed)} of {len(events_csv)} events signed off; need {MIN_SIGNED_OFF}"
+    )
+    in_test = int((years >= settings.test_start_year).sum())
+    assert in_test >= MIN_SIGNED_OFF_TEST_YEARS, (
+        f"{in_test} signed-off events from {settings.test_start_year} on; "
+        f"need {MIN_SIGNED_OFF_TEST_YEARS}"
+    )
+
+
+@pytest.mark.network
+def test_event_sources_resolve_to_the_article(events_csv):
+    """Each source opens (HTTP 200), is not a redirect to a home or search page, and mentions
+    the place. This is what caught the first event list: most links 404'd or bounced to /."""
+    import requests
+
+    headers = {"User-Agent": "Mozilla/5.0 (FloodSense source check)"}
+    failures = []
+    for _, row in events_csv.iterrows():
+        try:
+            resp = requests.get(row["source_url"], headers=headers, timeout=30)
+        except requests.RequestException as exc:
+            failures.append(f"{row['event_id']}: {exc.__class__.__name__}")
+            continue
+        path = requests.utils.urlparse(resp.url).path.strip("/")
+        if resp.status_code != 200 or not path or path.startswith(("search", "tag")):
+            failures.append(f"{row['event_id']}: {resp.status_code} -> {resp.url}")
+            continue
+        words = [w for w in re.findall(r"[A-Za-z]{4,}", row["location_raw"]) if w.lower() != "road"]
+        if words and not any(w.lower() in resp.text.lower() for w in words):
+            failures.append(f"{row['event_id']}: page never mentions {row['location_raw']!r}")
+    assert not failures, "\n".join(failures)
 
 
 def test_hand_typed_event_list_is_gone(events_csv):

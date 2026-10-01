@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     decay_half_life_hours: float = 24.0
     step_minutes: float = 5.0
     prediction_lead_time_minutes: int = 60
+    # "Active rain" gate: a zone with less than one gauge tip (0.2 mm) in the last 120 minutes is
+    # never scored above zero, and such rows are left out of the feature store. Training and
+    # serving share this rule, so dropping the rows changes no alert.
+    active_rain_min_mm_120m: float = 0.2
     timezone: str = "Asia/Singapore"
 
     # Training / evaluation (Phase 4). Years are calendar years in SGT.

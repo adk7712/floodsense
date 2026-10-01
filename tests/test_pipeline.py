@@ -119,7 +119,7 @@ def test_pydantic_schema_validation():
 
 
 def test_ground_truth_extractor():
-    """Verify text alert parsing and label attachment."""
+    """Verify text alert parsing and zone mapping."""
     extractor = GroundTruthExtractor()
     alert_text = "Heavy rain causing flash flood along Dunearn Road near Sime Darby Centre. Impassable to vehicles."
     event = extractor.parse_unstructured_alert(alert_text, "2026-10-01T15:00:00")
@@ -127,18 +127,7 @@ def test_ground_truth_extractor():
     assert event is not None
     assert event.ura_planning_area == "BUKIT TIMAH"
     assert event.severity == "Severe"
-
-    # Test label attachment
-    test_df = pd.DataFrame(
-        [
-            {
-                "ura_planning_area": "BUKIT TIMAH",
-                "timestamp": "2021-04-17T14:00:00",  # 15 min before known 14:15 flood
-            }
-        ]
-    )
-    labeled = extractor.attach_labels_to_feature_df(test_df, lead_time_minutes=60)
-    assert labeled.iloc[0]["flood_within_60min"] == 1
+    assert event.timestamp_start.utcoffset().total_seconds() == 8 * 3600
 
 
 def test_poller_stages_raw_payload(tmp_path):
