@@ -115,6 +115,20 @@ def _pick_day(day: date) -> None:
     st.session_state["replay_date"] = day
 
 
+def storm_buttons(selected: date) -> None:
+    """One-click buttons for the major reported storms (sidebar)."""
+    st.sidebar.caption("Major storms (days with the most reported floods):")
+    for storm_day, label in replay_days.featured_storms(flood_events()):
+        st.sidebar.button(
+            label,
+            key=f"storm-{storm_day}",
+            on_click=_pick_day,
+            args=(storm_day,),
+            width="stretch",
+            type="primary" if storm_day == selected else "secondary",
+        )
+
+
 @st.cache_data(ttl=300, show_spinner="Fetching live rainfall from data.gov.sg…")
 def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     """Latest zone features from live data, or (None, 0, error message)."""
@@ -135,11 +149,12 @@ model, model_caption = get_model()
 # --- SIDEBAR -------------------------------------------------------------------------------
 st.sidebar.markdown("### :material/water_damage: **FloodSense**")
 
+st.session_state.setdefault("mode", "Live Feed")
 mode = st.sidebar.segmented_control(
     "Mode",
     options=["Live Feed", "Replay Storm"],
-    default="Replay Storm",
-    help="Live readings from data.gov.sg, or a replay of the real 17 Apr 2021 storm readings.",
+    key="mode",
+    help="Live readings from data.gov.sg, or a replay of any past day's real readings.",
 )
 
 st.sidebar.markdown("---")
@@ -186,18 +201,9 @@ elif replay_days.store_available():
         format="DD/MM/YYYY",
         help=f"Any day with NEA gauge readings, {first_day:%d %b %Y} to {last_day:%d %b %Y}.",
     )
-    st.sidebar.caption("Major storms (days with the most reported floods):")
-    for storm_day, label in replay_days.featured_storms(flood_events()):
-        st.sidebar.button(
-            label,
-            key=f"storm-{storm_day}",
-            on_click=_pick_day,
-            args=(storm_day,),
-            width="stretch",
-            type="primary" if storm_day == replay_day else "secondary",
-        )
     view = day_features(replay_day.isoformat())
     if view.features.empty:
+        storm_buttons(replay_day)
         st.title("🌊 FloodSense Intelligence Center")
         st.warning(
             f"NEA has no rain-gauge readings for {replay_day:%d %b %Y}. It is one of the gaps in "
@@ -220,6 +226,7 @@ elif replay_days.store_available():
         key=f"replay-time-{replay_day}",
         help="Opens at the day's heaviest island-wide 30-minute rain.",
     )
+    storm_buttons(replay_day)
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
     status_line = (

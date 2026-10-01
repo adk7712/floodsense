@@ -21,6 +21,7 @@ APP_PATH = str(Path(__file__).parent.parent / "src" / "floodsense" / "app" / "st
 def test_exhaustive_replay_sweep():
     """Sweep the 17 Apr 2021 replay every 30 minutes and verify KPI invariants."""
     at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Replay Storm"  # the app opens in Live Feed
     at.run(timeout=60)
     assert not at.exception
 
@@ -42,6 +43,7 @@ def test_exhaustive_replay_sweep():
 def test_all_55_ura_zones_inspection():
     """Fuzz all 55 URA planning areas in the deep dive dropdown to ensure zero rendering exceptions."""
     at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Replay Storm"  # the app opens in Live Feed
     at.run(timeout=60)
     assert not at.exception
 

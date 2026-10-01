@@ -26,8 +26,10 @@ def offline(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
 
 
-def _app() -> AppTest:
+def _app(mode: str = "Replay Storm") -> AppTest:
+    """The app in ``mode`` (it opens in Live Feed by default; most tests replay real storms)."""
     at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = mode
     at.run(timeout=60)
     assert not at.exception
     return at
@@ -137,3 +139,20 @@ def test_without_the_store_the_recorded_storm_still_replays(monkeypatch):
     assert len(at.sidebar.date_input) == 0
     assert at.select_slider[0].value == "12:15"
     assert "Dunearn" in " ".join(md.value for md in at.markdown)
+
+
+def test_opens_in_live_mode_by_default(offline):
+    at = AppTest.from_file(APP_PATH)
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.sidebar.button_group[0].value == "Live Feed"
+    assert any(
+        "Live feed unavailable" in e.value for e in at.error
+    )  # offline: says so, no fake rain
+
+
+@needs_store
+def test_replay_time_slider_sits_above_the_storm_buttons():
+    at = _app()
+    order = [type(el).__name__ for el in at.sidebar]
+    assert order.index("SelectSlider") < order.index("Button")
