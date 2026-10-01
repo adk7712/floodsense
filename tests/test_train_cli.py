@@ -269,7 +269,7 @@ def test_training_writes_model_and_card(trained):
     assert isinstance(joblib.load(model_path), FloodModel)
     card = json.loads((trained.root / "models" / "model_card.json").read_text())
     assert card["selected_candidate"] == trained.run.selected
-    assert set(card["candidates"]) == {"rule_rain30_25mm", "logistic", "lightgbm"}
+    assert set(card["candidates"]) == {"rule_rain30", "rule_rain60", "logistic", "lightgbm"}
     assert card["thresholds"] is None
     assert any("budgets unset" in n for n in card["notes"])
     assert card["calibration_method"] in {"platt", "isotonic"}
@@ -304,7 +304,8 @@ def test_training_logs_nested_mlflow_runs(trained):
 def test_training_prints_the_tradeoff_table(trained):
     assert f"Trade-off table for the selected candidate ({trained.run.selected})" in trained.stdout
     assert "false_episodes_per_zone_year" in trained.stdout
-    assert "0.050" in trained.stdout  # first threshold row
+    assert "1e-05" in trained.stdout  # first threshold row of the log-spaced grid
+    assert "floods caught at matched false-alarm levels" in trained.stdout
 
 
 def test_final_report_refuses_without_budgets(trained, data, monkeypatch):

@@ -30,7 +30,9 @@ from floodsense.data import flood_events
 from floodsense.features.build_features import HANDOFF_DOC, DataUnavailableError, load_feature_store
 from floodsense.labels.policy import event_window, label_rows
 from floodsense.models.artifact import FloodModel, git_sha
+from floodsense.models.evaluation import select_threshold
 from floodsense.models.training import (
+    REFERENCE_BUDGETS,
     CandidateResult,
     LabelledData,
     TrainingRun,
@@ -142,6 +144,7 @@ def _model_card(run: TrainingRun) -> dict[str, Any]:
         "notes": run.notes,
         "candidates": {
             name: {
+                "event_score": result.event_score,
                 "row_metrics_oof": result.row,
                 "ece": result.ece,
                 "calibration_method": result.calibrator.method,
@@ -213,11 +216,28 @@ def _tradeoff_figure(result: CandidateResult) -> Any:
 
 
 def _print_tradeoff(result: CandidateResult) -> None:
-    table = result.curve[TRADEOFF_COLUMNS].to_string(index=False, float_format=lambda v: f"{v:.3f}")
+    curve = result.curve[TRADEOFF_COLUMNS].copy()
+    curve["threshold"] = curve["threshold"].map(lambda v: f"{v:.3g}")
+    table = curve.to_string(index=False, float_format=lambda v: f"{v:.3f}")
     print(f"\nTrade-off table for the selected candidate ({result.name}):")
     print("Choose settings.false_alarm_budget_high / _moderate from the false-episode column.\n")
     print(table)
     print()
+
+
+def _print_candidates(results: dict[str, CandidateResult]) -> None:
+    """Floods caught by each candidate at matched false-alarm levels (out-of-fold)."""
+    rows = []
+    for name, r in results.items():
+        row = {"candidate": name, "event_score": round(r.event_score, 3)}
+        for budget in REFERENCE_BUDGETS:
+            best = select_threshold(r.curve, budget)
+            row[f"hits@{budget:g}/zone-yr"] = (
+                "-" if best is None else f"{int(best['hits'])}/{int(best['events'])}"
+            )
+        rows.append(row)
+    print("\nCandidates: floods caught at matched false-alarm levels (validation years, OOF)\n")
+    print(pd.DataFrame(rows).to_string(index=False))
 
 
 # --------------------------------------------------------------------------------------------
@@ -285,6 +305,7 @@ def run_training(data: LabelledData, tracking_uri: str | None = None) -> Trainin
                 for artifact in sorted(out.iterdir()):
                     mlflow.log_artifact(str(artifact))
 
+    _print_candidates(run.results)
     _print_tradeoff(run.results[run.selected])
     for note in run.notes:
         logger.warning(note)

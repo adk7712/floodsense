@@ -198,6 +198,12 @@ def hit_rate_ci(
 # --------------------------------------------------------------------------------------------
 
 
+def default_threshold_grid() -> np.ndarray:
+    """41 log-spaced thresholds from 1e-5 to 0.9, rounded to 3 significant figures."""
+    grid = np.geomspace(1e-5, 0.9, 41)
+    return np.array([float(f"{t:.3g}") for t in grid])
+
+
 def tradeoff_curve(
     scored: pd.DataFrame,
     windows: Sequence[EventWindow],
@@ -205,8 +211,13 @@ def tradeoff_curve(
     thresholds: Sequence[float] | None = None,
     horizon: timedelta | None = None,
 ) -> pd.DataFrame:
-    """Event hit rate against false alarms across thresholds (one row per threshold)."""
-    grid = np.round(np.linspace(0.05, 0.95, 19), 4) if thresholds is None else thresholds
+    """
+    Event hit rate against false alarms across thresholds (one row per threshold).
+
+    The default grid is log-spaced from 1e-5 to 0.9: flood rows are rare (about 1 in 30,000 on the
+    real store), so well-calibrated probabilities that are worth alerting on sit far below 0.05.
+    """
+    grid = default_threshold_grid() if thresholds is None else thresholds
     rows = [evaluate_alerts(scored, windows, float(t), zone_years, horizon)[0] for t in grid]
     return pd.DataFrame(rows)
 

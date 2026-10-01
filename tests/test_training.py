@@ -30,7 +30,7 @@ def run(data):
 
 def test_training_runs_and_selects_a_candidate(run):
     assert run.selected in run.results
-    assert set(run.results) == {"rule_rain30_25mm", "logistic", "lightgbm"}
+    assert set(run.results) == {"rule_rain30", "rule_rain60", "logistic", "lightgbm"}
     assert run.model.feature_columns == MODEL_FEATURE_COLUMNS
     assert run.model.calibrator is not None
 

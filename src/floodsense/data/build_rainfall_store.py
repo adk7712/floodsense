@@ -377,45 +377,76 @@ def sparse_days(year: int, min_step_share: float = 0.9) -> list[date]:
     return [d for d in days if per_day.get(d, 0) < min_step_share * 288]
 
 
+def _not_in_bulk(readings: pd.DataFrame, bulk_keys: pd.DataFrame) -> pd.DataFrame:
+    """Rows of ``readings`` whose (station_id, timestamp) the bulk part doesn't already have."""
+    merged = readings.merge(bulk_keys, on=["station_id", "timestamp"], how="left", indicator=True)
+    return merged.loc[merged["_merge"] == "left_only", readings.columns].reset_index(drop=True)
+
+
 def gapfill(year: int, day_delay_sec: float = 1.0) -> int:
     """
     Fill sparse days in the bulk data from the API (the same NEA readings, served live).
 
-    Writes ``readings/year=YYYY/part-api-gapfill.parquet``; ``read_rainfall`` prefers the bulk part
-    wherever both have a reading, so this only adds steps the bulk file lacks. Days the API cannot
-    fill either stay sparse. Returns the number of readings added.
+    Writes ``readings/year=YYYY/part-api-gapfill.parquet`` holding only readings the bulk part
+    lacks, so the parts never overlap. Fetched and unavailable days are recorded in the manifest,
+    so re-runs skip them. Days the API cannot fill either stay sparse. Returns the rows added.
     """
     from floodsense.ingestion.poller import NEAPoller
 
-    days = sparse_days(year)
-    path = settings.rainfall_readings_dir / f"year={year}" / "part-api-gapfill.parquet"
+    part_dir = settings.rainfall_readings_dir / f"year={year}"
+    path = part_dir / "part-api-gapfill.parquet"
+    bulk_path = part_dir / "part-bulk.parquet"
+    bulk_keys = (
+        pd.read_parquet(bulk_path, columns=["station_id", "timestamp"])
+        if bulk_path.exists()
+        else pd.DataFrame(
+            {
+                "station_id": pd.Series(dtype=str),
+                "timestamp": pd.Series(dtype=f"datetime64[ns, {SGT}]"),
+            }
+        )
+    )
+    bulk_keys["station_id"] = bulk_keys["station_id"].astype(str)
     key = f"readings_{year}_api_gapfill"
     manifest = json.loads(_manifest_path().read_text()) if _manifest_path().exists() else {}
-    unavailable = set(manifest.get(key, {}).get("unavailable_days", []))
-    done = set(pd.read_parquet(path)["timestamp"].dt.date) if path.exists() else set()
-    todo = [d for d in days if d not in done and d.isoformat() not in unavailable]
+    entry = manifest.get(key, {})
+    unavailable = set(entry.get("unavailable_days", []))
+    fetched = set(entry.get("fetched_days", []))
+
+    existing = pd.read_parquet(path) if path.exists() else None
+    if existing is not None:  # earlier versions also stored readings the bulk part had
+        existing["station_id"] = existing["station_id"].astype(str)
+        fetched |= {d.isoformat() for d in existing["timestamp"].dt.date}
+        existing = _not_in_bulk(existing, bulk_keys)
+
+    days = sparse_days(year)
+    todo = [d for d in days if d.isoformat() not in fetched | unavailable]
     logger.info("%d: %d sparse days, %d still to fetch", year, len(days), len(todo))
     poller = NEAPoller()
+    new_parts = [] if existing is None else [existing]
     for day in todo:
         readings, seen = _snapshots_to_frames(_fetch_day(poller, day))
         readings = readings[readings["timestamp"].dt.date == day]
         if readings.empty:
             unavailable.add(day.isoformat())
-            _update_manifest(key, {"unavailable_days": sorted(unavailable)})
-            continue
-        if path.exists():
-            readings = pd.concat([pd.read_parquet(path), readings], ignore_index=True)
-        readings = _dedupe_sorted(readings, {"duplicates": 0})
-        _write_atomic(readings.astype({"station_id": "string"}), path)
-        _write_atomic(seen, sightings_dir() / f"api-gapfill-{day.isoformat()}.parquet")
+        else:
+            fetched.add(day.isoformat())
+            new_parts.append(_not_in_bulk(readings.astype({"station_id": str}), bulk_keys))
+            _write_atomic(seen, sightings_dir() / f"api-gapfill-{day.isoformat()}.parquet")
         time.sleep(day_delay_sec)
-    added = len(pd.read_parquet(path)) if path.exists() else 0
+
+    added = 0
+    if new_parts:
+        out = _dedupe_sorted(pd.concat(new_parts, ignore_index=True), {"duplicates": 0})
+        _write_atomic(out.astype({"station_id": "string"}), path)
+        added = len(out)
     _update_manifest(
         key,
         {
             "source": settings.nea_api_primary,
             "sparse_days": len(days),
             "rows": added,
+            "fetched_days": sorted(fetched),
             "unavailable_days": sorted(unavailable),
         },
     )

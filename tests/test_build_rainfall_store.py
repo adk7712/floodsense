@@ -146,6 +146,10 @@ def test_gapfill_adds_only_missing_steps(store, monkeypatch):
     monkeypatch.setattr(brs, "sparse_days", lambda year: [date(2021, 3, 1), date(2021, 3, 5)])
     added = brs.gapfill(2021, day_delay_sec=0)
     assert fake.days == [date(2021, 3, 1), date(2021, 3, 5)] and added == 4
+    gap = pd.read_parquet(settings.rainfall_readings_dir / "year=2021" / "part-api-gapfill.parquet")
+    bulk = pd.read_parquet(settings.rainfall_readings_dir / "year=2021" / "part-bulk.parquet")
+    both = pd.concat([gap, bulk])
+    assert not both.duplicated(["station_id", "timestamp"]).any()  # parts never overlap
     df = rainfall_store.read_rainfall(datetime(2021, 3, 1), datetime(2021, 3, 6))
     assert set(df["station_id"]) == {"S1", "S2", "S9"}
 

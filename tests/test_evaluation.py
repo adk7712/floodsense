@@ -167,7 +167,10 @@ def test_tradeoff_curve_is_monotone_where_it_must_be():
     events = [exact_event("A", "06:00", "07:00", "a"), exact_event("B", "15:00", "16:00", "b")]
     curve = tradeoff_curve(scored, events, zone_years=3 / 365)
     assert (np.diff(curve["hit_rate"]) <= 0).all()  # higher threshold never catches more floods
-    assert (np.diff(curve["false_alert_hours"]) <= 0).all()  # ...nor raises more alert time
+    # False alert time is not strictly monotone: raising the threshold can split one episode that
+    # ends in a flood (a hit) into pieces, and the earlier pieces then count as false. Overall it
+    # must still fall from the loosest to the strictest threshold.
+    assert curve["false_alert_hours"].iloc[-1] < curve["false_alert_hours"].iloc[0]
 
 
 def test_select_threshold_respects_budget():
@@ -188,3 +191,12 @@ def test_hit_rate_ci():
     assert hit_rate_ci([True] * 5) == (1.0, 1.0)
     lo, hi = hit_rate_ci([True, False, True, True, False, True, False, True])
     assert 0.0 <= lo < 0.625 < hi <= 1.0
+
+
+def test_default_threshold_grid_reaches_rare_event_probabilities():
+    from floodsense.models.evaluation import default_threshold_grid
+
+    grid = default_threshold_grid()
+    assert grid[0] == 1e-5 and grid[-1] == 0.9 and len(grid) == 41
+    assert np.all(np.diff(grid) > 0)
+    assert (grid < 0.05).sum() >= 25  # most of the resolution where rare-event probabilities live

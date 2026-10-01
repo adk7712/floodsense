@@ -14,6 +14,7 @@ Protocol:
 5. ``final_report`` scores the test years once.
 """
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -22,7 +23,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
 from floodsense.common.config import MODEL_FEATURE_COLUMNS, settings
 from floodsense.labels.policy import EventWindow, certain_labels, expand_soft_labels
@@ -45,12 +46,19 @@ from floodsense.models.evaluation import (
 # Candidates
 # --------------------------------------------------------------------------------------------
 
+logger = logging.getLogger("FloodSense.Training")
+
 
 class RuleModel:
-    """Baseline: alert when one feature reaches a fixed value (e.g. 25 mm in 30 minutes)."""
+    """Baseline that ranks rows by one rainfall feature (e.g. 60-minute rain).
 
-    def __init__(self, column_index: int, threshold: float):
-        self.column_index, self.threshold = column_index, threshold
+    The score is ``x / (x + scale)``: monotone in millimetres and inside [0, 1], so calibration
+    and the threshold sweep turn it into "alert at N mm" rules. Comparing at matched false-alarm
+    levels makes this the bar every learned model has to clear.
+    """
+
+    def __init__(self, column_index: int, scale_mm: float = 25.0):
+        self.column_index, self.scale_mm = column_index, scale_mm
 
     def fit(
         self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None
@@ -58,21 +66,26 @@ class RuleModel:
         return self
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        p = (np.asarray(X)[:, self.column_index] >= self.threshold).astype(float)
+        x = np.clip(np.asarray(X, dtype=float)[:, self.column_index], 0, None)
+        p = x / (x + self.scale_mm)
         return np.column_stack([1 - p, p])
 
 
-def _lightgbm() -> Any:
+def _lightgbm(n_features: int) -> Any:
     import lightgbm as lgb  # imported lazily: needs libomp on macOS
 
+    # A few hundred positive rows a fold: keep trees small and force "more rain never lowers
+    # risk" (every model feature is a rainfall amount, wetness or rarity score).
     return lgb.LGBMClassifier(
-        n_estimators=300,
+        n_estimators=200,
         learning_rate=0.05,
-        num_leaves=15,
-        min_child_samples=50,
+        num_leaves=7,
+        min_child_samples=200,
         subsample=0.8,
         subsample_freq=1,
         colsample_bytree=0.8,
+        reg_lambda=1.0,
+        monotone_constraints=[1] * n_features,
         random_state=0,
         verbose=-1,
     )
@@ -80,11 +93,17 @@ def _lightgbm() -> Any:
 
 def candidate_factories(feature_columns: list[str]) -> dict[str, Callable[[], Any]]:
     return {
-        "rule_rain30_25mm": lambda: RuleModel(feature_columns.index("rain_30m"), 25.0),
+        "rule_rain30": lambda: RuleModel(feature_columns.index("rain_30m")),
+        "rule_rain60": lambda: RuleModel(feature_columns.index("rain_60m")),
+        # Rainfall is heavy-tailed; log1p keeps a few extreme storms from dominating the fit.
         "logistic": lambda: Pipeline(
-            [("scale", StandardScaler()), ("clf", LogisticRegression(C=1.0, max_iter=2000))]
+            [
+                ("log", FunctionTransformer(np.log1p)),
+                ("scale", StandardScaler()),
+                ("clf", LogisticRegression(C=1.0, max_iter=2000)),
+            ]
         ),
-        "lightgbm": _lightgbm,
+        "lightgbm": lambda: _lightgbm(len(feature_columns)),
     }
 
 
@@ -169,6 +188,24 @@ class CandidateResult:
     ece: float
     reliability: pd.DataFrame
     curve: pd.DataFrame
+
+    @property
+    def event_score(self) -> float:
+        return event_score(self.curve)
+
+
+# Reference false-alarm levels (false episodes per zone-year) for comparing candidates.
+REFERENCE_BUDGETS = (1.0, 2.0, 5.0, 10.0)
+
+
+def event_score(curve: pd.DataFrame) -> float:
+    """Mean event hit rate at the reference false-alarm budgets: floods caught at a matched level
+    of false alarms, which is what people experience, rather than row-level ranking."""
+    hits = []
+    for budget in REFERENCE_BUDGETS:
+        best = select_threshold(curve, budget)
+        hits.append(0.0 if best is None else float(best["hit_rate"]))
+    return float(np.mean(hits))
 
 
 def validation_years(data: LabelledData) -> list[int]:
@@ -281,7 +318,12 @@ def train(data: LabelledData, candidates: list[str] | None = None) -> TrainingRu
     dev = data.development()
     names = candidates or list(candidate_factories(MODEL_FEATURE_COLUMNS))
     results = {n: cross_validate(n, dev) for n in names}
-    selected = max(results, key=lambda n: np.nan_to_num(results[n].row["pr_auc"], nan=-1.0))
+    selected = max(
+        results,
+        key=lambda n: (results[n].event_score, np.nan_to_num(results[n].row["pr_auc"], nan=-1.0)),
+    )
+    for n, r in results.items():
+        logger.info("%s: event score %.3f, PR-AUC %.5f", n, r.event_score, r.row["pr_auc"])
     best = results[selected]
 
     model = fit_candidate(selected, dev, MODEL_FEATURE_COLUMNS)
@@ -290,7 +332,10 @@ def train(data: LabelledData, candidates: list[str] | None = None) -> TrainingRu
     notes = [] if model.thresholds else ["false-alarm budgets unset: thresholds not selected"]
     model.provenance.update(
         {
-            "selected_by": "pooled out-of-fold PR-AUC (certain labels)",
+            "selected_by": (
+                "mean out-of-fold event hit rate at "
+                f"{list(REFERENCE_BUDGETS)} false episodes per zone-year (tie: PR-AUC)"
+            ),
             "validation_years": [f["validation_year"] for f in best.folds],
             "events_in_development": len(dev.windows),
             "label_horizon_minutes": settings.prediction_lead_time_minutes,
