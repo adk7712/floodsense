@@ -200,3 +200,25 @@ def test_default_threshold_grid_reaches_rare_event_probabilities():
     assert grid[0] == 1e-5 and grid[-1] == 0.9 and len(grid) == 41
     assert np.all(np.diff(grid) > 0)
     assert (grid < 0.05).sum() >= 25  # most of the resolution where rare-event probabilities live
+
+
+def test_ranking_check_counts_flooded_zones_among_the_riskiest():
+    from floodsense.models.evaluation import ranking_check
+
+    stamps = pd.date_range(ts("10:00"), ts("12:00"), freq="5min")
+    peaks = {f"Z{i}": i / 100 for i in range(20)}  # Z19 riskiest, Z0 never above 0
+    scored = pd.concat(
+        pd.DataFrame({"ura_planning_area": z, "timestamp": stamps, "prob": p})
+        for z, p in peaks.items()
+    )
+    events = [
+        exact_event("Z19", "12:00", eid="top"),  # rank 1
+        exact_event("Z18", "12:00", eid="second"),  # rank 2
+        exact_event("Z5", "12:00", eid="mid"),  # rank 15
+        exact_event("Z0", "12:00", eid="zero"),  # peak 0 -> ranked last
+        exact_event("Z19", "18:00", eid="late"),  # no rows in its window -> ranked last
+    ]
+    out = ranking_check(scored, events, n_zones=20, top_fraction=0.1)  # top 2 zones
+    assert out["top_n_zones"] == 2 and out["events"] == 5
+    assert out["in_top"] == 2 and out["share_in_top"] == pytest.approx(0.4)
+    assert out["median_rank"] == 15

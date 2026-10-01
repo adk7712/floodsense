@@ -22,13 +22,33 @@
     "episodes": 250.0,
     "false_episodes": 235.0,
     "episode_false_alarm_ratio": 0.94,
-    "false_episodes_per_zone_year": 1.4242424242424243,
+    "false_episodes_per_zone_year": 1.5555312489044975,
     "false_alert_hours": 126.0
   },
   "hit_rate_ci90": [
     0.26666666666666666,
     0.5333333333333333
   ],
+  "events_moderate": {
+    "threshold": 0.003,
+    "events": 30.0,
+    "hits": 21.0,
+    "hit_rate": 0.7,
+    "median_lead_minutes": 15.0,
+    "episodes": 1123.0,
+    "false_episodes": 1100.0,
+    "episode_false_alarm_ratio": 0.9795191451469278,
+    "false_episodes_per_zone_year": 7.281210101255095,
+    "false_alert_hours": 710.75
+  },
+  "ranking": {
+    "events": 30.0,
+    "top_fraction": 0.1,
+    "top_n_zones": 5.0,
+    "in_top": 16.0,
+    "share_in_top": 0.5333333333333333,
+    "median_rank": 5.0
+  },
   "outcomes": [
     {
       "event_id": "2024-02-03-bukit-timah-dunearn-rd",

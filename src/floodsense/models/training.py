@@ -37,10 +37,12 @@ from floodsense.models.calibration import (
 from floodsense.models.evaluation import (
     evaluate_alerts,
     hit_rate_ci,
+    ranking_check,
     row_metrics,
     select_threshold,
     tradeoff_curve,
 )
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 # --------------------------------------------------------------------------------------------
 # Candidates
@@ -137,8 +139,19 @@ class LabelledData:
         return self.subset(self.year <= settings.last_training_year)
 
     def zone_years(self) -> float:
+        """Zones x years of data covered. A year the data only partly covers (e.g. the current
+        one) counts by the share of it between the first and last timestamp, not as a full year."""
         zones = self.features["ura_planning_area"].nunique()
-        return float(zones * self.year.nunique())
+        if self.features.empty:
+            return 0.0
+        ts = self.features["timestamp"].dt.tz_convert(settings.tzinfo)
+        first, last = ts.min(), ts.max() + pd.Timedelta(minutes=settings.step_minutes)
+        covered = 0.0
+        for y in sorted(int(v) for v in self.year.unique()):
+            start = pd.Timestamp(year=y, month=1, day=1, tz=settings.tzinfo)
+            end = pd.Timestamp(year=y + 1, month=1, day=1, tz=settings.tzinfo)
+            covered += (min(end, last) - max(start, first)) / (end - start)
+        return float(zones * covered)
 
 
 def _balanced(y: np.ndarray, w: np.ndarray) -> np.ndarray:
@@ -364,6 +377,10 @@ def final_report(model: FloodModel, data: LabelledData) -> dict[str, Any]:
     high = model.thresholds["high"]
     summary, outcomes, _ = evaluate_alerts(scored, test.windows, high, test.zone_years())
     lo, hi = hit_rate_ci([o.hit for o in outcomes])
+    moderate, _, _ = evaluate_alerts(
+        scored, test.windows, model.thresholds["moderate"], test.zone_years()
+    )
+    n_zones = len(URA_PLANNING_AREAS)
     return {
         "row": row_metrics(
             certain.to_numpy(),
@@ -372,6 +389,8 @@ def final_report(model: FloodModel, data: LabelledData) -> dict[str, Any]:
         ),
         "events_high": summary,
         "hit_rate_ci90": (lo, hi),
+        "events_moderate": moderate,
+        "ranking": ranking_check(scored, test.windows, n_zones),
         "outcomes": outcomes,
         "test_years": sorted(int(y) for y in test.year.unique()),
     }

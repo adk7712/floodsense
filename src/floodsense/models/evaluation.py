@@ -181,6 +181,42 @@ def evaluate_alerts(
     return summary, outcomes, episodes
 
 
+def ranking_check(
+    scored: pd.DataFrame,
+    windows: Sequence[EventWindow],
+    n_zones: int,
+    top_fraction: float = 0.1,
+    lookback: timedelta = timedelta(hours=3),
+) -> dict[str, float]:
+    """
+    Did the flooded zone rank among the riskiest zones during its storm?
+
+    For each event, every zone's peak probability over ``[start_lo - lookback, start_hi]`` is
+    compared (zones with no rows in that window score 0). The event counts as ranked in the top
+    when its zone is in the top ``top_fraction`` of ``n_zones`` with a peak above 0; ties count
+    in its favour only for zones strictly above it. Threshold-free, so it complements hit rate.
+    """
+    cutoff = max(1, int(np.floor(top_fraction * n_zones)))
+    ranks = []
+    for w in windows:
+        in_window = scored[
+            (scored["timestamp"] >= w.start_lo - lookback) & (scored["timestamp"] <= w.start_hi)
+        ]
+        peaks = in_window.groupby("ura_planning_area")["prob"].max()
+        own = float(peaks.get(w.zone, 0.0))
+        rank = int((peaks > own).sum()) + 1 if own > 0 else n_zones
+        ranks.append(rank)
+    arr = np.asarray(ranks)
+    return {
+        "events": float(len(arr)),
+        "top_fraction": top_fraction,
+        "top_n_zones": float(cutoff),
+        "in_top": float((arr <= cutoff).sum()),
+        "share_in_top": float((arr <= cutoff).mean()) if len(arr) else float("nan"),
+        "median_rank": float(np.median(arr)) if len(arr) else float("nan"),
+    }
+
+
 def hit_rate_ci(
     hits: Sequence[bool], n_boot: int = 2000, alpha: float = 0.1, seed: int = 0
 ) -> tuple[float, float]:

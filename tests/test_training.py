@@ -109,3 +109,15 @@ def test_calibration_fixes_overconfident_scores():
     cal = fit_calibrator(raw, y, method="isotonic")
     after = expected_calibration_error(reliability_table(cal(raw), y))
     assert before > 0.15 and after < 0.02
+
+
+def test_zone_years_counts_a_partial_year_by_its_share():
+    from floodsense.models.training import LabelledData
+
+    stamps = pd.to_datetime(
+        ["2024-01-01 00:00", "2025-06-15 12:00", "2026-07-01 23:55"]
+    ).tz_localize(SGT)
+    features = pd.DataFrame({"ura_planning_area": ["A", "B", "A"], "timestamp": stamps})
+    d = LabelledData(features, pd.Series([0.0, 0.0, 0.0], index=features.index), [])
+    # 2024 and 2025 in full, 2026 to 2 Jul 00:00 = 182/365 of the year; 2 zones
+    assert d.zone_years() == pytest.approx(2 * (2 + 182 / 365), rel=1e-6)

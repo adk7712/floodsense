@@ -70,6 +70,7 @@ Open with 17 April 2021: the floods cleared within half an hour, so a warning ha
 | Moderate (about 30 mm/h) | 21 (70%) | 15 min | 7.3 |
 | High (about 44 mm/h) | 12 (40%) (90% CI 27–53%) | 7.5 min | 1.6 |
 
+- **Ranking check:** during its storm, the flooded zone was among our 5 riskiest of 55 zones in 16 of the 30 test floods (median rank 5th).
 - **A transparent rainfall rule beat the ML models.** At matched false-alarm levels, 60-minute rainfall caught 7–15 of 23 validation floods; LightGBM caught 2.
 - **Gauges alone give only 10–15 minutes of warning.** The lead time has to come from radar nowcasting, which is next.
 
