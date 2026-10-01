@@ -9,4 +9,13 @@ mlflow.db
 *.parquet
 data/raw/*
 !data/raw/.gitkeep
-
+.playwright-mcp/
+data/reports/
+.claude/
+.agents/
+data/processed/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/

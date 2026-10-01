@@ -3,12 +3,8 @@ FloodSense - Singapore Geospatial Reference Data.
 Contains official definitions for 55 URA Planning Areas and ~55 NEA Automated Weather Stations.
 """
 
-from typing import Dict, List, Tuple
-from shapely.geometry import Point, Polygon
-import json
-
 # 55 URA Planning Areas with Centroids (lat, lon) and Region
-URA_PLANNING_AREAS: Dict[str, Dict] = {
+URA_PLANNING_AREAS: dict[str, dict] = {
     # Central Region
     "BISHAN": {"lat": 1.3508, "lon": 103.8485, "region": "Central", "pub_monitored": 1},
     "BUKIT MERAH": {"lat": 1.2819, "lon": 103.8239, "region": "Central", "pub_monitored": 1},
@@ -32,7 +28,6 @@ URA_PLANNING_AREAS: Dict[str, Dict] = {
     "STRAITS VIEW": {"lat": 1.2678, "lon": 103.8569, "region": "Central", "pub_monitored": 0},
     "TANGLIN": {"lat": 1.3060, "lon": 103.8126, "region": "Central", "pub_monitored": 1},
     "TOA PAYOH": {"lat": 1.3343, "lon": 103.8563, "region": "Central", "pub_monitored": 1},
-
     # East Region
     "BEDOK": {"lat": 1.3236, "lon": 103.9273, "region": "East", "pub_monitored": 1},
     "CHANGI": {"lat": 1.3595, "lon": 103.9892, "region": "East", "pub_monitored": 1},
@@ -40,18 +35,26 @@ URA_PLANNING_AREAS: Dict[str, Dict] = {
     "PASIR RIS": {"lat": 1.3721, "lon": 103.9474, "region": "East", "pub_monitored": 1},
     "PAYA LEBAR": {"lat": 1.3582, "lon": 103.8914, "region": "East", "pub_monitored": 1},
     "TAMPINES": {"lat": 1.3541, "lon": 103.9439, "region": "East", "pub_monitored": 1},
-
     # North Region
-    "CENTRAL WATER CATCHMENT": {"lat": 1.3734, "lon": 103.8078, "region": "North", "pub_monitored": 1},
+    "CENTRAL WATER CATCHMENT": {
+        "lat": 1.3734,
+        "lon": 103.8078,
+        "region": "North",
+        "pub_monitored": 1,
+    },
     "LIM CHU KANG": {"lat": 1.4342, "lon": 103.7013, "region": "North", "pub_monitored": 0},
     "MANDAI": {"lat": 1.4080, "lon": 103.7863, "region": "North", "pub_monitored": 1},
-    "NORTH-EASTERN ISLANDS": {"lat": 1.4117, "lon": 103.9870, "region": "North", "pub_monitored": 0},
+    "NORTH-EASTERN ISLANDS": {
+        "lat": 1.4117,
+        "lon": 103.9870,
+        "region": "North",
+        "pub_monitored": 0,
+    },
     "SEMBAWANG": {"lat": 1.4491, "lon": 103.8185, "region": "North", "pub_monitored": 1},
     "SIMPANG": {"lat": 1.4312, "lon": 103.8402, "region": "North", "pub_monitored": 0},
     "SUNGEI KADUT": {"lat": 1.4153, "lon": 103.7466, "region": "North", "pub_monitored": 1},
     "WOODLANDS": {"lat": 1.4382, "lon": 103.7890, "region": "North", "pub_monitored": 1},
     "YISHUN": {"lat": 1.4304, "lon": 103.8354, "region": "North", "pub_monitored": 1},
-
     # North-East Region
     "ANG MO KIO": {"lat": 1.3691, "lon": 103.8454, "region": "North-East", "pub_monitored": 1},
     "HOUGANG": {"lat": 1.3708, "lon": 103.8893, "region": "North-East", "pub_monitored": 1},
@@ -59,7 +62,6 @@ URA_PLANNING_AREAS: Dict[str, Dict] = {
     "SELETAR": {"lat": 1.4098, "lon": 103.8714, "region": "North-East", "pub_monitored": 0},
     "SENGKANG": {"lat": 1.3868, "lon": 103.8914, "region": "North-East", "pub_monitored": 1},
     "SERANGOON": {"lat": 1.3554, "lon": 103.8679, "region": "North-East", "pub_monitored": 1},
-
     # West Region
     "BOON LAY": {"lat": 1.3175, "lon": 103.7025, "region": "West", "pub_monitored": 0},
     "BUKIT BATOK": {"lat": 1.3590, "lon": 103.7637, "region": "West", "pub_monitored": 1},
@@ -72,11 +74,16 @@ URA_PLANNING_AREAS: Dict[str, Dict] = {
     "TENGAH": {"lat": 1.3644, "lon": 103.7314, "region": "West", "pub_monitored": 0},
     "TUAS": {"lat": 1.2988, "lon": 103.6360, "region": "West", "pub_monitored": 0},
     "WESTERN ISLANDS": {"lat": 1.2405, "lon": 103.7220, "region": "West", "pub_monitored": 0},
-    "WESTERN WATER CATCHMENT": {"lat": 1.3912, "lon": 103.6886, "region": "West", "pub_monitored": 0},
+    "WESTERN WATER CATCHMENT": {
+        "lat": 1.3912,
+        "lon": 103.6886,
+        "region": "West",
+        "pub_monitored": 0,
+    },
 }
 
 # ~55 NEA Automated Weather Stations across Singapore
-NEA_WEATHER_STATIONS: Dict[str, Dict] = {
+NEA_WEATHER_STATIONS: dict[str, dict] = {
     "S06": {"name": "Paya Lebar", "lat": 1.3584, "lon": 103.9057},
     "S07": {"name": "Macritchie Reservoir", "lat": 1.3417, "lon": 103.8338},
     "S08": {"name": "Lower Peirce Reservoir", "lat": 1.3701, "lon": 103.8271},
@@ -148,20 +155,16 @@ def create_singapore_geojson() -> dict:
             points.append([lon + dlon, lat + dlat])
         points.append(points[0])  # close ring
 
-        features.append({
-            "type": "Feature",
-            "properties": {
-                "name": zone_name,
-                "region": data["region"],
-                "pub_monitored": data["pub_monitored"]
-            },
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [points]
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "name": zone_name,
+                    "region": data["region"],
+                    "pub_monitored": data["pub_monitored"],
+                },
+                "geometry": {"type": "Polygon", "coordinates": [points]},
             }
-        })
+        )
 
-    return {
-        "type": "FeatureCollection",
-        "features": features
-    }
+    return {"type": "FeatureCollection", "features": features}

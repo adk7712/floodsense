@@ -105,7 +105,7 @@ Deploy the FloodSense interactive app directly to Databricks Apps:
 ```bash
 # 1. Create Databricks App
 databricks apps create floodsense-dashboard --spec '{
-  "command": ["streamlit", "run", "src/app/streamlit_app.py", "--server.port", "8501"],
+  "command": ["streamlit", "run", "src/floodsense/app/streamlit_app.py", "--server.port", "8501"],
   "env": [
     {
       "name": "DATABRICKS_SQL_WAREHOUSE_ID",
@@ -126,22 +126,22 @@ Run all unit and integration tests locally:
 
 ```bash
 source .venv/bin/activate
-pytest tests/test_pipeline.py -v --cov=src
+pytest tests/test_pipeline.py -v --cov=floodsense
 ```
 
 Launch the local Streamlit application:
 
 ```bash
-streamlit run src/app/streamlit_app.py
+streamlit run src/floodsense/app/streamlit_app.py
 ```
 
 Simulate Live Polling:
 ```bash
-python -m src.ingestion.poller
+python -m floodsense.ingestion.poller
 ```
 
 Re-train & Log ML Models with MLflow:
 ```bash
-python -m src.models.train
+python -m floodsense.models.train
 mlflow ui --port 5000
 ```

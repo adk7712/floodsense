@@ -1,4 +1,0 @@
-[    1513ms] [ERROR] Client Error: Image source error - https://raw.githubusercontent.com/databricks/tech-talks/master/images/databricks_logo.png @ http://localhost:8501/static/js/ImageList.Diw5VWen.js:0
-[  836378ms] [WARNING] WebSocket onclose @ http://localhost:8501/static/js/index.CcFifQPt.js:28
-[ 1112027ms] [WARNING] WebSocket onclose @ http://localhost:8501/static/js/index.CcFifQPt.js:28
-[ 1953419ms] [WARNING] WebSocket onclose @ http://localhost:8501/static/js/index.CcFifQPt.js:28

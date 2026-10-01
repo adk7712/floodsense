@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "floodsense"
+version = "0.1.0"
+description = "Zone-level flash-flood risk for Singapore's URA planning areas (DAISI Challenge 2026, Track B2)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scikit-learn>=1.3",
+    "imbalanced-learn>=0.11",
+    "lightgbm>=4.1",
+    "joblib>=1.3",
+    "pydantic>=2.5",
+    "pydantic-settings>=2.2",
+    "pyarrow>=14.0",
+    "streamlit>=1.40",
+    "plotly>=5.18",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+train = ["mlflow>=2.10"]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "types-requests>=2.31",
+]
+e2e = ["playwright>=1.40"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/floodsense"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Not part of the package: Databricks pipeline sources and the competition submission docs.
+extend-exclude = ["databricks", "submission"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# Line length is handled by the formatter.
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["floodsense"]
+
+[tool.mypy]
+files = ["src"]
+python_version = "3.12"  # numpy stubs use 3.12-only syntax; ruff target-version still guards 3.11 compatibility
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not e2e and not network'"
+markers = [
+    "integration: Streamlit AppTest-based tests that run the app in-process",
+    "e2e: Playwright browser tests; need a running Streamlit server on localhost:8501",
+    "network: tests that need internet access",
+]
+
+[tool.uv]
+# cryptography >= 49 ships no macOS x86_64 wheels (pulled in by mlflow); cap so
+# `uv sync` works on Intel Macs without a Rust toolchain.
+constraint-dependencies = ["cryptography<49"]

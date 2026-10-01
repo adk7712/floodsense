@@ -11,20 +11,29 @@ Tests:
 8. Replay Loader: 17 April 2021 storm slice verification.
 """
 
-import pytest
+import json
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from pathlib import Path
+import pytest
 
-from src.common.schemas import RainfallReading, ZoneRainfall, FloodEvent, RiskTier
-from src.spatial.idw_matrix import IDWMatrixEngine, haversine_distance_km
-from src.spatial.singapore_geo import URA_PLANNING_AREAS, NEA_WEATHER_STATIONS, create_singapore_geojson
-from src.features.feature_pipeline import FeaturePipeline, StormRarityEstimator, DECAY_FACTOR_PER_STEP
-from src.features.ground_truth_extractor import GroundTruthExtractor
-from src.ingestion.poller import NEAPoller
-from src.models.train import evaluate_model_predictions, FEATURE_COLUMNS
-from src.data.synthetic_or_historical_loader import generate_april_2021_replay_slice
+from floodsense.common.schemas import RainfallReading
+from floodsense.data import synthetic_or_historical_loader as loader_module
+from floodsense.data.synthetic_or_historical_loader import generate_april_2021_replay_slice
+from floodsense.features.feature_pipeline import (
+    DECAY_FACTOR_PER_STEP,
+    FeaturePipeline,
+    StormRarityEstimator,
+)
+from floodsense.features.ground_truth_extractor import GroundTruthExtractor
+from floodsense.ingestion.poller import NEAPoller
+from floodsense.models.train import evaluate_model_predictions
+from floodsense.spatial.idw_matrix import IDWMatrixEngine, haversine_distance_km
+from floodsense.spatial.singapore_geo import (
+    URA_PLANNING_AREAS,
+    create_singapore_geojson,
+)
 
 
 def test_haversine_distance():
@@ -49,7 +58,7 @@ def test_dynamic_rebalancing_with_gauge_outages():
     all_stations = engine.station_ids
 
     # Simulate dropping half the stations
-    active_subset = set(all_stations[:len(all_stations) // 2])
+    active_subset = set(all_stations[: len(all_stations) // 2])
     rebalanced = engine.get_rebalanced_weights(active_subset)
 
     # Inactive stations must have exactly 0.0 weight
@@ -77,7 +86,7 @@ def test_idw_interpolation_output():
 def test_antecedent_decay_half_life():
     """Verify that 72h decay factor exhibits ~24h (288 steps) half-life."""
     initial_moisture = 100.0
-    decayed = initial_moisture * (DECAY_FACTOR_PER_STEP ** 288)
+    decayed = initial_moisture * (DECAY_FACTOR_PER_STEP**288)
     assert pytest.approx(decayed, rel=1e-2) == 50.0
 
 
@@ -85,11 +94,9 @@ def test_zero_rain_stream_pruning():
     """Verify that zero-rain dry intervals are pruned to save >80% compute footprint."""
     feat_pipe = FeaturePipeline()
     dates = pd.date_range("2026-01-01", periods=200, freq="5min")
-    dummy_df = pd.DataFrame({
-        "ura_planning_area": ["BISHAN"] * 200,
-        "timestamp": dates,
-        "rainfall_mm": [0.0] * 200
-    })
+    dummy_df = pd.DataFrame(
+        {"ura_planning_area": ["BISHAN"] * 200, "timestamp": dates, "rainfall_mm": [0.0] * 200}
+    )
     processed = feat_pipe.process_batch_dataframe(dummy_df, prune_zero_rain=True)
     assert len(processed) == 0
 
@@ -108,19 +115,11 @@ def test_storm_rarity_score():
 
 def test_pydantic_schema_validation():
     """Verify that schemas enforce physical limits and handle valid/invalid inputs."""
-    valid = RainfallReading(
-        station_id="S104",
-        timestamp=datetime.now(),
-        rainfall_mm=25.5
-    )
+    valid = RainfallReading(station_id="S104", timestamp=datetime.now(), rainfall_mm=25.5)
     assert valid.rainfall_mm == 25.5
 
     with pytest.raises(ValueError):
-        RainfallReading(
-            station_id="S104",
-            timestamp=datetime.now(),
-            rainfall_mm=150.0
-        )
+        RainfallReading(station_id="S104", timestamp=datetime.now(), rainfall_mm=150.0)
 
 
 def test_ground_truth_extractor():
@@ -134,10 +133,14 @@ def test_ground_truth_extractor():
     assert event.severity == "Severe"
 
     # Test label attachment
-    test_df = pd.DataFrame([{
-        "ura_planning_area": "BUKIT TIMAH",
-        "timestamp": "2021-04-17T14:00:00"  # 15 min before known 14:15 flood
-    }])
+    test_df = pd.DataFrame(
+        [
+            {
+                "ura_planning_area": "BUKIT TIMAH",
+                "timestamp": "2021-04-17T14:00:00",  # 15 min before known 14:15 flood
+            }
+        ]
+    )
     labeled = extractor.attach_labels_to_feature_df(test_df, lead_time_minutes=60)
     assert labeled.iloc[0]["flood_within_60min"] == 1
 
@@ -172,8 +175,28 @@ def test_geojson_generation():
     assert len(gj["features"]) == len(URA_PLANNING_AREAS)
 
 
-def test_replay_slice_generation(tmp_path):
-    """Verify replay slice generation."""
+class _FakeResponse:
+    """Minimal stand-in for requests.Response (legacy v1 data.gov.sg payload)."""
+
+    status_code = 200
+
+    def json(self):
+        return {
+            "items": [
+                {
+                    "timestamp": "2021-04-17T13:00:00+08:00",
+                    "readings": [{"station_id": "S77", "value": 1.2}],
+                }
+            ]
+        }
+
+
+def test_replay_slice_generation(tmp_path, monkeypatch):
+    """Verify replay slice generation (offline; requests.get is faked)."""
+    monkeypatch.setattr(loader_module.requests, "get", lambda *args, **kwargs: _FakeResponse())
     out_file = tmp_path / "replay_test.json"
     p = generate_april_2021_replay_slice(output_path=str(out_file), steps=2)
     assert p.exists()
+    data = json.loads(p.read_text())
+    assert data["total_steps"] == 2
+    assert {"station_id": "S77", "value": 1.2} in data["timeline"][0]["readings"]

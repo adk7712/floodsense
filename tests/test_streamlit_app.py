@@ -5,10 +5,13 @@ mode toggles, replay timeline scrubbing, and zone selections with zero browser o
 """
 
 from pathlib import Path
+
 import pytest
 from streamlit.testing.v1 import AppTest
 
-APP_PATH = str(Path(__file__).parent.parent / "src" / "app" / "streamlit_app.py")
+pytestmark = pytest.mark.integration
+
+APP_PATH = str(Path(__file__).parent.parent / "src" / "floodsense" / "app" / "streamlit_app.py")
 
 
 def test_streamlit_app_default_render():
@@ -20,6 +23,7 @@ def test_streamlit_app_default_render():
     assert "FloodSense" in at.title[0].value
 
 
+@pytest.mark.network
 def test_streamlit_app_mode_toggle():
     """Stress-test toggling between Replay Storm and Live Feed modes."""
     at = AppTest.from_file(APP_PATH)

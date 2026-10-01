@@ -11,60 +11,41 @@ Implements:
 
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Tuple, Any
+
 import joblib
-import matplotlib.pyplot as plt
+import lightgbm as lgb
+import mlflow
 import numpy as np
 import pandas as pd
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     average_precision_score,
     brier_score_loss,
     confusion_matrix,
     f1_score,
-    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-import lightgbm as lgb
-from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline as ImbPipeline
-import mlflow
+from sklearn.preprocessing import StandardScaler
 
-from src.features.feature_pipeline import FeaturePipeline
-from src.features.ground_truth_extractor import GroundTruthExtractor
-from src.data.synthetic_or_historical_loader import generate_historical_dataset
+from floodsense.common.config import FEATURE_COLUMNS, settings
+from floodsense.data.synthetic_or_historical_loader import generate_historical_dataset
+from floodsense.features.feature_pipeline import FeaturePipeline
+from floodsense.features.ground_truth_extractor import GroundTruthExtractor
 
 logger = logging.getLogger("FloodSense.Trainer")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-FEATURE_COLUMNS = [
-    "rain_5m",
-    "rain_15m",
-    "rain_30m",
-    "rain_60m",
-    "rain_120m",
-    "rain_decay_72h",
-    "storm_rarity_score",
-    "return_period_years",
-    "pub_monitored"
-]
-
-OPERATIONAL_THRESHOLDS = {
-    "low_moderate": 0.25,
-    "moderate_high": 0.65
-}
+# Single source of truth lives in floodsense.common.config (FEATURE_COLUMNS is re-exported).
+OPERATIONAL_THRESHOLDS = settings.operational_thresholds
 
 
 def evaluate_model_predictions(
-    y_true: np.ndarray,
-    y_prob: np.ndarray,
-    threshold: float = 0.50
-) -> Dict[str, float]:
+    y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.50
+) -> dict[str, float]:
     """
     Computes imbalance-resilient classification and calibration metrics.
     """
@@ -91,7 +72,7 @@ def evaluate_model_predictions(
         "true_positives": int(tp),
         "false_positives": int(fp),
         "false_negatives": int(fn),
-        "true_negatives": int(tn)
+        "true_negatives": int(tn),
     }
 
 
@@ -106,7 +87,9 @@ def train_and_evaluate_all():
 
     logger.info("Step 3: Attaching Ground Truth flood event labels...")
     gt_extractor = GroundTruthExtractor()
-    labeled_df = gt_extractor.attach_labels_to_feature_df(feat_df, lead_time_minutes=60)
+    labeled_df = gt_extractor.attach_labels_to_feature_df(
+        feat_df, lead_time_minutes=settings.prediction_lead_time_minutes
+    )
     labeled_df["timestamp"] = pd.to_datetime(labeled_df["timestamp"])
 
     # Strict temporal train/test split: Train on 2017–2023, Evaluate on 2024–2026
@@ -118,8 +101,12 @@ def train_and_evaluate_all():
     X_test = test_df[FEATURE_COLUMNS].values
     y_test = test_df["flood_within_60min"].values
 
-    logger.info(f"Train Set (2017-2023): {len(train_df)} samples, {y_train.sum()} floods ({y_train.mean()*100:.2f}%)")
-    logger.info(f"Test Set  (2024-2026): {len(test_df)} samples, {y_test.sum()} floods ({y_test.mean()*100:.2f}%)")
+    logger.info(
+        f"Train Set (2017-2023): {len(train_df)} samples, {y_train.sum()} floods ({y_train.mean() * 100:.2f}%)"
+    )
+    logger.info(
+        f"Test Set  (2024-2026): {len(test_df)} samples, {y_test.sum()} floods ({y_test.mean() * 100:.2f}%)"
+    )
 
     # MLflow Setup
     mlflow.set_experiment("FloodSense_Urban_Drainage_Intelligence")
@@ -130,52 +117,80 @@ def train_and_evaluate_all():
         baseline_metrics = evaluate_model_predictions(y_test, rule_prob_test, threshold=0.5)
         mlflow.log_params({"model_type": "RuleHeuristic", "threshold_mm": 25.0})
         mlflow.log_metrics(baseline_metrics)
-        logger.info(f"Baseline Heuristic -> PR-AUC: {baseline_metrics['pr_auc']}, FAR: {baseline_metrics['false_alarm_rate']}, F1: {baseline_metrics['f1_score']}")
+        logger.info(
+            f"Baseline Heuristic -> PR-AUC: {baseline_metrics['pr_auc']}, FAR: {baseline_metrics['false_alarm_rate']}, F1: {baseline_metrics['f1_score']}"
+        )
 
     # --- 2. Primary Champion: Class-Weighted Logistic Regression ---
     with mlflow.start_run(run_name="02_Primary_Logistic_Regression"):
-        lr_pipeline = Pipeline([
-            ("scaler", StandardScaler()),
-            ("classifier", LogisticRegression(class_weight="balanced", C=0.5, max_iter=1000, random_state=42))
-        ])
+        lr_pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                (
+                    "classifier",
+                    LogisticRegression(
+                        class_weight="balanced", C=0.5, max_iter=1000, random_state=42
+                    ),
+                ),
+            ]
+        )
         lr_pipeline.fit(X_train, y_train)
         lr_probs = lr_pipeline.predict_proba(X_test)[:, 1]
-        lr_metrics = evaluate_model_predictions(y_test, lr_probs, threshold=OPERATIONAL_THRESHOLDS["low_moderate"])
+        lr_metrics = evaluate_model_predictions(
+            y_test, lr_probs, threshold=OPERATIONAL_THRESHOLDS["low_moderate"]
+        )
         mlflow.log_params({"model_type": "ClassWeightedLogisticRegression", "C": 0.5})
         mlflow.log_metrics(lr_metrics)
-        logger.info(f"Primary Logistic Regression -> PR-AUC: {lr_metrics['pr_auc']}, Recall: {lr_metrics['recall']}, FAR: {lr_metrics['false_alarm_rate']}")
+        logger.info(
+            f"Primary Logistic Regression -> PR-AUC: {lr_metrics['pr_auc']}, Recall: {lr_metrics['recall']}, FAR: {lr_metrics['false_alarm_rate']}"
+        )
 
     # --- 3. Challenger: LightGBM with In-Fold SMOTE ---
     with mlflow.start_run(run_name="03_Challenger_LightGBM_CVSMOTE"):
-        lgb_pipeline = ImbPipeline([
-            ("smote", SMOTE(sampling_strategy=0.2, random_state=42)),
-            ("classifier", lgb.LGBMClassifier(
-                n_estimators=100,
-                learning_rate=0.05,
-                max_depth=4,
-                num_leaves=15,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                random_state=42,
-                verbose=-1
-            ))
-        ])
+        lgb_pipeline = ImbPipeline(
+            [
+                ("smote", SMOTE(sampling_strategy=0.2, random_state=42)),
+                (
+                    "classifier",
+                    lgb.LGBMClassifier(
+                        n_estimators=100,
+                        learning_rate=0.05,
+                        max_depth=4,
+                        num_leaves=15,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        random_state=42,
+                        verbose=-1,
+                    ),
+                ),
+            ]
+        )
         lgb_pipeline.fit(X_train, y_train)
         lgb_probs = lgb_pipeline.predict_proba(X_test)[:, 1]
-        lgb_metrics = evaluate_model_predictions(y_test, lgb_probs, threshold=OPERATIONAL_THRESHOLDS["low_moderate"])
+        lgb_metrics = evaluate_model_predictions(
+            y_test, lgb_probs, threshold=OPERATIONAL_THRESHOLDS["low_moderate"]
+        )
         mlflow.log_params({"model_type": "LightGBM_CVSMOTE", "n_estimators": 100, "max_depth": 4})
         mlflow.log_metrics(lgb_metrics)
-        logger.info(f"Challenger LightGBM -> PR-AUC: {lgb_metrics['pr_auc']}, Recall: {lgb_metrics['recall']}, FAR: {lgb_metrics['false_alarm_rate']}")
+        logger.info(
+            f"Challenger LightGBM -> PR-AUC: {lgb_metrics['pr_auc']}, Recall: {lgb_metrics['recall']}, FAR: {lgb_metrics['false_alarm_rate']}"
+        )
 
     # Select Champion based on PR-AUC & False Alarm Rate
-    champion_pipeline = lr_pipeline if lr_metrics["pr_auc"] >= lgb_metrics["pr_auc"] else lgb_pipeline
-    champion_name = "ClassWeightedLogisticRegression" if champion_pipeline == lr_pipeline else "LightGBM_CVSMOTE"
+    champion_pipeline = (
+        lr_pipeline if lr_metrics["pr_auc"] >= lgb_metrics["pr_auc"] else lgb_pipeline
+    )
+    champion_name = (
+        "ClassWeightedLogisticRegression"
+        if champion_pipeline == lr_pipeline
+        else "LightGBM_CVSMOTE"
+    )
     champion_metrics = lr_metrics if champion_pipeline == lr_pipeline else lgb_metrics
 
     # Save winning champion artifact
-    models_dir = Path("models")
+    models_dir = settings.models_dir
     models_dir.mkdir(parents=True, exist_ok=True)
-    model_path = models_dir / "champion_model.joblib"
+    model_path = settings.champion_model_path
     joblib.dump(champion_pipeline, model_path)
 
     metadata = {
@@ -184,7 +199,7 @@ def train_and_evaluate_all():
         "operational_thresholds": OPERATIONAL_THRESHOLDS,
         "metrics_2024_2026_test": champion_metrics,
         "baseline_comparison": baseline_metrics,
-        "training_date": pd.Timestamp.now().isoformat()
+        "training_date": pd.Timestamp.now().isoformat(),
     }
     with open(models_dir / "model_metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
@@ -194,4 +209,7 @@ def train_and_evaluate_all():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     train_and_evaluate_all()

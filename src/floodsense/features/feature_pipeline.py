@@ -9,18 +9,18 @@ Implements:
 """
 
 import math
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from pathlib import Path
 
-from src.common.schemas import ZoneFeatureVector, ZoneRainfall
-from src.spatial.singapore_geo import URA_PLANNING_AREAS
+from floodsense.common.config import settings
+from floodsense.common.schemas import ZoneFeatureVector, ZoneRainfall
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
-# Half-life of 24 hours (288 five-minute intervals)
-HALF_LIFE_STEPS = 288.0
+# Half-life of 24 hours (288 five-minute intervals), derived from config
+HALF_LIFE_STEPS = settings.decay_half_life_hours * 60.0 / settings.step_minutes
 DECAY_LAMBDA_PER_STEP = math.log(2.0) / HALF_LIFE_STEPS  # ~0.002407 per 5-min step
-DECAY_FACTOR_PER_STEP = math.exp(-DECAY_LAMBDA_PER_STEP) # ~0.997596
+DECAY_FACTOR_PER_STEP = math.exp(-DECAY_LAMBDA_PER_STEP)  # ~0.997596
 
 
 class StormRarityEstimator:
@@ -32,7 +32,7 @@ class StormRarityEstimator:
     def __init__(self):
         # Default calibration thresholds (mm per 30-min) for return periods [1yr, 2yr, 5yr, 10yr, 50yr]
         # Calibrated against Singapore Meteorological Service / PUB IDF curves
-        self.zone_quantiles: Dict[str, np.ndarray] = {}
+        self.zone_quantiles: dict[str, np.ndarray] = {}
         self.default_quantiles = np.array([15.0, 25.0, 38.0, 52.0, 70.0, 95.0])
         self._init_default_distributions()
 
@@ -40,7 +40,11 @@ class StormRarityEstimator:
         """Initializes default IDF curves for all 55 planning areas with micro-climate variations."""
         for zone in URA_PLANNING_AREAS:
             # Western and central zones (e.g. Bukit Timah, Jurong) historically receive slightly higher peaks
-            factor = 1.1 if zone in ["BUKIT TIMAH", "JURONG WEST", "CHOA CHU KANG", "SUNGEI KADUT"] else 1.0
+            factor = (
+                1.1
+                if zone in ["BUKIT TIMAH", "JURONG WEST", "CHOA CHU KANG", "SUNGEI KADUT"]
+                else 1.0
+            )
             self.zone_quantiles[zone] = self.default_quantiles * factor
 
     def fit_zone_distributions(self, historical_zone_rain_df: pd.DataFrame):
@@ -57,7 +61,7 @@ class StormRarityEstimator:
                 q_vals = np.quantile(active_bursts, [0.50, 0.80, 0.95, 0.98, 0.995, 0.999])
                 self.zone_quantiles[zone] = q_vals
 
-    def compute_rarity_and_return_period(self, zone: str, rain_30m: float) -> Tuple[float, float]:
+    def compute_rarity_and_return_period(self, zone: str, rain_30m: float) -> tuple[float, float]:
         """
         Calculates storm rarity score [0.0, 1.0] and estimated return period in years.
         """
@@ -83,7 +87,7 @@ class StormRarityEstimator:
             q_high = quantiles[idx]
             frac = (rain_30m - q_low) / (q_high - q_low)
             score = p_low + frac * (p_high - p_low)
-            
+
             # Map percentile to return period in years
             # p=0.80 ~ 0.5yr, p=0.95 ~ 1yr, p=0.98 ~ 2yr, p=0.995 ~ 5yr, p=0.999 ~ 10yr
             rp_anchors = [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
@@ -100,8 +104,8 @@ class FeaturePipeline:
     def __init__(self):
         self.rarity_estimator = StormRarityEstimator()
         # Per-zone state tracking for live streaming: decay state and rolling buffers
-        self.zone_decay_state: Dict[str, float] = {z: 0.0 for z in URA_PLANNING_AREAS}
-        self.zone_rolling_buffer: Dict[str, List[float]] = {z: [] for z in URA_PLANNING_AREAS}
+        self.zone_decay_state: dict[str, float] = {z: 0.0 for z in URA_PLANNING_AREAS}
+        self.zone_rolling_buffer: dict[str, list[float]] = {z: [] for z in URA_PLANNING_AREAS}
 
     def update_streaming_reading(self, reading: ZoneRainfall) -> ZoneFeatureVector:
         """
@@ -129,7 +133,9 @@ class FeaturePipeline:
         rain_120m = round(sum(buf[-24:]), 2)
 
         # Compute storm rarity & return period
-        rarity_score, return_period = self.rarity_estimator.compute_rarity_and_return_period(zone, rain_30m)
+        rarity_score, return_period = self.rarity_estimator.compute_rarity_and_return_period(
+            zone, rain_30m
+        )
 
         pub_mon = URA_PLANNING_AREAS.get(zone, {}).get("pub_monitored", 0)
 
@@ -144,10 +150,12 @@ class FeaturePipeline:
             rain_decay_72h=curr_decay,
             storm_rarity_score=rarity_score,
             return_period_years=return_period,
-            pub_monitored=pub_mon
+            pub_monitored=pub_mon,
         )
 
-    def process_batch_dataframe(self, df: pd.DataFrame, prune_zero_rain: bool = True) -> pd.DataFrame:
+    def process_batch_dataframe(
+        self, df: pd.DataFrame, prune_zero_rain: bool = True
+    ) -> pd.DataFrame:
         """
         Transforms a batch DataFrame of zone rainfall into full engineered feature set.
         df columns required: ['ura_planning_area', 'timestamp', 'rainfall_mm']
@@ -189,18 +197,20 @@ class FeaturePipeline:
 
                 score, rp = self.rarity_estimator.compute_rarity_and_return_period(zone, r30)
 
-                feature_records.append({
-                    "ura_planning_area": zone,
-                    "timestamp": ts_arr[k],
-                    "rain_5m": r5,
-                    "rain_15m": r15,
-                    "rain_30m": r30,
-                    "rain_60m": r60,
-                    "rain_120m": r120,
-                    "rain_decay_72h": dec,
-                    "storm_rarity_score": score,
-                    "return_period_years": rp,
-                    "pub_monitored": pub_mon
-                })
+                feature_records.append(
+                    {
+                        "ura_planning_area": zone,
+                        "timestamp": ts_arr[k],
+                        "rain_5m": r5,
+                        "rain_15m": r15,
+                        "rain_30m": r30,
+                        "rain_60m": r60,
+                        "rain_120m": r120,
+                        "rain_decay_72h": dec,
+                        "storm_rarity_score": score,
+                        "return_period_years": rp,
+                        "pub_monitored": pub_mon,
+                    }
+                )
 
         return pd.DataFrame(feature_records)

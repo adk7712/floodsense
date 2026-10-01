@@ -8,26 +8,23 @@ training benchmarks with zero-rain stream pruning optimization.
 import json
 import logging
 import math
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Generator, List, Tuple
+
 import numpy as np
 import pandas as pd
 import requests
 
-from src.common.schemas import ZoneRainfall
-from src.spatial.singapore_geo import URA_PLANNING_AREAS, NEA_WEATHER_STATIONS
-from src.features.ground_truth_extractor import HISTORICAL_FLOOD_EVENTS_BENCHMARK
+from floodsense.features.ground_truth_extractor import HISTORICAL_FLOOD_EVENTS_BENCHMARK
+from floodsense.spatial.singapore_geo import NEA_WEATHER_STATIONS, URA_PLANNING_AREAS
 
 logger = logging.getLogger("FloodSense.DataLoader")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 
 def fetch_actual_historical_storm_slice(
     output_path: str = "data/replay/april_2021_storm.json",
     start_time_iso: str = "2021-04-17T13:00:00",
-    steps: int = 60
+    steps: int = 60,
 ) -> Path:
     """
     Fetches 100% actual, official 5-minute NEA weather station observations directly from
@@ -39,7 +36,9 @@ def fetch_actual_historical_storm_slice(
     start_dt = datetime.fromisoformat(start_time_iso)
     replay_timeline = []
 
-    logger.info(f"Fetching actual 5-min historical rainfall observations from data.gov.sg for {steps} steps starting {start_time_iso}...")
+    logger.info(
+        f"Fetching actual 5-min historical rainfall observations from data.gov.sg for {steps} steps starting {start_time_iso}..."
+    )
 
     for step in range(steps):
         cur_dt = start_dt + timedelta(minutes=step * 5)
@@ -65,10 +64,9 @@ def fetch_actual_historical_storm_slice(
                     for r in raw_readings:
                         s_id = r.get("station_id")
                         val = r.get("value")
-                        readings.append({
-                            "station_id": s_id,
-                            "value": float(val) if val is not None else 0.0
-                        })
+                        readings.append(
+                            {"station_id": s_id, "value": float(val) if val is not None else 0.0}
+                        )
         except Exception as e:
             logger.warning(f"Error fetching step {step} ({ts_str}): {e}")
 
@@ -77,18 +75,15 @@ def fetch_actual_historical_storm_slice(
             for s_id in NEA_WEATHER_STATIONS:
                 readings.append({"station_id": s_id, "value": 0.0})
 
-        replay_timeline.append({
-            "step_index": step,
-            "timestamp": ts_str,
-            "event_phase": phase,
-            "readings": readings
-        })
+        replay_timeline.append(
+            {"step_index": step, "timestamp": ts_str, "event_phase": phase, "readings": readings}
+        )
 
     result_payload = {
         "event_name": "17 April 2021 Western Singapore Flash Flood (Official NEA Observation)",
         "source": "data.gov.sg / National Environment Agency (NEA)",
         "total_steps": len(replay_timeline),
-        "timeline": replay_timeline
+        "timeline": replay_timeline,
     }
 
     with open(out_file, "w") as f:
@@ -103,9 +98,7 @@ generate_april_2021_replay_slice = fetch_actual_historical_storm_slice
 
 
 def generate_historical_dataset(
-    start_year: int = 2017,
-    end_year: int = 2026,
-    num_storm_days_per_year: int = 35
+    start_year: int = 2017, end_year: int = 2026, num_storm_days_per_year: int = 35
 ) -> pd.DataFrame:
     """
     Generates multi-year historical training dataset anchored on known flood dates.
@@ -147,16 +140,20 @@ def generate_historical_dataset(
                 time_decay = math.exp(-((step - peak_step) ** 2) / 30.0)
 
                 for zone_name, zmeta in URA_PLANNING_AREAS.items():
-                    d = math.sqrt((zmeta["lat"] - center_lat) ** 2 + (zmeta["lon"] - center_lon) ** 2)
+                    d = math.sqrt(
+                        (zmeta["lat"] - center_lat) ** 2 + (zmeta["lon"] - center_lon) ** 2
+                    )
                     spatial_factor = max(0.0, 1.0 - (d / 0.10))
-                    rain = round(max_intensity * time_decay * spatial_factor + np.random.uniform(0, 0.2) * (1 if spatial_factor > 0 else 0), 2)
+                    rain = round(
+                        max_intensity * time_decay * spatial_factor
+                        + np.random.uniform(0, 0.2) * (1 if spatial_factor > 0 else 0),
+                        2,
+                    )
 
                     if rain > 0.0 or step % 12 == 0:
-                        records.append({
-                            "ura_planning_area": zone_name,
-                            "timestamp": ts,
-                            "rainfall_mm": rain
-                        })
+                        records.append(
+                            {"ura_planning_area": zone_name, "timestamp": ts, "rainfall_mm": rain}
+                        )
 
         cur_date += timedelta(days=1)
 
@@ -164,4 +161,7 @@ def generate_historical_dataset(
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     fetch_actual_historical_storm_slice()
