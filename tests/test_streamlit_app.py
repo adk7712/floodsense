@@ -72,3 +72,13 @@ def test_streamlit_app_all_zones_selection():
         at.run(timeout=30)
         assert not at.exception
         assert at.selectbox[0].value == zone
+
+
+def test_diagnostics_use_real_model_and_current_status():
+    at = _app()
+    labels = [m.label for m in at.metric]
+    assert "Wet-Ground Index" in labels and "Wet Ground (72h)" not in labels
+    text = " ".join(md.value for md in at.markdown) + " ".join(c.value for c in at.caption)
+    assert "placeholder" not in text and "boundary polygons to come" not in text
+    assert "60.8M readings" in text and "High from" in text
+    assert "DAISI Challenge" not in " ".join(c.value for c in at.sidebar.caption)

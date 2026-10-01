@@ -21,8 +21,8 @@ from floodsense.common.schemas import StationMetadata
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
-from floodsense.models.artifact import load_model
-from floodsense.models.scoring import score_zone_features
+from floodsense.models.artifact import load_model, rarity_scores
+from floodsense.models.scoring import default_thresholds, score_zone_features
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 st.set_page_config(
@@ -34,6 +34,14 @@ st.set_page_config(
 
 TIER_COLORS = {"High": "#ff4d4f", "Moderate": "#faad14", "Low": "#52c41a"}
 NUM_ZONES = len(URA_PLANNING_AREAS)
+WET_GROUND_HELP = (
+    "Recent rain, with each millimetre counting half as much after every "
+    f"{settings.decay_half_life_hours:g} hours. An index of how wet the ground is, not a rain total."
+)
+LIVE_WET_GROUND_NOTE = (
+    f" In Live mode it is built from only the last {settings.live_history_hours:g} hours of "
+    "readings, so it reads low."
+)
 REPLAY_DEFAULT_TIME = "12:15"  # island-wide peak of the 17 Apr 2021 storm in the replay data
 ZONE_META = (
     pd.DataFrame.from_dict(URA_PLANNING_AREAS, orient="index")[["lat", "lon", "region"]]
@@ -59,8 +67,13 @@ def get_model() -> tuple[Any | None, str]:
             "Risk tiers come from a prototype model trained on synthetic rainfall, so treat them "
             "as illustrative. Rainfall values are real NEA measurements."
         )
-    trained = model.provenance.get("training_period", "real NEA data")
-    tiers = "budgeted thresholds" if model.thresholds else "default thresholds (budget not set)"
+    start, end = model.provenance.get("trained_from"), model.provenance.get("trained_to")
+    trained = f"NEA rainfall {start[:4]}–{end[:4]}" if start and end else "real NEA rainfall"
+    tiers = (
+        "thresholds set from the team's false-alarm budgets"
+        if model.thresholds
+        else "default thresholds (budget not set)"
+    )
     return model, f"Risk from a model trained on {trained}, with {tiers}."
 
 
@@ -94,7 +107,6 @@ model, model_caption = get_model()
 
 # --- SIDEBAR -------------------------------------------------------------------------------
 st.sidebar.markdown("### :material/water_damage: **FloodSense**")
-st.sidebar.caption("DAISI Challenge 2026 • Track B2: Climate Resilience")
 
 mode = st.sidebar.segmented_control(
     "Mode",
@@ -175,10 +187,11 @@ with kpi_cols[2], st.container(border=True):
     st.metric(label="Max 30-min Rain", value=f"{peak['rain_30m']:.0f} mm", delta=peak["zone"])
 with kpi_cols[3], st.container(border=True):
     st.metric(
-        label="Wet Ground (72h)",
-        value=f"{wettest['rain_decay_72h']:.0f} mm",
+        label="Wet-Ground Index",
+        value=f"{wettest['rain_decay_72h']:.0f}",
         delta=wettest["zone"],
         delta_color="off",
+        help=WET_GROUND_HELP + (LIVE_WET_GROUND_NOTE if mode == "Live Feed" else ""),
     )
 with kpi_cols[4], st.container(border=True):
     st.metric(
@@ -206,7 +219,7 @@ with map_col, st.container(border=True):
             "risk_tier": True,
             "flood_probability": True,
             "rain_30m": ":.1f",
-            "rain_decay_72h": ":.1f",
+            "rain_decay_72h": False,
             "lat": False,
             "lon": False,
         },
@@ -222,7 +235,7 @@ with map_col, st.container(border=True):
         legend=dict(yanchor="top", y=0.98, xanchor="left", x=0.02, bgcolor="rgba(0,0,0,0.6)"),
     )
     st.plotly_chart(fig_map)
-    st.caption(f"{model_caption} {history_note} Markers sit at planning-area centroids.")
+    st.caption(f"{model_caption} {history_note} Each marker sits inside its URA planning area.")
 
 with detail_col, st.container(border=True):
     st.subheader(f":material/analytics: Zone Diagnostic: `{selected_zone}`")
@@ -233,9 +246,13 @@ with detail_col, st.container(border=True):
         "Moderate": ":orange[**Moderate Risk**]",
         "Low": ":green[**Low Risk**]",
     }[zone_data["risk_tier"]]
-    st.markdown(
-        f"**Flood probability (next 60 min):** `{zone_data['flood_probability'] * 100:.1f}%` "
-        f"• Status: {tier_badge}"
+    st.markdown(f"**Status:** {tier_badge}")
+    thresholds = getattr(model, "thresholds", None) or default_thresholds()
+    st.caption(
+        f"Chance a flood is reported here in the next 60 min: "
+        f"**{zone_data['flood_probability'] * 100:.2f}%**. Flood reports are rare, so the alert "
+        f"levels are low: Moderate from {thresholds['moderate'] * 100:.2f}%, "
+        f"High from {thresholds['high'] * 100:.2f}%."
     )
 
     z_col1, z_col2 = st.columns(2)
@@ -245,15 +262,23 @@ with detail_col, st.container(border=True):
         st.markdown(f"- **30-min Rain:** `{zone_data['rain_30m']:.2f} mm`")
     with z_col2:
         st.markdown(f"- **60-min Rain:** `{zone_data['rain_60m']:.2f} mm`")
-        st.markdown(f"- **72h Wet-Ground Index:** `{zone_data['rain_decay_72h']:.1f} mm`")
+        st.markdown(
+            f"- **Wet-ground index:** `{zone_data['rain_decay_72h']:.1f}`", help=WET_GROUND_HELP
+        )
         st.markdown(f"- **120-min Rain:** `{zone_data['rain_120m']:.2f} mm`")
 
-    rarity = float(zone_data["storm_rarity_score"])
+    fitted = getattr(model, "rarity_quantiles", None)
+    if fitted:
+        rarity = float(rarity_scores(df_results[df_results["zone"] == selected_zone], fitted)[0])
+        rarity_title = "Storm rarity: heavier than this % of rainy half-hours here, 2017–23"
+    else:
+        rarity = float(zone_data["storm_rarity_score"])
+        rarity_title = "Storm rarity percentile (uncalibrated: no trained model)"
     fig_gauge = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=rarity * 100,
-            title={"text": "Storm Rarity Percentile (uncalibrated)", "font": {"size": 13}},
+            title={"text": rarity_title, "font": {"size": 13}},
             gauge={
                 "axis": {"range": [0, 100]},
                 "bar": {
@@ -297,11 +322,14 @@ with context_col, st.container(border=True):
 with status_col, st.container(border=True):
     st.subheader(":material/construction: Prototype Status")
     st.markdown(
-        "- **Rainfall (real):** NEA 5-minute station readings from data.gov.sg, mapped to zones "
-        "with inverse-distance weights that re-balance when gauges drop out.\n"
-        "- **Features (real data):** rolling 5–120 min rainfall and a 72 h wet-ground index, "
-        "recomputed from the readings for every view.\n"
-        "- **Model (placeholder):** trained on synthetic rainfall; training on the real "
-        "2017–2026 gauge record with sourced flood labels is in progress.\n"
-        "- **Zones:** shown at planning-area centroids; boundary polygons to come."
+        "- **Rainfall (real):** NEA 5-minute gauge readings, 2017 to Sep 2026 (60.8M readings), "
+        "mapped to zones with distance weights that re-balance when gauges drop out.\n"
+        "- **Flood labels (sourced):** 66 events, each with a source link, a quoted sentence and a "
+        "human sign-off.\n"
+        "- **Model:** a calibrated 60-minute-rainfall rule. It beat logistic regression and "
+        "LightGBM at matched false-alarm levels on 2020–23.\n"
+        "- **Held-out test (2024 to Sep 2026, 30 floods):** High caught 12 (40%), median warning "
+        "7.5 min; Moderate caught 21 (70%), median warning 15 min. Gauges alone give little lead "
+        "time; radar nowcasting is next.\n"
+        "- **Zones:** the 55 URA Master Plan 2019 planning areas."
     )
