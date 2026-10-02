@@ -13,7 +13,6 @@ accumulated across reruns, so the page depends only on the selected mode, time a
 
 import json
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -317,14 +316,7 @@ st.markdown(MODERN_TELEMETRY_LIGHT_CSS, unsafe_allow_html=True)
 
 @st.cache_data
 def load_ura_boundaries() -> dict[str, Any] | None:
-    path = (
-        Path(__file__).resolve().parent.parent.parent.parent
-        / "data"
-        / "reference"
-        / "ura_planning_areas_mp2019.geojson"
-    )
-    if not path.exists():
-        path = Path("data/reference/ura_planning_areas_mp2019.geojson")
+    path = settings.zone_polygons_file
     if path.exists():
         try:
             with open(path, encoding="utf-8") as f:
@@ -332,11 +324,13 @@ def load_ura_boundaries() -> dict[str, Any] | None:
             simplified_features: list[dict[str, Any]] = []
             for feat in raw_geojson.get("features", []):
                 s = shape(feat["geometry"]).simplify(0.001, preserve_topology=True)
-                simplified_features.append({
-                    "type": "Feature",
-                    "properties": feat.get("properties", {}),
-                    "geometry": mapping(s),
-                })
+                simplified_features.append(
+                    {
+                        "type": "Feature",
+                        "properties": feat.get("properties", {}),
+                        "geometry": mapping(s),
+                    }
+                )
             return {"type": "FeatureCollection", "features": simplified_features}
         except Exception:
             return None
@@ -344,9 +338,9 @@ def load_ura_boundaries() -> dict[str, Any] | None:
 
 
 TIER_COLORS = {
-    "High": "#EF4444",       # Signal Crimson
-    "Moderate": "#F59E0B",   # Industrial Amber
-    "Low": "#0EA5E9",        # Sky Blue
+    "High": "#EF4444",  # Signal Crimson
+    "Moderate": "#F59E0B",  # Industrial Amber
+    "Low": "#0EA5E9",  # Sky Blue
 }
 NUM_ZONES = len(URA_PLANNING_AREAS)
 WET_GROUND_HELP = (
@@ -425,6 +419,12 @@ def _pick_day(day: date) -> None:
     st.session_state["replay_date"] = day
 
 
+def _replay_pinned_storm() -> None:
+    """Jump to the 17 Apr 2021 replay. A callback, so it runs before the widgets are drawn."""
+    st.session_state["mode"] = "Replay Storm"
+    st.session_state["replay_date"] = replay_days.PINNED_STORM
+
+
 def storm_buttons(selected: date) -> None:
     """One-click buttons for the major reported storms (sidebar)."""
     st.sidebar.caption("Major storms (days with the most reported floods):")
@@ -494,9 +494,10 @@ if mode == "Live Feed":
     view_time = features["timestamp"].iloc[0]
     live_badge = (
         '<span style="background: #ECFDF5; border: 1px solid #A7F3D0; '
-        'color: #059669; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; '
-        f'font-family: \'Inter\', sans-serif; font-weight: 600;">'
-        f'● Live Telemetry: {total_stations} Gauges Polling (data.gov.sg)</span>'
+        "color: #059669; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
+        f"● Live: {int(features['reporting_stations'].iloc[0])} of {total_stations} gauges "
+        "reporting (data.gov.sg)</span>"
     )
     status_line = (
         f"{live_badge} &nbsp;·&nbsp; <span style='color: #64748B; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Latest Reading:</span> "
@@ -547,9 +548,9 @@ elif replay_days.store_available():
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
     replay_badge = (
         '<span style="background: #FEF3C7; border: 1px solid #FDE68A; '
-        'color: #D97706; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; '
-        'font-family: \'Inter\', sans-serif; font-weight: 600;">'
-        '⟳ Historical Replay: NEA Station Archive</span>'
+        "color: #D97706; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        "font-family: 'Inter', sans-serif; font-weight: 600;\">"
+        "⟳ Replay: NEA gauge readings</span>"
     )
     status_line = (
         f"{replay_badge} &nbsp;·&nbsp; <span style='color: #64748B; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
@@ -576,9 +577,9 @@ else:
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
     replay_badge = (
         '<span style="background: #FEF3C7; border: 1px solid #FDE68A; '
-        'color: #D97706; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; '
-        f'font-family: \'Inter\', sans-serif; font-weight: 600;">'
-        f'⟳ Historical Replay: {event_name}</span>'
+        "color: #D97706; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
+        f"⟳ Historical Replay: {event_name}</span>"
     )
     status_line = (
         f"{replay_badge} &nbsp;·&nbsp; <span style='color: #64748B; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
@@ -596,14 +597,14 @@ st.title("🌊 FloodSense Intelligence Center")
 st.markdown(status_line, unsafe_allow_html=True)
 st.markdown(
     '<div style="background: #EEF2F6; border: 1px solid #E2E8F0; border-radius: 9999px; '
-    'padding: 4px 14px; margin: 8px 0 18px 0; display: inline-flex; align-items: center; '
-    'gap: 8px; font-size: 0.78rem; font-family: \'Inter\', sans-serif; color: #475569;">'
-    '  <span>📍 Singapore Urban Flash-Flood Risk</span>'
+    "padding: 4px 14px; margin: 8px 0 18px 0; display: inline-flex; align-items: center; "
+    "gap: 8px; font-size: 0.78rem; font-family: 'Inter', sans-serif; color: #475569;\">"
+    "  <span>📍 Singapore Urban Flash-Flood Risk</span>"
     '  <span style="color: #CBD5E1;">•</span>'
-    '  <span>55 URA Planning Areas</span>'
+    "  <span>55 URA Planning Areas</span>"
     '  <span style="color: #CBD5E1;">•</span>'
-    '  <span style="background: #FFFFFF; border: 1px solid #E2E8F0; color: #0284C7; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">1-Hour Predictive Lead</span>'
-    '</div>',
+    '  <span style="background: #FFFFFF; border: 1px solid #E2E8F0; color: #0284C7; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">Chance of a flood in the next hour</span>'
+    "</div>",
     unsafe_allow_html=True,
 )
 if replay_warning:
@@ -615,67 +616,79 @@ peak = df_results.sort_values("rain_30m", ascending=False).iloc[0]
 wettest = df_results.sort_values("rain_decay_72h", ascending=False).iloc[0]
 
 # --- 5 TOP KPI METRIC CARDS ---------------------------------------------------------------
-kpi_cols = st.columns(5)
-with kpi_cols[0], st.container(border=True):
-    badge_bg = "#E0F2FE" if high_risk_count == 0 else "#FEE2E2"
-    badge_color = "#0284C7" if high_risk_count == 0 else "#DC2626"
-    badge_border = "#BAE6FD" if high_risk_count == 0 else "#FECACA"
-    badge_text = "• Nominal" if high_risk_count == 0 else f"• {high_risk_count} Alert"
+_LABEL = (
+    "font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:#64748B; "
+    "text-transform:uppercase; letter-spacing:0.05em;"
+)
+_BADGES = {
+    "info": ("#E0F2FE", "#0284C7", "#BAE6FD"),
+    "alert": ("#FEE2E2", "#DC2626", "#FECACA"),
+    "warn": ("#FEF3C7", "#D97706", "#FDE68A"),
+}
+
+
+def card_header(label: str, badge: str | None = None, tone: str = "info") -> None:
+    if badge is None:
+        st.markdown(
+            f'<div style="margin-bottom:4px;"><span style="{_LABEL}">{label}</span></div>',
+            unsafe_allow_html=True,
+        )
+        return
+    bg, fg, border = _BADGES[tone]
     st.markdown(
-        f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-        f'<span style="font-size:0.68rem; font-family:\'Inter\', sans-serif; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.05em;">HIGH RISK ZONES</span>'
-        f'<span style="background:{badge_bg}; color:{badge_color}; border:1px solid {badge_border}; font-family:\'Inter\', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:9999px;">'
-        f'{badge_text}</span></div>',
+        f'<div style="display:flex; justify-content:space-between; align-items:center; '
+        f'margin-bottom:4px; gap:6px;"><span style="{_LABEL}">{label}</span>'
+        f'<span style="background:{bg}; color:{fg}; border:1px solid {border}; '
+        f"font-family:'Inter', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; "
+        f"border-radius:9999px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; "
+        f'max-width:55%;">{badge}</span></div>',
         unsafe_allow_html=True,
     )
+
+
+def card_footer(left: str, right: str) -> None:
+    st.markdown(
+        '<div style="display:flex; justify-content:space-between; font-size:0.72rem; '
+        "font-family:'Inter', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; "
+        f'padding-top:6px; margin-top:2px; gap:8px;"><span style="white-space:nowrap;">{left}</span>'
+        f'<span style="font-weight:700; color:#0F172A; text-align:right;">{right}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
+tier_thresholds = getattr(model, "thresholds", None) or default_thresholds()
+
+kpi_cols = st.columns(5)
+with kpi_cols[0], st.container(border=True):
+    card_header("High risk zones")
     st.metric(
         label="High Risk",
         value=f"{high_risk_count} / {NUM_ZONES}",
-        delta=f"{high_risk_count} Alert" if high_risk_count > 0 else "Normal",
+        delta=f"{high_risk_count} Alert" if high_risk_count > 0 else None,
         delta_color="inverse",
         label_visibility="collapsed",
     )
-    st.markdown(
-        '<div style="display:flex; justify-content:space-between; font-size:0.72rem; font-family:\'Inter\', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; padding-top:6px; margin-top:2px;">'
-        '<span>False-alarm budget</span><span style="font-weight:700; color:#0F172A;">0.05 max</span></div>',
-        unsafe_allow_html=True,
-    )
+    card_footer("High from", f"{tier_thresholds['high']:.2%} chance")
 with kpi_cols[1], st.container(border=True):
-    st.markdown(
-        f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-        f'<span style="font-size:0.68rem; font-family:\'Inter\', sans-serif; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.05em;">MODERATE WATCH</span>'
-        f'<span style="background:#E0F2FE; color:#0284C7; border:1px solid #BAE6FD; font-family:\'Inter\', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:9999px;">'
-        f'{"Standby" if mod_risk_count == 0 else f"{mod_risk_count} Watch"}</span></div>',
-        unsafe_allow_html=True,
+    card_header("Moderate risk zones")
+    st.metric(
+        label="Moderate Risk", value=f"{mod_risk_count} / {NUM_ZONES}", label_visibility="collapsed"
     )
-    st.metric(label="Moderate Risk", value=f"{mod_risk_count} / {NUM_ZONES}", label_visibility="collapsed")
-    st.markdown(
-        '<div style="display:flex; justify-content:space-between; font-size:0.72rem; font-family:\'Inter\', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; padding-top:6px; margin-top:2px;">'
-        '<span>Precipitation Threshold</span><span style="background:#F1F5F9; border:1px solid #E2E8F0; color:#475569; padding:1px 6px; border-radius:4px; font-weight:600;">> 35 mm/h</span></div>',
-        unsafe_allow_html=True,
-    )
+    card_footer("Moderate from", f"{tier_thresholds['moderate']:.2%} chance")
 with kpi_cols[2], st.container(border=True):
-    st.markdown(
-        f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-        f'<span style="font-size:0.68rem; font-family:\'Inter\', sans-serif; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.05em;">MAX 30-MIN RAIN</span>'
-        f'<span style="background:#E0F2FE; color:#0284C7; border:1px solid #BAE6FD; font-family:\'Inter\', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:9999px;">'
-        f'📍 {peak["zone"][:12]}</span></div>',
-        unsafe_allow_html=True,
+    card_header("Max 30-min rain")
+    st.metric(
+        label="Max 30-min Rain",
+        value=f"{peak['rain_30m']:.0f} mm",
+        delta=peak["zone"],
+        label_visibility="collapsed",
     )
-    st.metric(label="Max 30-min Rain", value=f"{peak['rain_30m']:.0f} mm", delta=peak["zone"], label_visibility="collapsed")
-    st.markdown(
-        f'<div style="display:flex; justify-content:space-between; font-size:0.72rem; font-family:\'Inter\', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; padding-top:6px; margin-top:2px;">'
-        f'<span><span style="color:#0284C7;">●</span> Polled live</span><span style="font-weight:600; color:#0F172A;">{"Peak Zone" if peak["rain_30m"] > 0 else "Dry Spells"}</span></div>',
-        unsafe_allow_html=True,
+    card_footer(
+        "Live reading" if mode == "Live Feed" else "Replay reading",
+        "Heaviest zone" if peak["rain_30m"] > 0 else "No rain",
     )
 with kpi_cols[3], st.container(border=True):
-    st.markdown(
-        f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-        f'<span style="font-size:0.68rem; font-family:\'Inter\', sans-serif; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.05em;">WET-GROUND IDX <span style="font-weight:normal;color:#94A3B8;">ℹ</span></span>'
-        f'<span style="background:#E0F2FE; color:#0284C7; border:1px solid #BAE6FD; font-family:\'Inter\', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:9999px;">'
-        f'{wettest["zone"][:12]}</span></div>',
-        unsafe_allow_html=True,
-    )
+    card_header("Wet-ground index")
     st.metric(
         label="Wet-Ground Index",
         value=f"{wettest['rain_decay_72h']:.0f}",
@@ -684,30 +697,17 @@ with kpi_cols[3], st.container(border=True):
         help=WET_GROUND_HELP + (LIVE_WET_GROUND_NOTE if mode == "Live Feed" else ""),
         label_visibility="collapsed",
     )
-    st.markdown(
-        '<div style="display:flex; justify-content:space-between; font-size:0.72rem; font-family:\'Inter\', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; padding-top:6px; margin-top:2px;">'
-        '<span>72h Soil Saturation</span><span style="font-weight:700; color:#0F172A;">0.04 psi</span></div>',
-        unsafe_allow_html=True,
-    )
+    card_footer("Rain half-life", f"{settings.decay_half_life_hours:g} h")
 with kpi_cols[4], st.container(border=True):
-    st.markdown(
-        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-        '<span style="font-size:0.68rem; font-family:\'Inter\', sans-serif; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.05em;">LIVE GAUGES</span>'
-        '<span style="background:#E0F2FE; color:#0284C7; border:1px solid #BAE6FD; font-family:\'Inter\', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:9999px;">'
-        '• NEA Link OK</span></div>',
-        unsafe_allow_html=True,
-    )
+    share = reporting_stations / total_stations if total_stations else 0.0
+    card_header("Gauges reporting")
     st.metric(
         label="Gauges Live",
         value=f"{reporting_stations} / {total_stations}",
         help="Zone rainfall weights re-balance automatically over the gauges that reported.",
         label_visibility="collapsed",
     )
-    st.markdown(
-        '<div style="display:flex; justify-content:space-between; font-size:0.72rem; font-family:\'Inter\', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; padding-top:6px; margin-top:2px;">'
-        '<span>v2 Telemetry Poller</span><span style="font-weight:700; color:#0F172A;">100% Ingest</span></div>',
-        unsafe_allow_html=True,
-    )
+    card_footer("Reporting now", f"{share:.0%}")
 
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
 map_col, detail_col = st.columns([1.7, 1.3])
@@ -716,20 +716,19 @@ with map_col, st.container(border=True):
     st.markdown(
         '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">'
         '  <div style="display: flex; align-items: center; gap: 8px;">'
-        '    <span style="font-size: 1.15rem; font-weight: 700; color: #0F172A; font-family: \'Inter\', sans-serif;">🗺️ Singapore Urban Risk Map</span>'
-        '    <span style="background: #F1F5F9; border: 1px solid #E2E8F0; color: #475569; font-family: \'Inter\', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;">55 URA ZONES</span>'
-        '  </div>'
-        '</div>'
-        '<div style="font-size: 0.78rem; color: #64748B; margin-bottom: 12px; font-family: \'Inter\', sans-serif;">'
-        'High-resolution spatial model interpolated from NEA real-time station mesh.'
-        '</div>'
-        f'<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-family: \'Inter\', sans-serif;">'
-        f'  <span style="background: #EA580C; color: #FFFFFF; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; box-shadow: 0 1px 2px rgba(234, 88, 12, 0.2);">All 55 URA Zones</span>'
-        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;">Low Risk ({NUM_ZONES - high_risk_count - mod_risk_count})</span>'
-        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;">Moderate Risk ({mod_risk_count})</span>'
-        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;">High Risk ({high_risk_count})</span>'
-        f'  <span style="background: #E0F2FE; border: 1px solid #BAE6FD; color: #0284C7; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">• {total_stations} NEA Rain Gauges Active</span>'
-        f'</div>',
+        "    <span style=\"font-size: 1.15rem; font-weight: 700; color: #0F172A; font-family: 'Inter', sans-serif;\">🗺️ Singapore Urban Risk Map</span>"
+        "    <span style=\"background: #F1F5F9; border: 1px solid #E2E8F0; color: #475569; font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;\">55 URA ZONES</span>"
+        "  </div>"
+        "</div>"
+        "<div style=\"font-size: 0.78rem; color: #64748B; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
+        "Rainfall at each zone interpolated from NEA rain gauges (inverse-distance weighting)."
+        "</div>"
+        f"<div style=\"display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
+        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#0EA5E9;">●</span> Low ({NUM_ZONES - high_risk_count - mod_risk_count})</span>'
+        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#F59E0B;">●</span> Moderate ({mod_risk_count})</span>'
+        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#EF4444;">●</span> High ({high_risk_count})</span>'
+        f'  <span style="background: #E0F2FE; border: 1px solid #BAE6FD; color: #0284C7; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">{reporting_stations} of {total_stations} gauges reporting</span>'
+        f"</div>",
         unsafe_allow_html=True,
     )
     map_func = getattr(px, "scatter_map", getattr(px, "scatter_mapbox", None))
@@ -775,9 +774,8 @@ with map_col, st.container(border=True):
         stn_lats = [s["lat"] for s in stns.values()]
         stn_lons = [s["lon"] for s in stns.values()]
         stn_names = [
-            f"<b>[NEA GAUGE: {sid}]</b><br>"
-            f"<span style='color:#64748B;'>Name:</span> {s.get('name', sid)}<br>"
-            f"<span style='color:#059669;'>● ACTIVE TELEMETRY</span>"
+            f"<b>NEA rain gauge {sid}</b><br>"
+            f"<span style='color:#64748B;'>{s.get('name', sid)}</span>"
             for sid, s in stns.items()
         ]
         trace_cls = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
@@ -787,8 +785,8 @@ with map_col, st.container(border=True):
                     lat=stn_lats,
                     lon=stn_lons,
                     mode="markers",
-                    marker=dict(size=4, color="#0EA5E9", opacity=0.85),
-                    name="NEA Rain Gauges",
+                    marker=dict(size=4, color="#64748B", opacity=0.7),
+                    name="NEA rain gauges (locations)",
                     hoverinfo="text",
                     hovertext=stn_names,
                 )
@@ -798,13 +796,15 @@ with map_col, st.container(border=True):
     ura_geojson = load_ura_boundaries()
     map_layers = []
     if ura_geojson:
-        map_layers.append({
-            "sourcetype": "geojson",
-            "source": ura_geojson,
-            "type": "line",
-            "color": "rgba(148, 163, 184, 0.45)",
-            "line": {"width": 1.0},
-        })
+        map_layers.append(
+            {
+                "sourcetype": "geojson",
+                "source": ura_geojson,
+                "type": "line",
+                "color": "rgba(148, 163, 184, 0.45)",
+                "line": {"width": 1.0},
+            }
+        )
 
     map_layout_key = "map" if hasattr(px, "scatter_map") else "mapbox"
     fig_map.update_layout(
@@ -828,33 +828,34 @@ with map_col, st.container(border=True):
             bordercolor="#E2E8F0",
             borderwidth=1,
             font=dict(family="Inter, sans-serif", size=11, color="#334155"),
-            title=dict(text="RISK CLASSIFICATION", font=dict(family="Inter, sans-serif", size=10, color="#64748B")),
+            title=dict(
+                text="RISK CLASSIFICATION",
+                font=dict(family="Inter, sans-serif", size=10, color="#64748B"),
+            ),
         ),
         **{map_layout_key: {"style": "carto-positron", "layers": map_layers}},
     )
     st.plotly_chart(fig_map)
     st.caption(
-        f"✅ Model trained on NEA rainfall 2017–2023 with false-alarm budget constraints. "
-        f"IDW spatial interpolation across 55 URA zones. {history_note} {model_caption} "
-        f"Each marker sits inside its URA planning area."
+        f"{model_caption} {history_note} Each risk marker sits inside its URA planning area; "
+        "grey outlines are the URA Master Plan 2019 boundaries, small grey dots NEA gauge locations."
     )
 
 with detail_col, st.container(border=True):
     st.markdown(
         '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">'
         '  <div style="display: flex; align-items: center; gap: 8px;">'
-        '    <span style="font-size: 1.15rem; font-weight: 700; color: #0F172A; font-family: \'Inter\', sans-serif;">📊 Zone Diagnostic</span>'
-        '  </div>'
-        '  <span style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #059669; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 9999px; font-family: \'Inter\', sans-serif;">• SYNCHRONIZED</span>'
-        '</div>',
+        "    <span style=\"font-size: 1.15rem; font-weight: 700; color: #0F172A; font-family: 'Inter', sans-serif;\">📊 Zone Diagnostic</span>"
+        "  </div>"
+        "</div>",
         unsafe_allow_html=True,
     )
     zone_data = df_results[df_results["zone"] == selected_zone].iloc[0]
 
     tier_label = {
-        "High": "CRITICAL // HIGH RISK",
-        "Moderate": "ELEVATED // MODERATE WATCH",
-        "Low": "NOMINAL // LOW RISK",
+        "High": "HIGH RISK",
+        "Moderate": "MODERATE RISK",
+        "Low": "LOW RISK",
     }[zone_data["risk_tier"]]
     tier_bg = {
         "High": "#FEF2F2",
@@ -874,12 +875,10 @@ with detail_col, st.container(border=True):
 
     st.markdown(
         f'<div style="margin: 8px 0 12px 0;">'
-        f'  <div style="font-size: 0.68rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: \'Inter\', sans-serif; margin-bottom: 4px;">TARGET PLANNING AREA</div>'
-        f'  <div style="background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 8px; padding: 7px 12px; font-weight: 600; color: #0F172A; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">'
-        f'    <span>📍 {selected_zone.title()} ({zone_data["region"]} Region)</span>'
-        f'    <span style="color: #64748B; font-size: 0.8rem;">▾</span>'
-        f'  </div>'
-        f'</div>',
+        f'  <div style="font-weight: 600; color: #0F172A; font-size: 0.95rem;">'
+        f'📍 {selected_zone.title()} <span style="color: #64748B; font-weight: 500;">'
+        f"· {zone_data['region']} Region · change in the sidebar</span></div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -887,56 +886,55 @@ with detail_col, st.container(border=True):
         f'<div style="background: {tier_bg}; border: 1px solid {tier_border}; border-radius: 8px; padding: 12px 16px; margin: 10px 0 14px 0; display: flex; align-items: center; justify-content: space-between;">'
         f'  <div style="display: flex; align-items: center; gap: 10px;">'
         f'    <span style="color: {tier_text_color}; font-size: 1.2rem; font-weight: 700;">{"✓" if zone_data["risk_tier"] == "Low" else "!"}</span>'
-        f'    <div>'
-        f'      <div style="font-size: 0.65rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: \'Inter\', sans-serif;">SYSTEM STATUS</div>'
-        f'      <div style="font-size: 0.95rem; font-weight: 700; color: {tier_text_color}; font-family: \'Inter\', sans-serif;">{tier_label}</div>'
-        f'    </div>'
-        f'  </div>'
-        f'  <span style="background: #FFFFFF; color: {tier_text_color}; border: 1px solid {tier_border}; border-radius: 9999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; font-family: \'JetBrains Mono\', monospace;">P(Flash) = {zone_data["flood_probability"]:.2f}</span>'
-        f'</div>',
+        f"    <div>"
+        f"      <div style=\"font-size: 0.65rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">STATUS</div>"
+        f"      <div style=\"font-size: 0.95rem; font-weight: 700; color: {tier_text_color}; font-family: 'Inter', sans-serif;\">{tier_label}</div>"
+        f"    </div>"
+        f"  </div>"
+        f"  <span style=\"background: #FFFFFF; color: {tier_text_color}; border: 1px solid {tier_border}; border-radius: 9999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;\">{zone_data['flood_probability']:.2%} chance</span>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
-    thresholds = getattr(model, "thresholds", None) or default_thresholds()
     st.caption(
         f"Chance a flood is reported here in the next 60 min: "
-        f"**{zone_data['flood_probability'] * 100:.2f}%**. Area baselines are nominal. Standard "
-        f"operational alert levels: **Moderate from {thresholds['moderate'] * 100:.2f}%**, "
-        f"**High from {thresholds['high'] * 100:.2f}%**."
+        f"**{zone_data['flood_probability']:.2%}**. Flood reports are rare, so the alert levels are "
+        f"low: Moderate from {tier_thresholds['moderate']:.2%}, "
+        f"High from {tier_thresholds['high']:.2%}."
     )
 
-    # 6 rolling rainfall mini cards matching image.png
+    # Rolling rainfall and wet-ground tiles
     st.markdown(
         f'<div style="display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px 0;">'
-        f'  <span style="font-size: 0.7rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: \'Inter\', sans-serif;">ROLLING RAINFALL & WET-GROUND</span>'
-        f'  <span style="font-size: 0.72rem; font-weight: 600; color: #0284C7; font-family: \'Inter\', sans-serif;">6 Telemetry Indices</span>'
-        f'</div>'
+        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">ROLLING RAINFALL & WET-GROUND</span>"
+        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: #0284C7; font-family: 'Inter', sans-serif;\">{'Live' if mode == 'Live Feed' else 'Replay'} · {view_time:%H:%M} SGT</span>"
+        f"</div>"
         f'<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">'
         f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">5-min Rain</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_5m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
-        f'  </div>'
+        f"  </div>"
         f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">15-min Rain</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_15m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
-        f'  </div>'
+        f"  </div>"
         f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">30-min Rain</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_30m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
-        f'  </div>'
+        f"  </div>"
         f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">60-min Rain</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_60m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
-        f'  </div>'
+        f"  </div>"
         f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">120-min Rain</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_120m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
-        f'  </div>'
+        f"  </div>"
         f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">Wet-Ground</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_decay_72h"]:.1f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">idx</span></div>'
-        f'  </div>'
-        f'</div>',
+        f"  </div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
 
@@ -944,10 +942,17 @@ with detail_col, st.container(border=True):
     if fitted:
         rarity = float(rarity_scores(df_results[df_results["zone"] == selected_zone], fitted)[0])
         rarity_title = "Storm Rarity Percentile"
+        rarity_basis = "of rainy half-hours in this zone, 2017–2023"
     else:
         rarity = float(zone_data["storm_rarity_score"])
-        rarity_title = "Storm Rarity Percentile"
-    rarity_status = "Calm Half-Hour" if rarity < 0.7 else ("Elevated Precipitation" if rarity < 0.9 else "Severe Storm Event")
+        rarity_title = "Storm Rarity Percentile (uncalibrated)"
+        rarity_basis = "against hand-set cut-offs: no trained model loaded"
+    if rarity < 0.7:
+        rarity_status = "Typical for rain here"
+    elif rarity < 0.9:
+        rarity_status = "Heavier than usual"
+    else:
+        rarity_status = "Rare for this zone"
 
     fig_gauge = go.Figure(
         go.Indicator(
@@ -969,7 +974,9 @@ with detail_col, st.container(border=True):
                     "tickfont": {"family": "Inter, sans-serif", "size": 9, "color": "#64748B"},
                 },
                 "bar": {
-                    "color": "#0EA5E9" if rarity < 0.7 else ("#F59E0B" if rarity < 0.9 else "#EF4444"),
+                    "color": "#0EA5E9"
+                    if rarity < 0.7
+                    else ("#F59E0B" if rarity < 0.9 else "#EF4444"),
                     "thickness": 0.26,
                 },
                 "steps": [
@@ -993,15 +1000,14 @@ with detail_col, st.container(border=True):
     )
     st.plotly_chart(fig_gauge)
     st.caption(
-        f"Storm rarity: current precipitation heavier than **{rarity * 100:.1f}%** of historically recorded "
-        "rainy intervals in this sector (2017–2023 baseline)."
+        f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
     )
-
-    st.button("⚡ View Full Rarity Curve", type="primary", use_container_width=True)
-    if st.button("⟳ Replay Historical Storm (17 Apr 2021)", use_container_width=True):
-        st.session_state["mode"] = "Replay Storm"
-        st.session_state["replay_date"] = replay_days.PINNED_STORM
-        st.rerun()
+    st.button(
+        "⟳ Replay the 17 Apr 2021 storm",
+        on_click=_replay_pinned_storm,
+        width="stretch",
+        help="Real NEA readings from the day Dunearn Road flooded.",
+    )
 
 
 # --- CONTEXT & PROTOTYPE STATUS -----------------------------------------------------------
@@ -1053,15 +1059,10 @@ with status_col, st.container(border=True):
 
 # --- FOOTER --------------------------------------------------------------------------------
 st.markdown(
-    '<div style="display: flex; justify-content: space-between; align-items: center; '
-    'padding: 24px 0 16px 0; border-top: 1px solid #E2E8F0; margin-top: 32px; '
-    'color: #64748B; font-size: 0.78rem; font-family: \'Inter\', sans-serif;">'
-    '  <div>FloodSense Hydrological Analytics • Real-Time Flash-Flood Early Warning System for Singapore</div>'
-    '  <div style="display: flex; gap: 16px;">'
-    '    <span style="font-weight: 500;">Operational Grid</span> • '
-    '    <span style="font-weight: 500;">DAISI Track</span> • '
-    '    <span style="font-weight: 500;">API Specifications</span>'
-    '  </div>'
-    '</div>',
+    '<div style="padding: 24px 0 16px 0; border-top: 1px solid #E2E8F0; margin-top: 32px; '
+    "color: #64748B; font-size: 0.78rem; font-family: 'Inter', sans-serif;\">"
+    "FloodSense · flash-flood risk for Singapore's 55 planning areas · Rainfall: NEA via "
+    "data.gov.sg · Boundaries: URA Master Plan 2019"
+    "</div>",
     unsafe_allow_html=True,
 )

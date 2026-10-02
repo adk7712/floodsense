@@ -156,3 +156,38 @@ def test_replay_time_slider_sits_above_the_storm_buttons():
     at = _app()
     order = [type(el).__name__ for el in at.sidebar]
     assert order.index("SelectSlider") < order.index("Button")
+
+
+def test_every_button_works():
+    at = _app()
+    labels = [b.label for b in at.button]
+    assert labels, "expected buttons"
+    for label in labels:
+        btn = next(b for b in at.button if b.label == label)
+        btn.click()
+        at.run(timeout=60)
+        assert not at.exception, f"{label!r} raised {at.exception}"
+
+
+def test_replay_button_jumps_from_live_to_17_april(offline):
+    from datetime import date
+
+    at = _app(mode="Live Feed")
+    # Live is offline here, so the page stops early; switch to replay another day first.
+    at.session_state["mode"] = "Replay Storm"
+    at.session_state["replay_date"] = date(2024, 11, 22)
+    at.run(timeout=60)
+    next(b for b in at.button if b.label.startswith("⟳ Replay the 17 Apr 2021")).click()
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["mode"] == "Replay Storm"
+    assert at.sidebar.date_input[0].value == date(2021, 4, 17)
+
+
+def test_no_hard_coded_figures_on_the_page():
+    at = _app()
+    page = " ".join(
+        str(e.value) for e in [*at.markdown, *at.caption, *at.metric, *at.warning, *at.info]
+    )
+    for banned in ["0.05 max", "psi", "100% Ingest", "1-Hour", "DAISI", "SYNCHRONIZED", "P(Flash)"]:
+        assert banned not in page, banned
