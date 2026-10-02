@@ -17,6 +17,7 @@ data/raw/rainfall/*
 !data/raw/rainfall/readings/**
 !data/raw/rainfall/stations.parquet
 .playwright-mcp/
+tests/screenshots/
 data/reports/
 .claude/
 .agents/
