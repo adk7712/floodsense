@@ -104,6 +104,11 @@ div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorde
     border-top: 4px solid #EA580C !important;
 }
 
+/* Rarity gauge: no element toolbar (full screen would leave its text tiny) */
+.st-key-rarity_gauge [data-testid="stElementToolbar"] {
+    display: none !important;
+}
+
 /* --- 3. TOP KPI METRIC CARDS --- */
 [data-testid="stMetric"] {
     background-color: transparent !important;
@@ -933,23 +938,30 @@ with detail_col, st.container(border=True):
         rarity = float(zone_data["storm_rarity_score"])
         rarity_title = "Storm Rarity Percentile (uncalibrated)"
         rarity_basis = "against hand-set cut-offs: no trained model loaded"
-    if rarity < 0.7:
+    if zone_data["rain_30m"] <= 0:
+        rarity_status = "No rain in the last 30 min"
+    elif rarity < 0.7:
         rarity_status = "Typical for rain here"
     elif rarity < 0.9:
         rarity_status = "Heavier than usual"
     else:
         rarity_status = "Rare for this zone"
 
+    # The title lives in the page, not the chart: a chart title stays small and lands inside the
+    # arc when the chart is opened full screen.
+    st.markdown(
+        '<div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0 0 0;">'
+        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">{rarity_title}</span>"
+        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: #0284C7; font-family: 'Inter', sans-serif;\">{rarity_status}</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
     fig_gauge = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=rarity * 100,
-            title={
-                "text": f"<b>{rarity_title}</b><br><span style='font-size:11px;color:#64748B;font-family:Inter, sans-serif;'>{rarity_status}</span>",
-                "font": {"size": 13, "color": "#0F172A", "family": "Inter, sans-serif"},
-            },
             number={
-                "font": {"family": "Inter, sans-serif", "size": 36, "color": "#0F172A"},
+                "font": {"family": "Inter, sans-serif", "size": 34, "color": "#0F172A"},
                 "valueformat": ".1f",
                 "suffix": "%",
             },
@@ -957,7 +969,7 @@ with detail_col, st.container(border=True):
                 "axis": {
                     "range": [0, 100],
                     "tickcolor": "#CBD5E1",
-                    "tickfont": {"family": "Inter, sans-serif", "size": 9, "color": "#64748B"},
+                    "tickfont": {"family": "Inter, sans-serif", "size": 11, "color": "#64748B"},
                 },
                 "bar": {
                     "color": "#0EA5E9"
@@ -970,23 +982,23 @@ with detail_col, st.container(border=True):
                     {"range": [70, 90], "color": "#FEF3C7"},
                     {"range": [90, 100], "color": "#FEE2E2"},
                 ],
-                "threshold": {
-                    "line": {"color": "#EA580C", "width": 2},
-                    "thickness": 0.8,
-                    "value": 95.0,
-                },
             },
         )
     )
     fig_gauge.update_layout(
-        height=240,
-        margin={"t": 35, "b": 10, "l": 25, "r": 25},
+        height=210,
+        margin={"t": 20, "b": 10, "l": 30, "r": 30},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
     )
-    st.plotly_chart(fig_gauge)
+    # No full-screen or download toolbar: a half-dial gains nothing from full screen, where its
+    # text stays small while the arc grows.
+    with st.container(key="rarity_gauge"):
+        st.plotly_chart(fig_gauge, config={"displayModeBar": False})
     st.caption(
-        f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
+        "No rain here in the last 30 minutes, so there is no storm to rank."
+        if zone_data["rain_30m"] <= 0
+        else f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
     )
     st.button(
         "⟳ Replay the 17 Apr 2021 storm",
