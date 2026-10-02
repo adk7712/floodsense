@@ -11,12 +11,15 @@ Ground rules (from docs/phase5-handoff.md):
 3. Missing is not dry: absent readings remain absent, not 0.0.
 
 Pipeline configuration (all optional):
+    floodsense.root_dir       folder holding copies of the repo's models/ and data/reference/
+                              (sets FLOODSENSE_ROOT_DIR; needed on Databricks, not locally)
     floodsense.landing_path   UC volume Auto Loader watches (default /Volumes/floodsense/default/landing)
     floodsense.schema_path    Auto Loader schema location
     floodsense.gold_hours     hours of predictions gold keeps (default 24; it reads 72 h more)
 """
 
 import json
+import os
 from typing import Any
 
 import dlt
@@ -33,11 +36,18 @@ from pyspark.sql.types import (
 )
 import pandas as pd
 
-from floodsense.serving.pipeline_core import (
+# Before floodsense is imported: its settings read FLOODSENSE_ROOT_DIR once, at import. Only the
+# driver needs it (gold loads the model); the parse UDF on the workers reads no files.
+_root_dir = spark.conf.get("floodsense.root_dir", "")
+if _root_dir:
+    os.environ["FLOODSENSE_ROOT_DIR"] = _root_dir
+
+from floodsense.models.artifact import FloodModel, load_model  # noqa: E402
+from floodsense.serving.pipeline_core import (  # noqa: E402
     PREDICTION_COLUMNS,
+    WARMUP,
     gold_from_silver,
     payloads_to_readings,
-    silver_window_start,
 )
 
 # -------------------------------------------------------------------------
@@ -145,7 +155,7 @@ def raw_rainfall_bronze():
     return (
         spark.readStream.format("cloudFiles")
         .option("cloudFiles.format", "text")
-        .option("cloudFiles.wholetext", "true")
+        .option("wholetext", "true")
         .option("cloudFiles.schemaLocation", schema_volume)
         .load(landing_volume)
         .select(
@@ -233,6 +243,10 @@ def weather_stations_silver():
 # -------------------------------------------------------------------------
 # 03. GOLD: zone features and risk, computed by pipeline_core in pandas
 # -------------------------------------------------------------------------
+# No collect()/toPandas() here: Lakeflow evaluates a table function while it builds the graph, so
+# reading silver into the driver would score whatever silver held at that moment (empty on the
+# first run). Instead the whole window goes to one pandas call through applyInPandas, which Spark
+# runs after silver is updated. The data is small (about 96 h x 70 gauges).
 @dlt.table(
     name="flood_risk_predictions_gold",
     comment="Calibrated flood probability and Low/Moderate/High tier per zone and 5-minute step, "
@@ -241,15 +255,37 @@ def weather_stations_silver():
 )
 def flood_risk_predictions_gold():
     emit_hours = float(spark.conf.get("floodsense.gold_hours", "24"))
-    silver = dlt.read("rainfall_readings_silver")
-    newest = silver.agg(F.max("timestamp")).first()[0]
-    if newest is None:
-        return spark.createDataFrame(pd.DataFrame(columns=PREDICTION_COLUMNS), GOLD_SCHEMA)
-    # Only the readings gold needs: emit window + 72 h warm-up. Bounded however long it runs.
-    start = silver_window_start(pd.Timestamp(newest), emit_hours).to_pydatetime()
-    readings = silver.filter(F.col("timestamp") >= F.lit(start)).toPandas()
-    stations = dlt.read("weather_stations_silver").toPandas()
-    # toPandas() returns naive times in the session timezone; gold_from_silver converts them.
     session_tz = spark.conf.get("spark.sql.session.timeZone", "UTC")
-    scored = gold_from_silver(readings, stations, session_tz, emit_hours)
-    return spark.createDataFrame(scored[PREDICTION_COLUMNS], GOLD_SCHEMA)
+    # Loaded here (it reads floodsense.root_dir) and shipped to the worker inside score().
+    # load_model() falls back to a heuristic when the file is missing: refuse that.
+    model = load_model()
+    if not isinstance(model, FloodModel):
+        raise RuntimeError(f"trained model not found under {os.environ.get('FLOODSENSE_ROOT_DIR')}")
+
+    # Readings from newest - (emit_hours + 72 h warm-up) on: pipeline_core.silver_window_start.
+    span_minutes = int(emit_hours * 60 + WARMUP / pd.Timedelta(minutes=1))
+    silver = dlt.read("rainfall_readings_silver")
+    newest = silver.agg(F.max("timestamp").alias("newest"))
+    window = (
+        silver.crossJoin(newest)
+        .filter(F.expr(f"timestamp >= newest - INTERVAL {span_minutes} MINUTES"))
+        .join(dlt.read("weather_stations_silver"), "station_id")  # every reading's station is known
+        .select("station_id", "timestamp", "rainfall_mm", "name", "latitude", "longitude")
+    )
+
+    def score(pdf):  # no type hints: Spark would try to infer a UDF type from them
+        readings = pdf[["station_id", "timestamp", "rainfall_mm"]]
+        stations = pdf[["station_id", "name", "latitude", "longitude"]].drop_duplicates("station_id")
+        # Spark hands pandas naive session-timezone times; gold_from_silver converts them.
+        out = gold_from_silver(readings, stations, session_tz, emit_hours, model)
+        # ...and reads naive times back the same way.
+        ts = pd.to_datetime(out["timestamp"])
+        if ts.dt.tz is not None:
+            ts = ts.dt.tz_convert(session_tz).dt.tz_localize(None)
+        return out.assign(timestamp=ts)[PREDICTION_COLUMNS]
+
+    return (
+        window.withColumn("batch", F.lit(0))
+        .groupBy("batch")
+        .applyInPandas(score, GOLD_SCHEMA)
+    )

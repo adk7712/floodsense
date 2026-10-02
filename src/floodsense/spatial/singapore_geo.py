@@ -105,9 +105,6 @@ def load_station_snapshot(path: Path | None = None) -> dict[str, dict]:
     }
 
 
-NEA_WEATHER_STATIONS: dict[str, dict] = load_station_snapshot()
-
-
 def create_singapore_geojson() -> dict:
     """
     Load official URA Master Plan 2019 Planning Area GeoJSON feature collection.

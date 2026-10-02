@@ -1,0 +1,24 @@
+{
+  "name": "floodsense",
+  "serverless": true,
+  "catalog": "workspace",
+  "schema": "floodsense",
+  "continuous": false,
+  "development": true,
+  "channel": "CURRENT",
+  "libraries": [
+    {"file": {"path": "/Workspace/Users/<your-login>/floodsense/lakeflow_pipeline.py"}}
+  ],
+  "configuration": {
+    "floodsense.root_dir": "/Volumes/workspace/floodsense/artifacts/root",
+    "floodsense.landing_path": "/Volumes/workspace/floodsense/landing/rainfall",
+    "floodsense.schema_path": "/Volumes/workspace/floodsense/autoloader/bronze",
+    "floodsense.gold_hours": "24"
+  },
+  "environment": {
+    "dependencies": [
+      "/Volumes/workspace/floodsense/artifacts/wheels/floodsense-0.1.0-py3-none-any.whl",
+      "scikit-learn==1.9.1"
+    ]
+  }
+}

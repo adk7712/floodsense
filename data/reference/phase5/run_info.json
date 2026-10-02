@@ -1,0 +1,19 @@
+{
+  "workspace_host": "https://dbc-91a4e71d-644e.cloud.databricks.com",
+  "pipeline_id": "c32feb3d-5e5f-4c78-8219-e3acf131e804",
+  "update_id": "34cfa680-4735-4a58-9558-bb8e38ea21a0",
+  "update_state": "COMPLETED",
+  "update_started_at": "2026-10-02T11:36:50.800000+00:00",
+  "landing_files": 949,
+  "bronze_rows": 949,
+  "quarantine_rows": 0,
+  "silver_rows": 64223,
+  "stations_rows": 70,
+  "gold_rows": 15840,
+  "exported_rows": 4675,
+  "exported_window_sgt": [
+    "2021-04-17T11:00:00+08:00",
+    "2021-04-17T18:00:00+08:00"
+  ],
+  "row_counts_source": "SELECT count(*) on each table after the update, via the SQL warehouse"
+}

@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from floodsense.common.schemas import ZoneRainfall
-from floodsense.spatial.singapore_geo import NEA_WEATHER_STATIONS, URA_PLANNING_AREAS
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, load_station_snapshot
 
 
 def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -39,7 +39,7 @@ class IDWMatrixEngine:
         eps: float = 1e-4,
     ):
         self.zones = zones or URA_PLANNING_AREAS
-        self.stations = stations or NEA_WEATHER_STATIONS
+        self.stations = stations or load_station_snapshot()
         self.power = power
         self.eps = eps
 

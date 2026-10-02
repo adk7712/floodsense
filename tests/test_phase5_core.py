@@ -143,3 +143,22 @@ def test_gold_emits_only_the_last_day_and_silver_window_is_bounded(silver):
     assert out["timestamp"].max() == newest
     assert out["timestamp"].nunique() == 288  # 24 h of 5-minute steps
     assert core.silver_window_start(newest, 24) == newest - pd.Timedelta(hours=96)
+
+
+def test_parsing_needs_no_files_so_it_runs_on_spark_workers(tmp_path):
+    """The parse UDF runs on workers that have the package but not models/ or data/reference/:
+    importing pipeline_core and parsing must not read any file."""
+    import os
+    import subprocess
+    import sys
+
+    code = (
+        "from floodsense.serving.pipeline_core import payloads_to_readings\n"
+        "p = {'code': 0, 'data': {'stations': [{'id': 'S1', 'name': 'One', 'location': "
+        "{'latitude': 1.3, 'longitude': 103.8}}], 'readings': [{'timestamp': "
+        "'2026-01-01T10:00:00+08:00', 'data': [{'stationId': 'S1', 'value': 0.2}]}]}}\n"
+        "r, s = payloads_to_readings([p])\n"
+        "assert len(r) == 1 and len(s) == 1\n"
+    )
+    env = {**os.environ, "FLOODSENSE_ROOT_DIR": str(tmp_path / "empty")}
+    subprocess.run([sys.executable, "-c", code], env=env, check=True, cwd=tmp_path)
