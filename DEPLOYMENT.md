@@ -193,11 +193,34 @@ To prove that the Databricks Lakeflow pipeline reproduces the exact local servin
 
 ## 8. Answers to Plan §9 Questions
 
-- **Does `ai_query` work on our Free Edition workspace, and with which models?**
-  Databricks Free Edition currently does not support Serverless Foundation Model APIs or `ai_query()` without an attached pay-as-you-go / paid tier. On Free Edition, feature engineering and model inference are executed within Python via our scikit-learn/joblib serving pipeline (`score_window()`), which requires 0 external LLM API tokens.
-- **Does Auto Loader plus a streaming table fit within the one-pipeline limit?**
-  Yes. A single declarative Lakeflow pipeline containing `raw_rainfall_bronze` (streaming table), `raw_payloads_quarantine`, `rainfall_readings_silver` (streaming table), and `flood_risk_predictions_gold` fits within the single-pipeline limit of Databricks Free Edition.
-- **Can a scheduled job restart a Databricks App?**
-  Databricks Apps auto-stop after 24 hours of inactivity. While the `databricks apps start` CLI command can be triggered from an external runner or cron job, Free Edition does not support automated app wake-ups directly within scheduled workflow actions without an active runner. The App automatically starts when a user accesses the URL in their browser.
-- **How much of the daily compute quota does one triggered update use?**
-  One micro-batch update over small incremental landing files (~1-12 files) completes in ~1.5 to 2 minutes on Serverless DLT compute, consuming roughly 0.05–0.08 DBU, comfortably remaining within the daily compute limit.
+**Status: unverified.** None of these has been checked in a workspace yet; the pipeline has only
+been run locally (section 9). Each will be answered from the first real workspace run, with the
+evidence (pipeline update ID, event-log figures) recorded here.
+
+- **Does `ai_query` work on our Free Edition workspace, and with which models?** Unknown. We don't
+  depend on it: flood events were extracted once with an LLM outside Databricks and signed off by
+  hand (`data/reference/flood_events.csv`), and the model itself is a joblib artifact.
+- **Does Auto Loader plus a streaming table fit within the one-pipeline limit?** Expected yes: the
+  whole path (bronze, parse, quarantine, silver, gold) is one pipeline. To confirm on the first run.
+- **Can a scheduled job restart a Databricks App?** Unknown. To test: a job task calling the Apps
+  API (`databricks apps start`) on a schedule.
+- **How much of the daily compute quota does one triggered update use?** Unknown. Record the
+  update's duration and DBUs from the pipeline event log on the first run.
+
+## 9. Running the pipeline locally first
+
+`databricks/local/run_pipeline_local.py` runs **this exact pipeline file** in local Spark (PySpark
+plus Java 17+), with a stand-in for the `dlt` module and a batch reader in place of Auto Loader. It
+lands the 17 Apr 2021 replay plus one deliberately broken file, runs every table, and compares the
+gold rows with local scoring. Not part of CI (it needs Java).
+
+```bash
+uv venv /tmp/spark-venv -p 3.12 && VIRTUAL_ENV=/tmp/spark-venv uv pip install pyspark pyarrow "pandas<3.1" -e .
+PYSPARK_PYTHON=/tmp/spark-venv/bin/python /tmp/spark-venv/bin/python databricks/local/run_pipeline_local.py UTC
+```
+
+Last result (2 Oct 2026, session timezone UTC and Asia/Singapore): 950 files to bronze, the broken
+file quarantined with its JSON error, 64,223 readings in silver, and gold identical to local scoring
+for the replay window (4,675 rows, same tiers, probability difference 0.0, Bukit Timah High at
+12:45). This is not a substitute for the workspace run: Auto Loader, Unity Catalog, serverless
+compute and the Free Edition limits are only exercised there.

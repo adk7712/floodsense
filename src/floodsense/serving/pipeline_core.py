@@ -124,8 +124,12 @@ def _snapshots(readings: pd.DataFrame, stations: pd.DataFrame) -> list[RainfallS
         for r in stations.itertuples(index=False)
     }
     ts = pd.to_datetime(readings["timestamp"])
-    ts = ts.dt.tz_localize(SGT) if ts.dt.tz is None else ts.dt.tz_convert(SGT)
-    frame = readings.assign(timestamp=ts)
+    if ts.dt.tz is None:
+        raise ValueError(
+            "readings timestamps are timezone-naive; convert them first (Spark's toPandas() "
+            "returns naive session-timezone times: use spark_to_sgt)"
+        )
+    frame = readings.assign(timestamp=ts.dt.tz_convert(SGT))
     return [
         RainfallSnapshot.model_construct(
             timestamp=t.to_pydatetime(),
@@ -162,12 +166,61 @@ def score_window(
     stamps = pd.to_datetime(scored["timestamp"])
     keep = pd.Series(True, index=scored.index)
     if emit_from is not None:
-        keep &= stamps >= pd.Timestamp(emit_from).tz_convert(SGT)
+        keep &= stamps >= _aware(emit_from)
     if emit_to is not None:
-        keep &= stamps <= pd.Timestamp(emit_to).tz_convert(SGT)
+        keep &= stamps <= _aware(emit_to)
     out = scored.loc[keep, PREDICTION_COLUMNS].copy()
     out["timestamp"] = pd.to_datetime(out["timestamp"])
     return out.sort_values(["timestamp", "ura_planning_area"]).reset_index(drop=True)
+
+
+def _aware(t: datetime | pd.Timestamp) -> pd.Timestamp:
+    ts = pd.Timestamp(t)
+    if ts.tz is None:
+        raise ValueError(f"{t!r} is timezone-naive; pass an SGT or UTC-aware time")
+    return ts.tz_convert(SGT)
+
+
+def spark_to_sgt(df: pd.DataFrame, session_tz: str, column: str = "timestamp") -> pd.DataFrame:
+    """
+    Make a ``toPandas()`` timestamp column tz-aware SGT.
+
+    Spark hands back *naive* wall-clock times in the session timezone
+    (``spark.sql.session.timeZone``, UTC by default on Databricks). Treating them as SGT would
+    shift every reading by 8 hours, so localise them to the session timezone first.
+    """
+    ts = pd.to_datetime(df[column])
+    ts = ts.dt.tz_localize(session_tz) if ts.dt.tz is None else ts
+    return df.assign(**{column: ts.dt.tz_convert(SGT)})
+
+
+def gold_from_silver(
+    readings: pd.DataFrame,
+    stations: pd.DataFrame,
+    session_tz: str,
+    emit_hours: float = 24.0,
+    model: Any | None = None,
+) -> pd.DataFrame:
+    """
+    The gold table's computation, given silver rows straight from Spark's ``toPandas()``.
+
+    Scores the last ``emit_hours`` before the newest reading, using ``WARMUP`` of history before
+    that. Callers should pass only readings from ``newest - (emit_hours + WARMUP)`` onward
+    (``silver_window_start``) so the work stays bounded however long the pipeline runs.
+    """
+    if readings.empty:
+        return pd.DataFrame(columns=PREDICTION_COLUMNS)
+    readings = spark_to_sgt(readings, session_tz)
+    newest = readings["timestamp"].max()
+    emit_from = (
+        newest - pd.Timedelta(hours=emit_hours) + pd.Timedelta(minutes=settings.step_minutes)
+    )
+    return score_window(readings, stations, model, emit_from=emit_from, emit_to=newest)
+
+
+def silver_window_start(newest: pd.Timestamp, emit_hours: float = 24.0) -> pd.Timestamp:
+    """Earliest reading ``gold_from_silver`` needs for a run whose newest reading is ``newest``."""
+    return pd.Timestamp(newest) - pd.Timedelta(hours=emit_hours) - WARMUP
 
 
 def replay_predictions(replay_path: Path | None = None, model: Any | None = None) -> pd.DataFrame:

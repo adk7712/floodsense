@@ -109,3 +109,37 @@ def test_cli_exports_landing_files_and_reference(tmp_path, replay):
     assert core.main(["expected", "--out", str(tmp_path / "expected.csv")]) == 0
     ref = pd.read_csv(tmp_path / "expected.csv")
     assert list(ref.columns) == core.PREDICTION_COLUMNS
+
+
+def _as_spark_returns_it(df: pd.DataFrame, session_tz: str = "UTC") -> pd.DataFrame:
+    """What Spark's toPandas() gives back: naive wall-clock times in the session timezone."""
+    return df.assign(timestamp=df["timestamp"].dt.tz_convert(session_tz).dt.tz_localize(None))
+
+
+def test_naive_timestamps_are_refused_not_guessed(silver):
+    readings, stations = silver
+    with pytest.raises(ValueError, match="naive"):
+        core.score_window(_as_spark_returns_it(readings), stations)
+
+
+@pytest.mark.parametrize("session_tz", ["UTC", "Asia/Singapore"])
+def test_gold_from_spark_rows_matches_local_scoring(replay, silver, gold, session_tz):
+    """The gold table's computation on rows exactly as Spark returns them reproduces the local
+    reference for the replay window: no 8-hour shift, same tiers."""
+    readings, stations = silver
+    out = core.gold_from_silver(_as_spark_returns_it(readings, session_tz), stations, session_tz)
+    window = (out["timestamp"] >= replay.display_start) & (out["timestamp"] <= replay.display_end)
+    got = out[window].reset_index(drop=True)
+    assert got[["ura_planning_area", "timestamp", "risk_tier"]].equals(
+        gold[["ura_planning_area", "timestamp", "risk_tier"]]
+    )
+    np.testing.assert_allclose(got["flood_probability"], gold["flood_probability"], rtol=1e-12)
+
+
+def test_gold_emits_only_the_last_day_and_silver_window_is_bounded(silver):
+    readings, stations = silver
+    out = core.gold_from_silver(_as_spark_returns_it(readings), stations, "UTC", emit_hours=24)
+    newest = readings["timestamp"].max()
+    assert out["timestamp"].max() == newest
+    assert out["timestamp"].nunique() == 288  # 24 h of 5-minute steps
+    assert core.silver_window_start(newest, 24) == newest - pd.Timedelta(hours=96)
