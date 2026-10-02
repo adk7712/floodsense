@@ -603,7 +603,7 @@ st.markdown(
     '  <span style="color: #CBD5E1;">•</span>'
     "  <span>55 URA Planning Areas</span>"
     '  <span style="color: #CBD5E1;">•</span>'
-    '  <span style="background: #FFFFFF; border: 1px solid #E2E8F0; color: #0284C7; padding: 2px 8px; border-radius: 9999px; font-weight: 600;">Chance of a flood in the next hour</span>'
+    "  <span>Chance of a flood in the next hour</span>"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -616,32 +616,17 @@ peak = df_results.sort_values("rain_30m", ascending=False).iloc[0]
 wettest = df_results.sort_values("rain_decay_72h", ascending=False).iloc[0]
 
 # --- 5 TOP KPI METRIC CARDS ---------------------------------------------------------------
+# Every card has the same three parts, each one line: label, value, footer (label | value).
 _LABEL = (
     "font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:#64748B; "
-    "text-transform:uppercase; letter-spacing:0.05em;"
+    "text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; overflow:hidden; "
+    "text-overflow:ellipsis; display:block;"
 )
-_BADGES = {
-    "info": ("#E0F2FE", "#0284C7", "#BAE6FD"),
-    "alert": ("#FEE2E2", "#DC2626", "#FECACA"),
-    "warn": ("#FEF3C7", "#D97706", "#FDE68A"),
-}
 
 
-def card_header(label: str, badge: str | None = None, tone: str = "info") -> None:
-    if badge is None:
-        st.markdown(
-            f'<div style="margin-bottom:4px;"><span style="{_LABEL}">{label}</span></div>',
-            unsafe_allow_html=True,
-        )
-        return
-    bg, fg, border = _BADGES[tone]
+def card_header(label: str) -> None:
     st.markdown(
-        f'<div style="display:flex; justify-content:space-between; align-items:center; '
-        f'margin-bottom:4px; gap:6px;"><span style="{_LABEL}">{label}</span>'
-        f'<span style="background:{bg}; color:{fg}; border:1px solid {border}; '
-        f"font-family:'Inter', sans-serif; font-size:0.7rem; font-weight:600; padding:2px 8px; "
-        f"border-radius:9999px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; "
-        f'max-width:55%;">{badge}</span></div>',
+        f'<div style="margin-bottom:4px;"><span style="{_LABEL}">{label}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -650,64 +635,65 @@ def card_footer(left: str, right: str) -> None:
     st.markdown(
         '<div style="display:flex; justify-content:space-between; font-size:0.72rem; '
         "font-family:'Inter', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; "
-        f'padding-top:6px; margin-top:2px; gap:8px;"><span style="white-space:nowrap;">{left}</span>'
-        f'<span style="font-weight:700; color:#0F172A; text-align:right;">{right}</span></div>',
+        'padding-top:6px; margin-top:2px; gap:8px; white-space:nowrap;">'
+        f"<span>{left}</span>"
+        '<span style="font-weight:700; color:#0F172A; overflow:hidden; text-overflow:ellipsis;" '
+        f'title="{right}">{right}</span></div>',
         unsafe_allow_html=True,
     )
 
 
-tier_thresholds = getattr(model, "thresholds", None) or default_thresholds()
+def kpi_card(label: str, metric_label: str, value: str, footer: tuple[str, str], **kw) -> None:
+    with st.container(border=True):
+        card_header(label)
+        st.metric(label=metric_label, value=value, label_visibility="collapsed", **kw)
+        card_footer(*footer)
 
+
+tier_thresholds = getattr(model, "thresholds", None) or default_thresholds()
+share = reporting_stations / total_stations if total_stations else 0.0
 kpi_cols = st.columns(5)
-with kpi_cols[0], st.container(border=True):
-    card_header("High risk zones")
-    st.metric(
-        label="High Risk",
-        value=f"{high_risk_count} / {NUM_ZONES}",
-        delta=f"{high_risk_count} Alert" if high_risk_count > 0 else None,
-        delta_color="inverse",
-        label_visibility="collapsed",
+with kpi_cols[0]:
+    kpi_card(
+        "High risk zones",
+        "High Risk",
+        f"{high_risk_count} / {NUM_ZONES}",
+        ("High from", f"{tier_thresholds['high']:.2%}"),
+        help="Zones whose chance of a reported flood in the next hour is at or above this.",
     )
-    card_footer("High from", f"{tier_thresholds['high']:.2%} chance")
-with kpi_cols[1], st.container(border=True):
-    card_header("Moderate risk zones")
-    st.metric(
-        label="Moderate Risk", value=f"{mod_risk_count} / {NUM_ZONES}", label_visibility="collapsed"
+with kpi_cols[1]:
+    kpi_card(
+        "Moderate risk zones",
+        "Moderate Risk",
+        f"{mod_risk_count} / {NUM_ZONES}",
+        ("Moderate from", f"{tier_thresholds['moderate']:.2%}"),
+        help="Zones whose chance of a reported flood in the next hour is at or above this.",
     )
-    card_footer("Moderate from", f"{tier_thresholds['moderate']:.2%} chance")
-with kpi_cols[2], st.container(border=True):
-    card_header("Max 30-min rain")
-    st.metric(
-        label="Max 30-min Rain",
-        value=f"{peak['rain_30m']:.0f} mm",
-        delta=peak["zone"],
-        label_visibility="collapsed",
+with kpi_cols[2]:
+    kpi_card(
+        "Max 30-min rain",
+        "Max 30-min Rain",
+        f"{peak['rain_30m']:.0f} mm",
+        ("Heaviest", peak["zone"].title()) if peak["rain_30m"] > 0 else ("Heaviest", "No rain"),
     )
-    card_footer(
-        "Live reading" if mode == "Live Feed" else "Replay reading",
-        "Heaviest zone" if peak["rain_30m"] > 0 else "No rain",
-    )
-with kpi_cols[3], st.container(border=True):
-    card_header("Wet-ground index")
-    st.metric(
-        label="Wet-Ground Index",
-        value=f"{wettest['rain_decay_72h']:.0f}",
-        delta=wettest["zone"],
-        delta_color="off",
+with kpi_cols[3]:
+    kpi_card(
+        "Wet-ground index",
+        "Wet-Ground Index",
+        f"{wettest['rain_decay_72h']:.0f}",
+        ("Wettest", wettest["zone"].title())
+        if wettest["rain_decay_72h"] > 0
+        else ("Wettest", "All dry"),
         help=WET_GROUND_HELP + (LIVE_WET_GROUND_NOTE if mode == "Live Feed" else ""),
-        label_visibility="collapsed",
     )
-    card_footer("Rain half-life", f"{settings.decay_half_life_hours:g} h")
-with kpi_cols[4], st.container(border=True):
-    share = reporting_stations / total_stations if total_stations else 0.0
-    card_header("Gauges reporting")
-    st.metric(
-        label="Gauges Live",
-        value=f"{reporting_stations} / {total_stations}",
+with kpi_cols[4]:
+    kpi_card(
+        "Gauges reporting",
+        "Gauges Live",
+        f"{reporting_stations} / {total_stations}",
+        ("Reporting now", f"{share:.0%}"),
         help="Zone rainfall weights re-balance automatically over the gauges that reported.",
-        label_visibility="collapsed",
     )
-    card_footer("Reporting now", f"{share:.0%}")
 
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
 map_col, detail_col = st.columns([1.7, 1.3])

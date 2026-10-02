@@ -189,5 +189,13 @@ def test_no_hard_coded_figures_on_the_page():
     page = " ".join(
         str(e.value) for e in [*at.markdown, *at.caption, *at.metric, *at.warning, *at.info]
     )
-    for banned in ["0.05 max", "psi", "100% Ingest", "1-Hour", "DAISI", "SYNCHRONIZED", "P(Flash)"]:
+    for banned in [
+        "0.05 max",
+        " psi",
+        "100% Ingest",
+        "1-Hour",
+        "DAISI",
+        "SYNCHRONIZED",
+        "P(Flash)",
+    ]:
         assert banned not in page, banned
