@@ -5,9 +5,8 @@ Tests:
 2. Feature Engine: Multi-scale accumulations, 72h exponential soil moisture decay, storm rarity curves.
 3. Stream Optimization: Zero-rain pruning efficiency.
 4. Schema Contracts: Pydantic defensive data validation.
-5. Ground Truth Extractor: Unstructured alert parsing and target label attachment.
-6. Ingestion Poller: landing-volume staging (parsing is covered in test_phase2_correctness.py).
-7. Model Evaluation: Metric calculation (PR-AUC, FAR, Brier score).
+5. Ingestion Poller: landing-volume staging (parsing is covered in test_phase2_correctness.py).
+6. Model Evaluation: Metric calculation (PR-AUC, FAR, Brier score).
 """
 
 import json
@@ -23,7 +22,6 @@ from floodsense.features.feature_pipeline import (
     FeaturePipeline,
     StormRarityEstimator,
 )
-from floodsense.features.ground_truth_extractor import GroundTruthExtractor
 from floodsense.ingestion.poller import NEAPoller
 from floodsense.spatial.idw_matrix import IDWMatrixEngine, haversine_distance_km
 from floodsense.spatial.singapore_geo import (
@@ -116,18 +114,6 @@ def test_pydantic_schema_validation():
 
     with pytest.raises(ValueError):
         RainfallReading(station_id="S104", timestamp=datetime.now(), rainfall_mm=150.0)
-
-
-def test_ground_truth_extractor():
-    """Verify text alert parsing and zone mapping."""
-    extractor = GroundTruthExtractor()
-    alert_text = "Heavy rain causing flash flood along Dunearn Road near Sime Darby Centre. Impassable to vehicles."
-    event = extractor.parse_unstructured_alert(alert_text, "2026-10-01T15:00:00")
-
-    assert event is not None
-    assert event.ura_planning_area == "BUKIT TIMAH"
-    assert event.severity == "Severe"
-    assert event.timestamp_start.utcoffset().total_seconds() == 8 * 3600
 
 
 def test_poller_stages_raw_payload(tmp_path):

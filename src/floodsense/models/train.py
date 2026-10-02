@@ -27,7 +27,7 @@ import pandas as pd
 
 from floodsense.common.config import settings
 from floodsense.data import flood_events
-from floodsense.features.build_features import HANDOFF_DOC, DataUnavailableError, load_feature_store
+from floodsense.features.build_features import DATA_DOC, DataUnavailableError, load_feature_store
 from floodsense.labels.policy import event_window, label_rows
 from floodsense.models.artifact import FloodModel, git_sha
 from floodsense.models.evaluation import select_threshold
@@ -76,10 +76,10 @@ def load_training_data() -> LabelledData:
         events = flood_events.load_flood_events()
     except (NotImplementedError, FileNotFoundError) as exc:
         raise DataUnavailableError(
-            f"Flood events are not available ({exc}). See {HANDOFF_DOC} (deliverable c)."
+            f"Flood events are not available ({exc}). See {DATA_DOC}."
         ) from exc
     if not events:
-        raise DataUnavailableError(f"No flood events loaded. See {HANDOFF_DOC} (deliverable c).")
+        raise DataUnavailableError(f"No flood events loaded. See {DATA_DOC}.")
 
     labels, report = label_rows(features, events)
     logger.info(

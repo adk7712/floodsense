@@ -1,10 +1,10 @@
 """
 FloodSense - Databricks Lakeflow Declarative Pipeline.
 
-Architecture (docs/phase5-handoff.md):
-Landing volume -> Bronze (Auto Loader) -> Silver (payloads_to_readings) -> Gold (score_window)
+Architecture (DEPLOYMENT.md):
+Landing volume -> Bronze (Auto Loader) -> Silver (payloads_to_readings) -> Gold (gold_from_silver)
 
-Ground rules (from docs/phase5-handoff.md):
+Ground rules:
 1. No feature or scoring logic in Spark. All transformations and ML inference call
    floodsense.serving.pipeline_core in pandas.
 2. Never fabricate data. Invalid readings are dropped; malformed payloads are quarantined.

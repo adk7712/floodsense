@@ -15,22 +15,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Repo root, computed once: src/floodsense/common/config.py -> parents[3].
 _DEFAULT_ROOT_DIR = Path(__file__).resolve().parents[3]
 
-# Input layout of the legacy bundled model (models/champion_model.joblib, trained on synthetic data).
-# New models carry their own feature list in the artifact; see MODEL_FEATURE_COLUMNS.
-FEATURE_COLUMNS: list[str] = [
-    "rain_5m",
-    "rain_15m",
-    "rain_30m",
-    "rain_60m",
-    "rain_120m",
-    "rain_decay_72h",
-    "storm_rarity_score",
-    "return_period_years",
-    "pub_monitored",
-]
-
-
-# Features used by models trained in Phase 4. Excludes ``return_period_years`` (the percentile ->
+# Features the trained model uses. Excludes ``return_period_years`` (the percentile ->
 # years mapping is not valid) and ``pub_monitored`` (hand-assigned, unsourced). The rarity score
 # is recomputed from ``rain_30m`` with quantiles fitted on each model's training years.
 MODEL_FEATURE_COLUMNS: list[str] = [
@@ -120,10 +105,6 @@ class Settings(BaseSettings):
         return self.models_dir / "flood_model.joblib"
 
     @property
-    def champion_model_path(self) -> Path:
-        return self.models_dir / "champion_model.joblib"
-
-    @property
     def replay_file(self) -> Path:
         return self.root_dir / "data" / "replay" / "2021-04-17_western_storm.json"
 
@@ -135,7 +116,7 @@ class Settings(BaseSettings):
     def landing_dir(self) -> Path:
         return self.root_dir / "data" / "raw" / "landing_volume"
 
-    # Phase 3 data products (see docs/phase3-handoff.md)
+    # Data products: the NEA rainfall store and sourced flood events (README.md, section Data)
     @property
     def rainfall_dir(self) -> Path:
         """Historical station rainfall store (readings and stations committed; raw downloads local)."""

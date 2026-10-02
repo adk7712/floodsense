@@ -1,134 +1,173 @@
 # FloodSense: Earlier, Per-Zone Flash Flood Warnings for Singapore
 
 **DAISI Challenge 2026 · Track B2: Climate Action & Resilience · Round 1 Idea Submission**
+Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / Databricks architecture and impact).
 
-> Three slides, in the order the brief asks for. Each slide has its on-slide content first and short speaker notes after. Sources are numbered at the end.
+> This is the content brief for the slides. Each slide has a headline, the short on-slide text, the
+> visuals with their exact data, and speaker notes. Every number was checked on 2 Oct 2026 against
+> `models/final_report.json`, the 17 Apr 2021 replay, `data/reference/flood_events.csv` and
+> `DEPLOYMENT.md`. Sources are numbered at the end. Keep each slide to one headline, about three short
+> blocks and one main visual.
 
 ---
 
 ## Slide 1: The problem and why it matters
 
-### Flash floods in Singapore are fast, local and hard to see coming
+**Headline:** Flash floods in Singapore are fast, local, and the warning comes late.
 
-- **17 April 2021:** 161.4 mm of rain fell on western Singapore in three hours (12:25–15:25). That is 91% of April's average monthly rainfall, and in the top 0.5% of daily maxima since 1981. Dunearn Road and Bukit Timah Road flooded near Sime Darby Centre, and the water was gone within about 30 minutes. [1][2]
-- **10 January 2025:** Jalan Seaview flooded when heavy rain coincided with a 2.8 m high tide. Rain alone would not have predicted it. [3]
-- **Extremes are becoming more common.** 2025 had Singapore's wettest March on record and was its 7th wettest year since 1980. [4]
+**On the slide:**
+- **17 April 2021:** 161.4 mm of rain fell on western Singapore in three hours (12:25–15:25),
+  91% of April's average monthly rainfall. Dunearn Road flooded, and the water was gone within about
+  30 minutes. [1][2]
+- **PUB's system is strong:** flood-prone land is down from about 3,200 ha in the 1970s to under 25 ha.
+  More than 1,000 water-level sensors, over 500 CCTV cameras, and radar that forecasts rain about
+  30 minutes ahead. [5][6]
+- **But warnings come late:** public alerts fire mainly when water in a drain rises, after the rain
+  has fallen. Nobody answers: ***will my area flood in the next hour?***
+- **Why ML struggles:** floods are rare. We found 66 sourced floods in ten years, in 27 of 55 planning
+  areas. A naive model either never alarms or alarms so often that people stop listening.
 
-### PUB's system is strong, but warnings come late
+**Visual: bar chart, "Recorded flash floods per year (sourced)"**
 
-- Flood-prone land is down from about 3,200 ha in the 1970s to under 25 ha today. PUB monitors more than 1,000 water-level sensors and over 500 CCTV cameras, and its radar forecasts rain about 30 minutes ahead. [5][6]
-- Public alerts are triggered mainly when the water in a drain rises at a known location. By then, the rain has already fallen.
-- No one answers the question residents, drivers and town councils actually have: ***will my area flood in the next hour, how sure are you, and what should I do?***
+| 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 (to Sep) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 8 | 4 | 8 | 9 | 4 | 2 | 8 | 15 | 7 |
 
-### Why this is hard to do with ML
-
-Floods are rare: a few dozen recorded events in a decade, across 55 planning areas. A naive model either never raises an alarm or raises so many false ones that people stop listening.
+Optional callout: 2025 had Singapore's wettest March on record. [4]
 
 <details><summary>Speaker notes</summary>
 
-Open with 17 April 2021: the floods cleared within half an hour, so a warning has to arrive before the rain peaks. PUB's own alerts are triggered by water levels in drains. Jalan Seaview shows why rainfall alone isn't enough. Finish on the rare-event problem, because it shapes every design choice on the next slide.
+Open with 17 April 2021. The water cleared in half an hour, so a warning is only useful if it arrives
+before the rain peaks. PUB's alerts are triggered by water levels in drains, which is late for a
+flash flood. Close on rarity, because it shapes every design choice on the next slide. The counts
+are floods we could source with a link and a quote, not every flood that happened.
 </details>
 
 ---
 
 ## Slide 2: Solution and data
 
-### FloodSense turns rain forecasts into a per-zone flood risk, with reasons
+**Headline:** FloodSense turns rain into a per-zone flood risk, with the reason.
 
-| Step | What it does | Why it matters |
+**Visual 1: five-step flow** (icons and arrows; tag built steps and "next" steps differently)
+
+| Step | Built | Next |
 |---|---|---|
-| **1. See the rain** | Maps NEA's 5-minute rain gauges onto each zone, re-weighting automatically when a gauge goes offline. **Radar nowcasting** follows rain cells *before* they reach a zone. | Warns 30–60 minutes earlier and fills the gaps between gauges |
-| **2. Know each place** | Per-zone *storm rarity* (how unusual this rain is *here*), a 72-hour wet-ground memory, past flood history, PUB flood-prone locations, and tide for coastal zones | The same rainfall floods some zones and not others |
-| **3. Build honest labels** | An LLM extracts each PUB alert or news report into a structured flood event (place, time, severity, cause: rain or rain + tide), **with its source link**. Uncertain extractions go to a human for review. | Real, auditable ground truth that grows over time |
-| **4. Model the rare event** | Simple rainfall rules, logistic regression and LightGBM compete on equal terms, all tracked in MLflow. The winner is whichever catches the most floods at the same false-alarm level, using time-based validation (train on earlier years, score later ones once). Probabilities are calibrated. | Honest numbers: on 10 years of real data a 60-minute rainfall rule won, so that is what we ship |
-| **5. Explain and alert** | A risk map and plain-English alerts, e.g. *"Bukit Timah: HIGH. 47 mm in the last hour; the last 30 minutes were heavier than 99.9% of rainy half-hours here since 2017."* (the real 12:45 reading on 17 April 2021) | People act on reasons, not bare scores |
+| **1. See the rain** | NEA's 5-minute gauges mapped to each of 55 zones, re-weighted when a gauge goes offline (never treated as dry) | Radar nowcasting, to see rain cells before they arrive |
+| **2. Know each place** | 72-hour wet-ground memory; *storm rarity* (how unusual this rain is in this zone) | Tide for coastal zones (Jalan Seaview flooded on 10 Jan 2025 when heavy rain met a 2.8 m high tide [3]); terrain and paved area |
+| **3. Honest labels** | 66 flood events, each with a source link, a quoted sentence and a human sign-off | More events as alerts come in |
+| **4. Model the rare event** | Rules, logistic regression and LightGBM compete at equal false-alarm levels; time-based validation; calibrated probabilities | Retrain as labels grow |
+| **5. Explain and alert** | A risk map and plain reasons, e.g. *"Bukit Timah: HIGH. 47 mm in the last hour, at the top of this zone's 2017–2023 record"* (the real 12:45 reading on 17 April 2021) | Push alerts |
 
-**False-alarm budget:** a hard cap on how often "High" can fire without a flood, so people keep trusting the alerts.
+**Data strip (all open data):**
+- NEA 5-minute rain gauges via data.gov.sg, 2017 to Sep 2026: **60.8 million readings** [7]
+- URA Master Plan 2019 planning-area boundaries (55 zones)
+- **66 flood events** from PUB alerts and news, each sourced and signed off
+- Next: rain-area radar frames (no public archive, so we archive from now on) [8], tide tables
 
-### Open data only
+**Visual 2 (main chart): "A transparent rule beat machine learning"**
+Floods caught (of 23, validation years 2020–2023) at the same false-alarm level. Grouped bars or lines;
+x = false alarms per zone per year.
 
-| Data | Source | Cadence | Role |
+| Model | 1 | 2 | 5 | 10 |
+|---|---|---|---|---|
+| **60-minute rainfall rule (chosen)** | **7** | **8** | **15** | **15** |
+| 30-minute rainfall rule | 5 | 7 | 13 | 17 |
+| Logistic regression | 1 | 4 | 4 | 5 |
+| LightGBM | 2 | 2 | 2 | 2 |
+
+**Results box: held-out test, 2024 to Sep 2026 (30 floods), scored once**
+
+| Alert level | Floods caught | Median warning | False alarms per zone-year |
 |---|---|---|---|
-| Rainfall at each gauge (about 60 stations) | NEA via data.gov.sg real-time API | 5 min | Live input |
-| Historical gauge rainfall (2017 onwards) | NEA via data.gov.sg [7] | 5 min | Training, storm-rarity curves, backtests |
-| Rain-area radar images (50 / 240 km) | MSS (NEA) via weather.gov.sg; no public archive, so we archive frames from now on [8] | 5 min | Nowcasting |
-| Planning-area boundaries | URA Master Plan 2019 via data.gov.sg | Static | Zones |
-| Tide predictions | Published tide tables | Daily | Coastal zones |
-| Flood events | PUB flood alerts (Telegram, press releases) and news | When events occur | Labels, each with a source |
+| Moderate (from 0.30% chance) | 21 of 30 (70%) | 15 min | 7.3 |
+| High (from 0.71% chance) | 12 of 30 (40%; 90% CI 27–53%) | 7.5 min | 1.6 |
 
-### Prototype status (honest)
-
-**Built and measured on real data:**
-- 10 years of NEA 5-minute gauge readings (2017 to Sep 2026, 60.8M readings) interpolated to 55 planning areas. Missing gauges are left out of the interpolation, never treated as zero.
-- 66 flood events, each with a source link, a quoted sentence and a human sign-off
-- Time-based validation: models are chosen on 2020–23 and scored **once** on 2024–26
-
-**What we found:**
-
-| Held-out test, 2024–26 (30 floods) | Floods caught | Median warning | False alarms per zone-year |
-|---|---|---|---|
-| Moderate (about 30 mm/h) | 21 (70%) | 15 min | 7.3 |
-| High (about 44 mm/h) | 12 (40%) (90% CI 27–53%) | 7.5 min | 1.6 |
-
-- **Ranking check:** during its storm, the flooded zone was among our 5 riskiest of 55 zones in 16 of the 30 test floods (median rank 5th).
-- **A transparent rainfall rule beat the ML models.** At matched false-alarm levels, 60-minute rainfall caught 7–15 of 23 validation floods; LightGBM caught 2.
-- **Gauges alone give only 10–15 minutes of warning.** The lead time has to come from radar nowcasting, which is next.
+- **Ranking:** in 16 of the 30 test floods, the flooded zone was among our 5 riskiest of 55.
+- **Honest limit:** rain gauges alone give 10–15 minutes of warning. Radar nowcasting is how we get more.
 
 <details><summary>Speaker notes</summary>
 
-The idea in one sentence: PUB forecasts *rain*, and FloodSense forecasts *flooding for each zone*, explaining why and saying how confident it is. Radar nowcasting provides the lead time, and per-zone knowledge makes it local. Spend the time on steps 3 and 4: sourced labels and honest validation are what stop the rare-event problem from producing a model that only looks good on paper.
+One sentence: PUB forecasts rain; FloodSense forecasts flooding for each zone and says why. Spend the
+time on labels and validation. Every flood is sourced, the test years were scored once, and the
+simplest model won. That's why the numbers can be trusted. The alert levels look small (0.30% and
+0.71%) because a reported flood in a given zone and hour is rare. They were set from false-alarm
+budgets the team chose before seeing the test set.
 </details>
 
 ---
 
 ## Slide 3: Databricks architecture and impact
 
-### One triggered Lakeflow pipeline on serverless compute (Free Edition)
+**Headline:** One triggered Lakeflow pipeline on Databricks Free Edition, already running.
+
+**Visual 1: architecture diagram.** Draw what ran with solid lines, and what's next with dashed lines.
 
 ```mermaid
 flowchart LR
-    subgraph IN["Ingest (micro-batches every 5–10 min)"]
-        G["NEA gauges API"] --> V[("UC Volume<br/>landing")]
-        R["NEA radar frames"] --> V
-        A["PUB alerts and news"] --> X["ai_query extraction<br/>with source URL"]
-    end
-    subgraph LF["Single Lakeflow declarative pipeline"]
-        V -->|Auto Loader| B[("Bronze<br/>raw readings")]
-        B -->|"zone weights, re-weighted for offline gauges<br/>+ data-quality checks"| S[("Silver<br/>zone rainfall")]
-        S -->|"rolling rain, wet ground,<br/>rarity, tide, radar nowcast"| F[("Gold<br/>zone features")]
-        F -->|"batch scoring with<br/>UC-registered model"| P[("Gold<br/>risk + reasons")]
-    end
-    X --> E[("flood_events")]
-    E --> T["Training and backtests<br/>(MLflow)"]
-    F --> T
-    T -->|"register champion"| P
-    P --> APP["Databricks App<br/>map, alerts, replay"]
+    G["NEA rain gauges<br/>(API-shaped files)"] --> V[("UC Volume<br/>landing")]
+    V -->|Auto Loader| B[("Bronze<br/>raw payloads")]
+    B --> Q[("Quarantine<br/>bad files")]
+    B -->|"parse + data-quality checks"| S[("Silver<br/>gauge readings")]
+    S -->|"same scoring code as the app<br/>and training"| P[("Gold<br/>zone risk + tier")]
+    J["Scheduled poller job<br/>every 5–10 min"] -.-> V
+    R["Radar frames"] -.-> V
+    A["PUB alerts and news"] -.->|ai_query| E[("flood_events")]
+    P -.-> APP["Databricks App<br/>map, alerts, replay"]
+    M["MLflow + UC<br/>model registry"] -.-> P
 ```
 
-- **Free Edition limits respected:** one pipeline, triggered micro-batches rather than a 24/7 stream, a 2X-Small SQL warehouse, and an app that only reads pre-computed Gold tables.
-- **Unity Catalog end to end:** data, features, the flood-event table and the registered model. MLflow holds every experiment and backtest.
-- **Backtesting harness:** every past storm is replayed through the full pipeline before any model change goes live.
+**Proof strip:** "Ran on Databricks Free Edition on 2 Oct 2026. 949 files → 64,223 gauge readings
+→ 15,840 zone-risk rows in about 1¾ minutes. Every row's risk tier matched our local scoring."
+Add a **screenshot of the pipeline graph** with row counts (update `34cfa680…`).
 
-### Live demo: replay the 17 April 2021 storm
+**Visual 2: "17 April 2021, Bukit Timah".** A line chart of 60-minute rain (mm) with three markers.
 
-The demo steps through the real 5-minute gauge readings from that afternoon, zone by zone. Bukit Timah reaches Moderate at 12:25 and High at 12:45, about an hour before Dunearn Road was reported flooded (1:44 pm). The earlier, synthetic-trained model peaked at 6.7% and never raised an alert. The same storm also put 24 of 55 zones on High, and most of them have no matching flood report, which is the false-alarm cost in miniature.
+| 12:00 | 12:15 | 12:30 | 12:45 | 13:00 | 13:15 | 13:30 | 13:45 | 14:00 | 14:15 |
+|---|---|---|---|---|---|---|---|---|---|
+| 3.8 | 20.9 | 34.5 | 46.6 | 54.2 | 47.1 | 41.6 | 36.8 | 31.0 | 24.2 |
 
-### Impact: a complement to PUB, not a replacement
+Markers:
+- **Moderate at 12:25**
+- **High at 12:45**
+- **Dunearn Road flood reported at about 13:44**
+
+Caption: "High about an hour before the report."
+
+**Impact: a complement to PUB, not a replacement**
 
 | Who | What they get |
 |---|---|
-| **Residents and drivers** | Earlier, per-zone warnings with a reason, including coverage where PUB has no sensors |
-| **Town councils** | Which zones' drains to clear first before a storm arrives |
-| **Planners** | Zones becoming more fragile over the years, to inform drainage spending |
+| Residents and drivers | Earlier, per-zone warnings with a reason, including where PUB has no sensors |
+| Town councils | Which zones' drains to clear first before a storm |
+| Planners | Zones becoming more flood-prone over the years, to guide drainage spending |
 
 **How we'll measure success:**
-- Minutes of warning before PUB's own alert
-- The share of held-out flood events caught
-- A false-alarm ratio kept within budget
+- minutes of warning before PUB's own alert
+- share of floods caught
+- false alarms kept within budget
+
+**Free Edition limits respected:**
+- one pipeline
+- triggered runs, not a 24/7 stream
+- small serverless compute
 
 <details><summary>Speaker notes</summary>
 
-Everything fits in Free Edition: one pipeline, triggered rather than continuous. The replay demo makes the case without needing it to rain on the day. Close on positioning: FloodSense adds lead time, local detail and explanations on top of PUB's network, and it is measured against PUB's own alerts.
+The architecture isn't a plan on paper. The pipeline ran on Free Edition and reproduced our local
+results row for row. The model's code runs inside the pipeline unchanged, so the app, training and
+Databricks can't drift apart. The 17 April chart shows the idea: High about an hour before the
+report. But be straight about the cost. 24 zones went High at some point that afternoon (at most 11
+at once), and most had no flood report. Across all test floods the median warning is 7.5–15 minutes,
+which is why radar is next.
+
+Don't claim any of these; none is built yet:
+- that the app reads from Databricks
+- that the model is registered in Unity Catalog
+- that `ai_query`, radar or tide are in use
+- that every storm is replayed before each model change
+
+They are the dashed parts of the diagram.
 </details>
 
 ---

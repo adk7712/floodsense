@@ -4,12 +4,12 @@ FloodSense - The pandas core that the Databricks (Lakeflow) pipeline calls.
 Phase 5 runs ingestion and scoring on Databricks, but every step that turns readings into risk
 lives HERE, in plain pandas, so training, the app, the backtest and the pipeline can't drift apart.
 The Spark side only moves data: read landing files, call these functions (directly on a small
-pandas frame, or through ``applyInPandas``), write tables. See docs/phase5-handoff.md.
+pandas frame, or through ``applyInPandas``), write tables. See DEPLOYMENT.md.
 
     payload (API JSON)  --payloads_to_readings-->  readings + stations   (silver)
     readings + stations --score_window-------->    predictions           (gold)
 
-CLI helpers for the handoff:
+CLI helpers for the replay parity check (DEPLOYMENT.md):
 
     python -m floodsense.serving.pipeline_core export-replay --out <dir>
         Write the 17 Apr 2021 replay as one API-shaped JSON file per 5-minute step, to drop into

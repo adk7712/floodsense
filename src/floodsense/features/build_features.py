@@ -32,7 +32,7 @@ from floodsense.features.zone_features import compute_zone_feature_table
 logger = logging.getLogger("FloodSense.BuildFeatures")
 
 WARMUP = timedelta(hours=72)
-HANDOFF_DOC = "docs/phase3-handoff.md"
+DATA_DOC = "README.md, section Data"
 
 
 class DataUnavailableError(RuntimeError):
@@ -80,13 +80,12 @@ def build_month(year: int, month: int) -> pd.DataFrame | None:
         )
     except NotImplementedError as exc:
         raise DataUnavailableError(
-            f"The historical rainfall store is not implemented yet ({exc}). "
-            f"See {HANDOFF_DOC} (deliverable a)."
+            f"The historical rainfall store could not be read ({exc}). See {DATA_DOC}."
         ) from exc
     except FileNotFoundError as exc:
         raise DataUnavailableError(
             f"Historical rainfall store not found at {settings.rainfall_dir} ({exc}). "
-            f"See {HANDOFF_DOC} (deliverable a)."
+            f"See {DATA_DOC}."
         ) from exc
     if not snapshots:
         return None
@@ -119,7 +118,7 @@ def build_feature_store(start_year: int, end_year: int, out_dir: Path | None = N
         raise DataUnavailableError(
             f"No rainfall snapshots found for {start_year}-{end_year} "
             f"(rainfall store: {settings.rainfall_dir}, exists: {settings.rainfall_dir.exists()}). "
-            f"See {HANDOFF_DOC}."
+            f"See {DATA_DOC}."
         )
     return out_dir
 
@@ -135,7 +134,7 @@ def load_feature_store(years: list[int] | None = None, root: Path | None = None)
         raise DataUnavailableError(
             f"No feature store at {root}. Build it first: "
             f"python -m floodsense.features.build_features --start-year 2017 --end-year 2026 "
-            f"(needs the rainfall store; see {HANDOFF_DOC})."
+            f"(needs the rainfall store; see {DATA_DOC})."
         )
     frame = pd.concat((pd.read_parquet(f) for f in files), ignore_index=True)
     return frame.sort_values(["ura_planning_area", "timestamp"]).reset_index(drop=True)

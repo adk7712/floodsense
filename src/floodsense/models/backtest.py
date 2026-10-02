@@ -15,7 +15,7 @@ This is the baseline every future model has to beat, so it is deliberately plain
 
 Usage:
     python -m floodsense.models.backtest --replay data/replay/2021-04-17_western_storm.json \\
-        [--model auto|heuristic|legacy|<path>] [--event "ZONE|2021-04-17T13:30|approx_hour" ...] \\
+        [--model auto|heuristic|<path>] [--event "ZONE|2021-04-17T13:30|approx_hour" ...] \\
         [--out DIR]
 """
 
@@ -33,13 +33,13 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from floodsense.common.config import FEATURE_COLUMNS, settings
+from floodsense.common.config import settings
 from floodsense.common.timeutil import to_sgt
 from floodsense.data.flood_events import load_flood_events
 from floodsense.data.replay import Replay, load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.labels.policy import EventWindow, event_window
-from floodsense.models.artifact import FloodModel, LegacyModel, load_model
+from floodsense.models.artifact import FloodModel, load_model
 from floodsense.models.evaluation import alert_episodes, evaluate_alerts
 from floodsense.models.scoring import default_thresholds, predict_probabilities
 
@@ -49,7 +49,7 @@ PRECISIONS = ("exact", "approx_15min", "approx_hour", "day_only")
 TIMELINE_ZONES = 8
 DAYS_PER_YEAR = 365.25
 
-ModelLike = FloodModel | LegacyModel
+ModelLike = FloodModel
 
 
 @dataclass(frozen=True)
@@ -68,18 +68,6 @@ class BacktestEvent:
 # --------------------------------------------------------------------------------------------
 
 
-def _build_legacy_model() -> LegacyModel:
-    """The bundled synthetic-data pipeline, built as ``load_model``'s legacy branch builds it."""
-    if not settings.champion_model_path.exists():
-        raise FileNotFoundError(f"Legacy model not found at {settings.champion_model_path}")
-    meta_path = settings.models_dir / "model_metadata.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    return LegacyModel(
-        pipeline=joblib.load(settings.champion_model_path),
-        feature_columns=meta.get("feature_columns", FEATURE_COLUMNS),
-    )
-
-
 def resolve_model(model: str | Path | None) -> tuple[ModelLike | None, dict[str, Any]]:
     """Turn the ``model`` argument into (model or None for the heuristic, description)."""
     spec = "auto" if model is None else str(model)
@@ -89,8 +77,6 @@ def resolve_model(model: str | Path | None) -> tuple[ModelLike | None, dict[str,
         source = "artifact.load_model()"
     elif spec == "heuristic":
         loaded, source = None, "rainfall heuristic"
-    elif spec == "legacy":
-        loaded, source = _build_legacy_model(), str(settings.champion_model_path)
     else:
         loaded = joblib.load(spec)
         if not isinstance(loaded, FloodModel):
@@ -98,18 +84,10 @@ def resolve_model(model: str | Path | None) -> tuple[ModelLike | None, dict[str,
         source = spec
 
     if loaded is None:
-        kind, synthetic, provenance = "heuristic", False, {"note": "no trained model"}
-    elif isinstance(loaded, LegacyModel):
-        kind, synthetic, provenance = "legacy", bool(loaded.is_synthetic), loaded.provenance
+        kind, provenance = "heuristic", {"note": "no trained model"}
     else:
-        kind, synthetic, provenance = "flood_model", bool(loaded.is_synthetic), loaded.provenance
-    return loaded, {
-        "requested": spec,
-        "kind": kind,
-        "source": source,
-        "is_synthetic": synthetic,
-        "provenance": provenance,
-    }
+        kind, provenance = "flood_model", loaded.provenance
+    return loaded, {"requested": spec, "kind": kind, "source": source, "provenance": provenance}
 
 
 # --------------------------------------------------------------------------------------------
@@ -363,10 +341,9 @@ def _write_timeline(
             x=mid, y=1.0, yref="paper", text=w.zone, showarrow=False, textangle=-90, yanchor="top"
         )
 
-    synthetic = "synthetic-trained" if model_info["is_synthetic"] else "not synthetic"
     fig.update_layout(
         title=(
-            f"{replay.event_name}: backtest with {model_info['kind']} model ({synthetic}); "
+            f"{replay.event_name}: backtest with {model_info['kind']} model; "
             f"top {len(top)} zones by peak probability"
         ),
         xaxis_title="Time (SGT)",
@@ -407,7 +384,7 @@ def format_report(summary: dict[str, Any], top: int = 15) -> str:
     lines = [
         f"Backtest: {summary['replay']['event_name']}  "
         f"({_fmt_time(w['start'])}-{_fmt_time(w['end'])} SGT, {summary['n_zones']} zones)",
-        f"Model: {m['kind']} ({m['source']}), synthetic={m['is_synthetic']}",
+        f"Model: {m['kind']} ({m['source']})",
         f"Thresholds ({t['source']}): moderate={t['values']['moderate']:.3f} "
         f"high={t['values']['high']:.3f}",
     ]
@@ -460,7 +437,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Backtest a stored storm replay.")
     parser.add_argument("--replay", type=Path, default=settings.replay_file)
     parser.add_argument(
-        "--model", default="auto", help="auto | heuristic | legacy | path to a FloodModel joblib"
+        "--model", default="auto", help="auto | heuristic | path to a FloodModel joblib"
     )
     parser.add_argument(
         "--event",

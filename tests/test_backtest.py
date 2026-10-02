@@ -20,10 +20,10 @@ BT_EVENT = "BUKIT TIMAH|2021-04-17T13:30|approx_hour"
 
 @pytest.fixture(autouse=True)
 def stub_events(monkeypatch):
-    """The real loader is a Phase 3 stub; pin that behaviour so tests don't depend on it."""
+    """Pin "no event file" so these tests don't depend on data/reference/flood_events.csv."""
 
     def not_implemented(*args, **kwargs):
-        raise NotImplementedError("Phase 3 deliverable (c): see docs/phase3-handoff.md")
+        raise NotImplementedError("flood events disabled in this test")
 
     monkeypatch.setattr(backtest, "load_flood_events", not_implemented)
 
@@ -42,7 +42,6 @@ def test_heuristic_summary_covers_all_zones(heuristic_run):
     assert summary["display_window"]["start"] == replay.display_start.isoformat()
     assert summary["display_window"]["end"] == replay.display_end.isoformat()
     assert summary["model"]["kind"] == "heuristic"
-    assert summary["model"]["is_synthetic"] is False
     assert summary["thresholds"]["source"] == "default"
     assert summary["thresholds"]["values"] == default_thresholds()
 
@@ -127,15 +126,6 @@ def test_missing_events_file_records_reason(tmp_path, monkeypatch):
     summary = run_backtest(REPLAY, model="heuristic", out_dir=tmp_path)
     assert summary["evaluation"] is None
     assert "missing" in summary["events"]["reason"]
-
-
-def test_legacy_model_is_marked_synthetic(tmp_path):
-    pytest.importorskip("lightgbm")
-    summary = run_backtest(REPLAY, model="legacy", events=[], out_dir=tmp_path)
-    assert summary["model"]["kind"] == "legacy"
-    assert summary["model"]["is_synthetic"] is True
-    assert summary["n_zones"] == 55
-    assert "synthetic-trained" in (tmp_path / "timeline.html").read_text()
 
 
 def test_model_path_must_be_flood_model(tmp_path):

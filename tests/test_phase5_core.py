@@ -1,6 +1,6 @@
 """
 Phase 5 local acceptance: the pandas core the Databricks pipeline must call (see
-docs/phase5-handoff.md). These run in CI; the workspace run is checked by test_phase5_parity.py.
+DEPLOYMENT.md). These run in CI; the workspace run is checked by test_phase5_parity.py.
 """
 
 import json

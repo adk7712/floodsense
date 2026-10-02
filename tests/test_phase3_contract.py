@@ -1,5 +1,5 @@
 """
-Phase 3 acceptance contract (see docs/phase3-handoff.md).
+Data contract for the rainfall store and the sourced flood events (README.md, section Data).
 
 Phase 3 is done when every test here passes locally with the historical rainfall store present,
 and ``pytest -m network tests/test_phase3_contract.py`` passes too. Until then:
@@ -27,7 +27,7 @@ from floodsense.common.config import settings
 from floodsense.data.replay import load_replay
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
-PENDING = "Phase 3 deliverable pending (docs/phase3-handoff.md)"
+PENDING = "data not available (README.md, section Data)"
 FIRST_YEAR = 2017
 STEPS_PER_DAY = 288
 # The API publishes 2 decimals; the bulk CSVs keep the gauges' 3 (e.g. 0.408 vs 0.41).
@@ -394,11 +394,3 @@ def test_event_sources_resolve_to_the_article(events_csv):
         if words and not any(w.lower() in resp.text.lower() for w in words):
             failures.append(f"{row['event_id']}: page never mentions {row['location_raw']!r}")
     assert not failures, "\n".join(failures)
-
-
-def test_hand_typed_event_list_is_gone(events_csv):
-    from floodsense.features import ground_truth_extractor
-
-    assert not hasattr(ground_truth_extractor, "HISTORICAL_FLOOD_EVENTS_BENCHMARK"), (
-        "labels must come from flood_events.csv via load_flood_events(), not a Python list"
-    )

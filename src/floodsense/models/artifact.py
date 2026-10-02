@@ -4,12 +4,8 @@ FloodSense - Model artifacts.
 ``FloodModel`` bundles everything needed to score zone features consistently with training:
 the estimator, its own feature list, rarity quantiles fitted on its training years, the
 calibrator, the alert thresholds chosen under the false-alarm budget, and provenance.
-
-``LegacyModel`` adapts the original synthetic-data pipeline (models/champion_model.joblib) to the
-same interface so the app keeps working until a real model exists.
 """
 
-import json
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -69,8 +65,6 @@ class FloodModel:
     thresholds: dict[str, float] | None = None  # {"moderate": p, "high": p}; None = not selected
     provenance: dict[str, Any] = field(default_factory=dict)
 
-    is_synthetic = False
-
     def prepare(self, features: pd.DataFrame) -> np.ndarray:
         df = features.copy()
         if "storm_rarity_score" in self.feature_columns:
@@ -91,38 +85,11 @@ class FloodModel:
         return path
 
 
-@dataclass
-class LegacyModel:
-    """The original bundled pipeline, trained on synthetic data. Thresholds come from settings."""
-
-    pipeline: Any
-    feature_columns: list[str]
-    thresholds: dict[str, float] | None = None
-    provenance: dict[str, Any] = field(
-        default_factory=lambda: {"data": "synthetic", "note": "pre-Phase 4 placeholder"}
-    )
-
-    is_synthetic = True
-
-    def predict_proba(self, features: pd.DataFrame) -> np.ndarray:
-        X = features[self.feature_columns].to_numpy(dtype=float)
-        return np.asarray(self.pipeline.predict_proba(X)[:, 1], dtype=float)
-
-
-def load_model() -> FloodModel | LegacyModel | None:
-    """The Phase 4 artifact if present, else the legacy pipeline, else None (heuristic)."""
-    if settings.flood_model_path.exists():
-        model = joblib.load(settings.flood_model_path)
-        if not isinstance(model, FloodModel):
-            raise TypeError(f"{settings.flood_model_path} is not a FloodModel")
-        return model
-    if settings.champion_model_path.exists():
-        meta_path = settings.models_dir / "model_metadata.json"
-        meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-        from floodsense.common.config import FEATURE_COLUMNS
-
-        return LegacyModel(
-            pipeline=joblib.load(settings.champion_model_path),
-            feature_columns=meta.get("feature_columns", FEATURE_COLUMNS),
-        )
-    return None
+def load_model() -> FloodModel | None:
+    """The trained artifact (``models/flood_model.joblib``) if present, else None (heuristic)."""
+    if not settings.flood_model_path.exists():
+        return None
+    model = joblib.load(settings.flood_model_path)
+    if not isinstance(model, FloodModel):
+        raise TypeError(f"{settings.flood_model_path} is not a FloodModel")
+    return model

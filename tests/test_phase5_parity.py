@@ -1,15 +1,14 @@
 """
 Phase 5 parity: the Databricks pipeline reproduces local scoring on the 17 Apr 2021 replay.
 
-SKIPS until the export from a real workspace run is committed (docs/phase5-handoff.md, step 6):
+Reads the export of a real workspace run (DEPLOYMENT.md, sections 2 and 4); skips without it:
 
-    data/reference/phase5/databricks_replay_predictions.csv   SELECT * FROM the gold table,
-                                                             replay window only
+    data/reference/phase5/databricks_replay_predictions.csv   gold rows, replay window only
     data/reference/phase5/run_info.json                       pipeline + update ids, row counts
 
-The CSV alone could be produced locally, so it is not the proof on its own: the run_info ids are
-checked by a person in the workspace (the sign-off line in the PR). This test makes sure that what
-ran there is the same computation as here.
+The CSV alone could be produced locally, so it is not the proof on its own: a person checked the
+run_info update id and row counts in the workspace (the sign-off in DEPLOYMENT.md). This test makes
+sure that what ran there is the same computation as here.
 """
 
 import json

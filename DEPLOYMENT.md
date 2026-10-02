@@ -41,8 +41,8 @@ through `applyInPandas` (about 96 h × 70 gauges, small).
 | Evidence | `data/reference/phase5/run_info.json` and `databricks_replay_predictions.csv`, exported with `databricks/export_parity.py` |
 
 The CSV alone could have been made on a laptop, so the run is signed off by a person opening the
-workspace and checking that update `34cfa680…` exists with these row counts (see
-`docs/phase5-handoff.md`, "Sign-off").
+workspace and checking that update `34cfa680…` exists with these row counts. A change to the
+pipeline is accepted only with a new export, a passing parity test and that check.
 
 **Signed off** by Akul9 on 2 Oct 2026, in the workspace UI: update `34cfa680…` (started 19:36
 SGT) exists, and its graph shows raw_rainfall_bronze 949, parsed_payloads 949,
@@ -163,6 +163,10 @@ The pipeline had passed the local Spark run (section 9) before any of these:
   give the gate a tolerance in both `build_features` and `scoring`, rebuild features, retrain and
   re-evaluate (the selected model's margin over `rule_rain30` is small, so check the selection).
 - The pandas/numpy versions on the serverless runtime were not recorded; local runs use pandas 3.
+- **Unused legacy feature columns.** `pub_monitored` (hand-assigned per zone, unsourced) and
+  `return_period_years` are still computed by `FeaturePipeline` and stored in the feature store,
+  but the trained model doesn't use them (`MODEL_FEATURE_COLUMNS`). Removing them needs a feature
+  store rebuild; after submission.
 
 ## 9. Running the pipeline locally first
 

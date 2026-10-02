@@ -376,11 +376,6 @@ def get_model() -> tuple[Any | None, str]:
         )
     if model is None:
         return None, "No trained model found: risk tiers use a 30-minute rainfall heuristic."
-    if model.is_synthetic:
-        return model, (
-            "Risk tiers come from a prototype model trained on synthetic rainfall, so treat them "
-            "as illustrative. Rainfall values are real NEA measurements."
-        )
     start, end = model.provenance.get("trained_from"), model.provenance.get("trained_to")
     trained = f"NEA rainfall {start[:4]}–{end[:4]}" if start and end else "real NEA rainfall"
     tiers = (

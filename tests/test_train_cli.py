@@ -164,7 +164,7 @@ def test_station_metadata_union_prefers_later_snapshots(replay):
 
 def test_build_without_a_rainfall_store_fails_with_a_pointer(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "root_dir", tmp_path)  # no data/raw/rainfall here
-    with pytest.raises(DataUnavailableError, match=r"docs/phase3-handoff\.md"):
+    with pytest.raises(DataUnavailableError, match=r"README\.md, section Data"):
         build_feature_store(2021, 2021, tmp_path)
     assert not list(tmp_path.rglob("*.parquet"))
 
@@ -186,7 +186,7 @@ def test_build_cli_reports_missing_store(tmp_path, monkeypatch):
 
 def test_load_training_data_without_a_feature_store(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "root_dir", tmp_path)
-    with pytest.raises(DataUnavailableError, match=r"docs/phase3-handoff\.md"):
+    with pytest.raises(DataUnavailableError, match=r"README\.md, section Data"):
         train_cli.load_training_data()
 
 
@@ -195,7 +195,7 @@ def test_load_training_data_with_stub_events(april_store, tmp_path, monkeypatch)
     target = tmp_path / "data" / "processed" / "features"
     target.parent.mkdir(parents=True)
     target.symlink_to(april_store, target_is_directory=True)
-    with pytest.raises(DataUnavailableError, match=r"docs/phase3-handoff\.md"):
+    with pytest.raises(DataUnavailableError, match=r"README\.md, section Data"):
         train_cli.load_training_data()  # events are still a stub
 
 

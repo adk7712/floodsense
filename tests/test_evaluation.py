@@ -48,7 +48,8 @@ def test_row_metrics_separates_fpr_from_false_alarm_ratio():
 
 
 def test_legacy_metadata_false_alarm_ratio_was_93_percent():
-    # models/model_metadata.json reported "false_alarm_rate": 0.0126 for TP=142, FP=1999, TN=157045
+    # The original prototype's metadata reported "false_alarm_rate": 0.0126 for TP=142, FP=1999,
+    # TN=157045: that is the false-positive rate, and the false-alarm ratio was 93%.
     y = np.concatenate([np.ones(142), np.zeros(1999), np.zeros(157045)])
     p = np.concatenate([np.ones(142), np.ones(1999), np.zeros(157045)])
     m = row_metrics(y, p, threshold=0.5)
