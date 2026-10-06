@@ -26,10 +26,12 @@ def offline(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
 
 
-def _app(mode: str = "Replay Storm") -> AppTest:
-    """The app in ``mode`` (it opens in Live Feed by default; most tests replay real storms)."""
+def _app(mode: str = "Replay Storm", stage: str = "simulate") -> AppTest:
+    """The app in ``mode`` (it opens in Live Feed by default; most tests replay real storms).
+    ``stage`` is the replay sidebar step: "choose" (date and storms) or "simulate" (area, time)."""
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = mode
+    at.session_state["replay_stage"] = stage
     at.run(timeout=60)
     assert not at.exception
     return at
@@ -96,7 +98,7 @@ needs_store = pytest.mark.skipif(not store_available(), reason="rainfall store n
 def test_replay_any_date_and_featured_storms():
     from datetime import date
 
-    at = _app()
+    at = _app(stage="choose")
     assert at.sidebar.date_input[0].value == date(2021, 4, 17)
     text = " ".join(md.value for md in at.markdown)
     assert "Reported floods this day" in text and "Dunearn" in text
@@ -106,9 +108,13 @@ def test_replay_any_date_and_featured_storms():
     at.run(timeout=60)
     assert not at.exception
     assert at.sidebar.date_input[0].value == date(2024, 11, 22)
-    assert "22 Nov 2024" in at.sidebar.select_slider[0].label
     assert "Yishun" in " ".join(md.value for md in at.markdown)
+    next(b for b in at.sidebar.button if b.label == "Simulate this date").click()
+    at.run(timeout=60)
+    assert "22 Nov 2024" in at.sidebar.select_slider[0].label
 
+    next(b for b in at.sidebar.button if b.label == "Choose another date").click()
+    at.run(timeout=60)
     at.sidebar.date_input[0].set_value(date(2019, 7, 15))
     at.run(timeout=60)
     assert not at.exception
@@ -119,7 +125,7 @@ def test_replay_any_date_and_featured_storms():
 def test_gap_and_patchy_days_are_flagged_not_shown_as_dry():
     from datetime import date
 
-    at = _app()
+    at = _app(stage="choose")
     at.sidebar.date_input[0].set_value(date(2018, 2, 8))  # no NEA readings at all
     at.run(timeout=60)
     assert not at.exception
@@ -153,19 +159,44 @@ def test_opens_in_live_mode_by_default(offline):
 
 
 @needs_store
-def test_replay_time_slider_sits_above_the_storm_buttons():
-    at = _app()
+def test_replay_sidebar_has_a_choose_step_and_a_simulate_step():
+    from datetime import date
+
+    at = _app(stage="choose")
+    sidebar_buttons = [b.label for b in at.sidebar.button]
+    assert len(at.sidebar.date_input) == 1 and "Simulate this date" in sidebar_buttons
+    assert len(at.sidebar.select_slider) == 0 and len(at.sidebar.selectbox) == 0
+
+    next(b for b in at.sidebar.button if b.label == "Simulate this date").click()
+    at.run(timeout=60)
+    assert not at.exception
+    assert len(at.sidebar.date_input) == 0
+    assert at.sidebar.selectbox[0].value == "BUKIT TIMAH"
+    assert at.sidebar.select_slider[0].value == "12:15"
     order = [type(el).__name__ for el in at.sidebar]
-    assert order.index("SelectSlider") < order.index("Button")
+    assert order.index("Selectbox") < order.index("SelectSlider")  # area, then time
+    assert [b.label for b in at.sidebar.button][-1] == "Choose another date"  # at the bottom
+
+    # The chosen area and time survive a trip back to the date step.
+    at.sidebar.selectbox[0].set_value("BEDOK")
+    at.sidebar.select_slider[0].set_value("13:00")
+    at.run(timeout=60)
+    next(b for b in at.sidebar.button if b.label == "Choose another date").click()
+    at.run(timeout=60)
+    assert at.sidebar.date_input[0].value == date(2021, 4, 17)
+    next(b for b in at.sidebar.button if b.label == "Simulate this date").click()
+    at.run(timeout=60)
+    assert at.sidebar.selectbox[0].value == "BEDOK"
+    assert at.sidebar.select_slider[0].value == "13:00"
 
 
-def test_every_button_works():
-    at = _app()
-    labels = [b.label for b in at.button]
+@pytest.mark.parametrize("stage", ["choose", "simulate"])
+def test_every_button_works(stage):
+    labels = [b.label for b in _app(stage=stage).button]
     assert labels, "expected buttons"
-    for label in labels:
-        btn = next(b for b in at.button if b.label == label)
-        btn.click()
+    for label in labels:  # each from a fresh app: some buttons switch the sidebar step
+        at = _app(stage=stage)
+        next(b for b in at.button if b.label == label).click()
         at.run(timeout=60)
         assert not at.exception, f"{label!r} raised {at.exception}"
 
@@ -182,7 +213,8 @@ def test_replay_button_jumps_from_live_to_17_april(offline):
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["mode"] == "Replay Storm"
-    assert at.sidebar.date_input[0].value == date(2021, 4, 17)
+    assert at.session_state["replay_date"] == date(2021, 4, 17)
+    assert "17 Apr 2021" in at.sidebar.select_slider[0].label  # straight to the simulate step
 
 
 def test_no_hard_coded_figures_on_the_page():

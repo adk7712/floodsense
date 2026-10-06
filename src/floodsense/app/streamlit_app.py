@@ -431,11 +431,24 @@ def _pick_day(day: date) -> None:
     st.session_state["replay_date"] = day
 
 
+def _set_replay_stage(stage: str) -> None:
+    st.session_state["replay_stage"] = stage
+
+
 def _replay_pinned_storm() -> None:
     """Jump to the 17 Apr 2021 replay. A callback, so it runs before the widgets are drawn."""
     st.session_state["mode"] = "Replay Storm"
     st.session_state["replay_date"] = replay_days.PINNED_STORM
     st.session_state[f"replay-time-{replay_days.PINNED_STORM}"] = REPLAY_DEFAULT_TIME
+    st.session_state["replay_stage"] = "simulate"
+
+
+def zone_picker() -> str:
+    """The planning-area selector for the Zone Diagnostic (sidebar)."""
+    st.sidebar.subheader(":material/tune: Zone Diagnostic")
+    return str(
+        st.sidebar.selectbox("Select Planning Area", options=sorted(URA_PLANNING_AREAS), key="zone")
+    )
 
 
 def storm_buttons(selected: date) -> None:
@@ -505,12 +518,18 @@ mode = st.sidebar.segmented_control(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader(":material/tune: Zone Diagnostic")
-selected_zone = st.sidebar.selectbox(
-    "Select Planning Area",
-    options=sorted(URA_PLANNING_AREAS),
-    index=sorted(URA_PLANNING_AREAS).index("BUKIT TIMAH"),
-)
+
+# Replay has two steps in the sidebar: choose a date ("choose"), then simulate it ("simulate",
+# with the area and time controls). Streamlit drops a widget's value while the widget is hidden,
+# so re-store the values of the widgets the other step hides.
+st.session_state.setdefault("zone", "BUKIT TIMAH")
+st.session_state.setdefault("replay_stage", "choose")
+for _key in list(st.session_state):
+    if _key in ("zone", "replay_date") or str(_key).startswith("replay-time-"):
+        st.session_state[_key] = st.session_state[_key]
+selected_zone = str(st.session_state["zone"])
+if mode == "Live Feed":
+    selected_zone = zone_picker()
 
 # --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
 replay_warning: str | None = None
@@ -556,17 +575,31 @@ if mode == "Live Feed":
 elif replay_days.store_available():
     first_day, last_day = store_range()
     st.session_state.setdefault("replay_date", replay_days.PINNED_STORM)
-    replay_day = st.sidebar.date_input(
-        "Replay date (SGT)",
-        key="replay_date",
-        min_value=first_day,
-        max_value=last_day,
-        format="DD/MM/YYYY",
-        help=f"Any day with NEA gauge readings, {first_day:%d %b %Y} to {last_day:%d %b %Y}.",
-    )
+    choosing = st.session_state["replay_stage"] == "choose"
+    if choosing:
+        replay_day = st.sidebar.date_input(
+            "Replay date (SGT)",
+            key="replay_date",
+            min_value=first_day,
+            max_value=last_day,
+            format="DD/MM/YYYY",
+            help=f"Any day with NEA gauge readings, {first_day:%d %b %Y} to {last_day:%d %b %Y}.",
+        )
+    else:
+        replay_day = st.session_state["replay_date"]
     view = day_features(replay_day.isoformat())
     if view.features.empty:
+        st.session_state["replay_stage"] = "choose"
+        if not choosing:
+            st.rerun()
         storm_buttons(replay_day)
+        st.sidebar.button(
+            "Simulate this date",
+            type="primary",
+            width="stretch",
+            disabled=True,
+            help="NEA has no readings for this day.",
+        )
         st.title("🌊 FloodSense Intelligence Center")
         st.warning(
             f"NEA has no rain-gauge readings for {replay_day:%d %b %Y}. It is one of the gaps in "
@@ -582,14 +615,36 @@ elif replay_days.store_available():
         if replay_day == replay_days.PINNED_STORM and REPLAY_DEFAULT_TIME in times
         else f"{replay_days.default_time(table):%H:%M}"
     )
-    chosen = st.sidebar.select_slider(
-        f"Replay time (SGT, {replay_day:%d %b %Y})",
-        options=list(times),
-        value=default,
-        key=f"replay-time-{replay_day}",
-        help="Opens at the day's heaviest island-wide 30-minute rain.",
-    )
-    storm_buttons(replay_day)
+    time_key = f"replay-time-{replay_day}"
+    if st.session_state.get(time_key) not in times:
+        st.session_state[time_key] = default
+    if choosing:
+        storm_buttons(replay_day)
+        st.sidebar.button(
+            "Simulate this date",
+            type="primary",
+            width="stretch",
+            on_click=_set_replay_stage,
+            args=("simulate",),
+            help="Step through the day's real readings, zone by zone.",
+        )
+        chosen = st.session_state[time_key]
+    else:
+        st.sidebar.markdown(f"**Simulating {replay_day:%d %b %Y}**")
+        selected_zone = zone_picker()
+        chosen = st.sidebar.select_slider(
+            f"Replay time (SGT, {replay_day:%d %b %Y})",
+            options=list(times),
+            key=time_key,
+            help="Opens at the day's heaviest island-wide 30-minute rain.",
+        )
+        st.sidebar.markdown("---")
+        st.sidebar.button(
+            "Choose another date",
+            width="stretch",
+            on_click=_set_replay_stage,
+            args=("choose",),
+        )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
     replay_badge = (
@@ -612,6 +667,7 @@ elif replay_days.store_available():
 else:
     table, event_name, total_stations = replay_features(str(settings.replay_file))
     times = {f"{t:%H:%M}": t for t in sorted(table["timestamp"].unique())}
+    selected_zone = zone_picker()
     chosen = st.sidebar.select_slider(
         "Replay time (SGT, 17 Apr 2021)",
         options=list(times),
