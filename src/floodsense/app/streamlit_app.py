@@ -63,7 +63,7 @@ THEME_TOKENS = {
         "bg_surface": "#111827",
         "bg_subtle": "#1A2234",
         "bg_hover": "#222D42",
-        "border_main": "#1F293D",
+        "border_main": "#2A3650",
         "border_subtle": "#162032",
         "text_main": "#F8FAFC",
         "text_muted": "#94A3B8",
@@ -251,6 +251,12 @@ div[data-testid="stSidebarCollapsedControl"],
     color: var(--text-main) !important;
 }}
 
+/* Bordered containers (cards, panels): Streamlit draws their border from the light theme's
+   text colour, which disappears on the dark canvas, so use the theme's own border colour. */
+[data-testid="stMain"] [data-testid="stVerticalBlock"] {{
+    border-color: var(--border-main) !important;
+}}
+
 /* Page container */
 .block-container {{
     padding-top: 0.4rem !important;
@@ -422,8 +428,12 @@ button[kind="secondary"]:hover,
 }}
 
 /* --- 5.1 TOP-RIGHT THEME TOGGLE SWITCH --- */
+/* Anchored to the top of the page (not the screen), so it scrolls away with the content */
+[data-testid="stMain"] {{
+    position: relative !important;
+}}
 .st-key-theme_toggle {{
-    position: fixed !important;
+    position: absolute !important;
     top: 0.7rem !important;
     right: 1.25rem !important;
     width: auto !important;
