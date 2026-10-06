@@ -330,6 +330,9 @@ def test_final_report_is_written_once(trained_budgeted, data, monkeypatch):
         on_disk["outcomes"][0]
     )
     assert len(on_disk["hit_rate_ci90"]) == 2
+    for tier in ("high", "moderate"):
+        assert set(on_disk["ci90"][tier]) == {"hit_rate", "advance_hit_rate", "actionable_hit_rate"}
+    assert on_disk["ci90"]["high"]["hit_rate"] == on_disk["hit_rate_ci90"]
 
     with pytest.raises(FileExistsError, match="--force"):
         train_cli.run_final_report(data, tracking_uri=t.uri)

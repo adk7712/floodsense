@@ -365,6 +365,12 @@ def run_final_report(
                     **{f"events_{k}": v for k, v in report["events_high"].items()},
                     "hit_rate_ci90_lo": lo,
                     "hit_rate_ci90_hi": hi,
+                    **{
+                        f"ci90_{tier}_{rate}_{end}": v
+                        for tier, rates in report["ci90"].items()
+                        for rate, pair in rates.items()
+                        for end, v in zip(("lo", "hi"), pair, strict=True)
+                    },
                 }
             )
         )

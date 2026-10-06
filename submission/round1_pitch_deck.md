@@ -86,6 +86,8 @@ are floods we could source with a link and a quote, not every flood that happene
 - URA Master Plan 2019 planning-area boundaries (55 zones)
 - PUB Flood Prone Areas, 2022–2025 (annual hectares), shown as a trend in the app [9]
 - **66 flood events** from PUB alerts and news, each sourced and signed off
+- **PUB Flood Alerts (real-time API)**: shown live in the app and archived in Databricks on every
+  poll. The API keeps no past alerts, so the archive starts now. That's 4 of 4 Track B2 datasets in use
 - Next: rain-area radar frames (no public archive, so we archive from now on) [8], tide tables
 
 **Visual 2 (main chart): "With only 36 floods to learn from, the simplest model was the most robust"**
@@ -106,8 +108,11 @@ nowcasting, LLM-drafted flood events with human sign-off, and one model that sha
 
 | Alert level | Floods caught | Median warning | False alarms per zone-year |
 |---|---|---|---|
-| Moderate (from 0.30% chance) | 21 of 30 (70%) | 15 min | 7.3 |
+| Moderate (from 0.30% chance) | 21 of 30 (70%; 90% CI 57–83%) | 15 min | 7.3 |
 | High (from 0.71% chance) | 12 of 30 (40%; 90% CI 27–53%) | 10 min | 1.6 |
+
+Uncertainty (stretch goal): every rate has a bootstrap 90% interval (2,000 resamples of the 30
+floods). For example, warned 15+ min ahead: High 13% (3–23%), Moderate 33% (20–47%).
 
 - **Warning time, honestly:** with High alerts, 4 of the 30 test floods were flagged 15+ minutes
   ahead, and 11 were flagged by the reported start time. With Moderate alerts, 10 and 19.
@@ -143,7 +148,10 @@ flowchart LR
     S -->|"same scoring code as the app<br/>and training"| P[("Gold<br/>zone risk + tier")]
     J["Poller job: NEA API → landing,<br/>then triggers the pipeline"] --> V
     R["Radar frames"] -.-> V
-    A["PUB alerts and news"] -.->|ai_query| E[("flood_events")]
+    PA["PUB flood-alerts API<br/>(live, no history kept)"] --> J
+    V -->|Auto Loader| AB[("PUB alerts<br/>bronze → silver archive")]
+    P --> D["AI/BI dashboard<br/>live risk + pipeline health"]
+    A["News + archived PUB alerts"] -.->|ai_query| E[("flood_events")]
     P -.-> APP["Databricks App<br/>map, alerts, replay"]
     T["Training + test report<br/>(time-based validation)"] --> M[("MLflow + Unity Catalog<br/>flood_model @champion")]
     M -.->|"gold loads from registry (next)"| P
@@ -190,6 +198,11 @@ Caption: "Best case on record: High about an hour before the report. The typical
 - minutes of warning before PUB's own alert
 - share of floods caught
 - false alarms kept within budget
+
+**Also running (6 Oct):**
+- AI/BI dashboard on gold: live risk by zone, the last 24 h and pipeline health (screenshot it)
+- Unity Catalog: descriptions on the schema, volumes and model; source and layer tags on every table;
+  lineage from the landing volume to gold
 
 **Free Edition limits respected:**
 - one pipeline

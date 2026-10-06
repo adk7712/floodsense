@@ -13,6 +13,10 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 >   - the pipeline reproduces local scoring on the 17 April 2021 storm
 >   - a poller job lands live NEA readings and refreshes it (schedule paused to save compute)
 >   - the model is registered in Unity Catalog as `workspace.floodsense.flood_model@champion`
+>   - PUB flood alerts are archived on every poll (the API keeps no history)
+>   - an AI/BI dashboard reads gold; tables carry source and layer tags
+> - **PUB flood alerts:** shown live in the app beside the risk map; the live view reloads every 5 min.
+> - **Uncertainty:** every test rate in `models/final_report.json` has a bootstrap 90% interval (`ci90`).
 > - **Not built yet:** radar nowcasting, tide, the app reading gold, and gold loading the model from the registry.
 
 ## Quickstart
@@ -127,6 +131,14 @@ polygon's `representative_point()`.
 PUB's annual flood-prone land in hectares, 2022–2025 (data.gov.sg `d_c4aed98f1533eb3a66f65dbb1a30da46`),
 fetched by `uv run python -m floodsense.data.flood_prone`, with the source on every row. The app
 shows it as a trend. A missing file is reported, never filled in.
+
+### PUB flood alerts (real-time)
+
+data.gov.sg `v2/real-time/api/weather/flood-alerts`, parsed by `floodsense.ingestion.flood_alerts`
+(each alert is mapped to the URA planning area containing its point; a `Cancel` closes its alert).
+Past dates come back empty: 30 Sep 2026, a day with a PUB-reported flood, returned 720 empty
+records. So the alerts can't be training labels yet. The Databricks poller archives them from 6 Oct
+2026 on.
 
 ### Flood events (`data/reference/flood_events.csv`)
 

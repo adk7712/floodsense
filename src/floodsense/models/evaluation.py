@@ -245,6 +245,23 @@ def hit_rate_ci(
     return float(np.quantile(means, alpha / 2)), float(np.quantile(means, 1 - alpha / 2))
 
 
+def outcome_cis(outcomes: Sequence[EventOutcome]) -> dict[str, tuple[float, float]]:
+    """90% bootstrap intervals (same method and seed as ``hit_rate_ci``) for the headline rates.
+
+    Indicators mirror ``evaluate_alerts``: advance = hit with warning time >= 0, actionable = hit
+    with warning time >= 15 minutes; all are over every event.
+    """
+
+    def known(o: EventOutcome, minutes: float) -> bool:
+        return bool(o.hit and o.lead_minutes is not None and o.lead_minutes >= minutes)
+
+    return {
+        "hit_rate": hit_rate_ci([o.hit for o in outcomes]),
+        "advance_hit_rate": hit_rate_ci([known(o, 0) for o in outcomes]),
+        "actionable_hit_rate": hit_rate_ci([known(o, 15) for o in outcomes]),
+    }
+
+
 # --------------------------------------------------------------------------------------------
 # Threshold trade-off and selection
 # --------------------------------------------------------------------------------------------

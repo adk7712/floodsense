@@ -8,9 +8,11 @@ import pytest
 
 from floodsense.labels.policy import EventWindow
 from floodsense.models.evaluation import (
+    EventOutcome,
     alert_episodes,
     evaluate_alerts,
     hit_rate_ci,
+    outcome_cis,
     row_metrics,
     select_threshold,
     tradeoff_curve,
@@ -217,6 +219,21 @@ def test_hit_rate_ci():
     assert hit_rate_ci([True] * 5) == (1.0, 1.0)
     lo, hi = hit_rate_ci([True, False, True, True, False, True, False, True])
     assert 0.0 <= lo < 0.625 < hi <= 1.0
+
+
+def test_outcome_cis_use_same_method_per_indicator():
+    outs = [
+        EventOutcome("a", "z", True, None, 30.0),
+        EventOutcome("b", "z", True, None, 5.0),
+        EventOutcome("c", "z", True, None, -10.0),
+        EventOutcome("d", "z", True, None, None),
+        EventOutcome("e", "z", False, None, None),
+    ]
+    cis = outcome_cis(outs)
+    assert cis["hit_rate"] == hit_rate_ci([True, True, True, True, False])
+    assert cis["advance_hit_rate"] == hit_rate_ci([True, True, False, False, False])
+    assert cis["actionable_hit_rate"] == hit_rate_ci([True, False, False, False, False])
+    assert outcome_cis([])["hit_rate"] != outcome_cis([])["hit_rate"]  # NaN for no events
 
 
 def test_default_threshold_grid_reaches_rare_event_probabilities():

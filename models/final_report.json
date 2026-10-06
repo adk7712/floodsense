@@ -49,6 +49,36 @@
     "false_episodes_per_zone_year": 7.281210101255095,
     "false_alert_hours": 710.75
   },
+  "ci90": {
+    "high": {
+      "hit_rate": [
+        0.26666666666666666,
+        0.5333333333333333
+      ],
+      "advance_hit_rate": [
+        0.23333333333333334,
+        0.5
+      ],
+      "actionable_hit_rate": [
+        0.03333333333333333,
+        0.23333333333333334
+      ]
+    },
+    "moderate": {
+      "hit_rate": [
+        0.5666666666666667,
+        0.8333333333333334
+      ],
+      "advance_hit_rate": [
+        0.5,
+        0.7666666666666667
+      ],
+      "actionable_hit_rate": [
+        0.2,
+        0.4666666666666667
+      ]
+    }
+  },
   "ranking": {
     "events": 30.0,
     "top_fraction": 0.1,

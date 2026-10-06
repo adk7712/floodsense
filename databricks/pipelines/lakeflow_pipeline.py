@@ -53,39 +53,47 @@ from floodsense.serving.pipeline_core import (  # noqa: E402
 # -------------------------------------------------------------------------
 # Schemas
 # -------------------------------------------------------------------------
-READINGS_SCHEMA = StructType([
-    StructField("station_id", StringType(), False),
-    StructField("timestamp", TimestampType(), False),
-    StructField("rainfall_mm", DoubleType(), False),
-])
+READINGS_SCHEMA = StructType(
+    [
+        StructField("station_id", StringType(), False),
+        StructField("timestamp", TimestampType(), False),
+        StructField("rainfall_mm", DoubleType(), False),
+    ]
+)
 
-STATIONS_SCHEMA = StructType([
-    StructField("station_id", StringType(), False),
-    StructField("name", StringType(), False),
-    StructField("latitude", DoubleType(), False),
-    StructField("longitude", DoubleType(), False),
-])
+STATIONS_SCHEMA = StructType(
+    [
+        StructField("station_id", StringType(), False),
+        StructField("name", StringType(), False),
+        StructField("latitude", DoubleType(), False),
+        StructField("longitude", DoubleType(), False),
+    ]
+)
 
-GOLD_SCHEMA = StructType([
-    StructField("ura_planning_area", StringType(), False),
-    StructField("timestamp", TimestampType(), False),
-    StructField("rain_5m", DoubleType(), False),
-    StructField("rain_15m", DoubleType(), False),
-    StructField("rain_30m", DoubleType(), False),
-    StructField("rain_60m", DoubleType(), False),
-    StructField("rain_120m", DoubleType(), False),
-    StructField("rain_decay_72h", DoubleType(), False),
-    StructField("reporting_stations", LongType(), False),
-    StructField("flood_probability", DoubleType(), False),
-    StructField("risk_tier", StringType(), False),
-])
+GOLD_SCHEMA = StructType(
+    [
+        StructField("ura_planning_area", StringType(), False),
+        StructField("timestamp", TimestampType(), False),
+        StructField("rain_5m", DoubleType(), False),
+        StructField("rain_15m", DoubleType(), False),
+        StructField("rain_30m", DoubleType(), False),
+        StructField("rain_60m", DoubleType(), False),
+        StructField("rain_120m", DoubleType(), False),
+        StructField("rain_decay_72h", DoubleType(), False),
+        StructField("reporting_stations", LongType(), False),
+        StructField("flood_probability", DoubleType(), False),
+        StructField("risk_tier", StringType(), False),
+    ]
+)
 
-PARSED_RESULT_SCHEMA = StructType([
-    StructField("is_valid", DoubleType(), False),  # 1.0 = valid, 0.0 = error
-    StructField("error_message", StringType(), True),
-    StructField("readings", ArrayType(READINGS_SCHEMA), True),
-    StructField("stations", ArrayType(STATIONS_SCHEMA), True),
-])
+PARSED_RESULT_SCHEMA = StructType(
+    [
+        StructField("is_valid", DoubleType(), False),  # 1.0 = valid, 0.0 = error
+        StructField("error_message", StringType(), True),
+        StructField("readings", ArrayType(READINGS_SCHEMA), True),
+        StructField("stations", ArrayType(STATIONS_SCHEMA), True),
+    ]
+)
 
 
 # -------------------------------------------------------------------------
@@ -146,7 +154,9 @@ def parse_single_payload_udf(payload_str: str) -> dict[str, Any]:
     table_properties={"quality": "bronze"},
 )
 def raw_rainfall_bronze():
-    landing_volume = spark.conf.get("floodsense.landing_path", "/Volumes/floodsense/default/landing")
+    landing_volume = spark.conf.get(
+        "floodsense.landing_path", "/Volumes/floodsense/default/landing"
+    )
     schema_volume = spark.conf.get(
         "floodsense.schema_path", "/Volumes/floodsense/default/schema/bronze"
     )
@@ -275,7 +285,9 @@ def flood_risk_predictions_gold():
 
     def score(pdf):  # no type hints: Spark would try to infer a UDF type from them
         readings = pdf[["station_id", "timestamp", "rainfall_mm"]]
-        stations = pdf[["station_id", "name", "latitude", "longitude"]].drop_duplicates("station_id")
+        stations = pdf[["station_id", "name", "latitude", "longitude"]].drop_duplicates(
+            "station_id"
+        )
         # Spark hands pandas naive session-timezone times; gold_from_silver converts them.
         out = gold_from_silver(readings, stations, session_tz, emit_hours, model)
         # ...and reads naive times back the same way.
@@ -284,8 +296,71 @@ def flood_risk_predictions_gold():
             ts = ts.dt.tz_convert(session_tz).dt.tz_localize(None)
         return out.assign(timestamp=ts)[PREDICTION_COLUMNS]
 
-    return (
-        window.withColumn("batch", F.lit(0))
-        .groupBy("batch")
-        .applyInPandas(score, GOLD_SCHEMA)
+    return window.withColumn("batch", F.lit(0)).groupBy("batch").applyInPandas(score, GOLD_SCHEMA)
+
+
+# -------------------------------------------------------------------------
+# 04. PUB FLASH-FLOOD ALERTS: archived as they arrive (the API keeps no history)
+# -------------------------------------------------------------------------
+# Separate from the rainfall tables: gold doesn't read these. They grow a record of PUB's live
+# alerts, the start of a label stream that doesn't depend on news reports.
+ALERT_PAYLOAD_SCHEMA = (
+    "struct<data: struct<records: array<struct<datetime: string, updatedTimestamp: string, "
+    "item: struct<identifier: string, msgType: string, references: string, status: string, "
+    "readings: array<struct<headline: string, description: string, event: string, "
+    "severity: string, area: struct<areaDesc: string, circle: array<double>>>>>>>>>"
+)
+
+
+@dlt.table(
+    name="pub_flood_alerts_bronze",
+    comment="Raw PUB flood-alert API responses (data.gov.sg) from the landing volume, one row per file.",
+    table_properties={"quality": "bronze"},
+)
+def pub_flood_alerts_bronze():
+    landing = spark.conf.get(
+        "floodsense.alerts_landing_path", "/Volumes/workspace/floodsense/landing/flood_alerts"
     )
+    schema_path = spark.conf.get(
+        "floodsense.alerts_schema_path", "/Volumes/workspace/floodsense/autoloader/flood_alerts"
+    )
+    return (
+        spark.readStream.format("cloudFiles")
+        .option("cloudFiles.format", "text")
+        .option("wholetext", "true")
+        .option("cloudFiles.schemaLocation", schema_path)
+        .load(landing)
+        .select(
+            F.col("value").alias("raw_payload_text"),
+            F.col("_metadata.file_name").alias("source_file"),
+            F.col("_metadata.file_modification_time").alias("ingested_at"),
+        )
+    )
+
+
+@dlt.table(
+    name="pub_flood_alerts_silver",
+    comment="One row per PUB flash-flood alert or cancellation, with its location circle. "
+    "Duplicates across overlapping polls are removed by (identifier, msg_type).",
+    table_properties={"quality": "silver"},
+)
+@dlt.expect_or_drop("has_identifier", "identifier IS NOT NULL AND identifier != ''")
+def pub_flood_alerts_silver():
+    parsed = dlt.read("pub_flood_alerts_bronze").select(
+        F.from_json("raw_payload_text", ALERT_PAYLOAD_SCHEMA).alias("p")
+    )
+    records = parsed.select(F.explode_outer("p.data.records").alias("r"))
+    readings = records.select("r.datetime", "r.item", F.explode("r.item.readings").alias("reading"))
+    return readings.select(
+        F.to_timestamp("datetime").alias("issued_at"),
+        F.col("item.identifier").alias("identifier"),
+        F.col("item.msgType").alias("msg_type"),
+        F.col("item.references").alias("references"),
+        F.col("reading.headline").alias("headline"),
+        F.col("reading.description").alias("description"),
+        F.col("reading.severity").alias("severity"),
+        F.col("reading.area.areaDesc").alias("area_desc"),
+        F.col("reading.area.circle")[0].alias("latitude"),
+        F.col("reading.area.circle")[1].alias("longitude"),
+        F.col("reading.area.circle")[2].alias("radius_km"),
+    ).dropDuplicates(["identifier", "msg_type"])

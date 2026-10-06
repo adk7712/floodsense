@@ -12,7 +12,8 @@ accumulated across reruns, so the page depends only on the selected mode, time a
 """
 
 import json
-from datetime import date
+import time
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import pandas as pd
@@ -27,6 +28,7 @@ from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data.flood_events import load_flood_events
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
+from floodsense.ingestion.flood_alerts import FloodAlert, active_alerts, fetch_flood_alerts
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 from floodsense.models.artifact import load_model, rarity_scores
 from floodsense.models.scoring import default_thresholds, score_zone_features
@@ -457,6 +459,30 @@ def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     return latest, len(stations), None
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def live_flood_alerts() -> tuple[list[FloodAlert] | None, str | None]:
+    """PUB flash-flood alerts still active from the last 3 hours, or (None, error message)."""
+    since = datetime.now(settings.tzinfo) - timedelta(hours=3)
+    try:
+        return active_alerts(fetch_flood_alerts(since=since)), None
+    except LiveFeedUnavailable as exc:
+        return None, str(exc)
+
+
+LIVE_REFRESH = timedelta(minutes=5)
+
+
+@st.fragment(run_every=LIVE_REFRESH)
+def live_auto_refresh() -> None:
+    """Re-run the whole app with fresh readings every LIVE_REFRESH while Live Feed is open."""
+    loaded_at = st.session_state.setdefault("live_loaded_at", time.monotonic())
+    if time.monotonic() - loaded_at >= LIVE_REFRESH.total_seconds() - 10:
+        st.session_state["live_loaded_at"] = time.monotonic()
+        live_features.clear()
+        live_flood_alerts.clear()
+        st.rerun(scope="app")
+
+
 model, model_caption = get_model()
 
 # --- SIDEBAR -------------------------------------------------------------------------------
@@ -621,6 +647,29 @@ st.markdown(
 )
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
+
+if mode == "Live Feed":
+    live_auto_refresh()
+    pub_alerts, pub_alerts_error = live_flood_alerts()
+    if pub_alerts_error:
+        st.caption(f"PUB flood alerts unavailable right now: {pub_alerts_error}")
+    elif pub_alerts:
+        tiers = dict(zip(df_results["ura_planning_area"], df_results["risk_tier"], strict=True))
+        lines = [
+            f"- **{a.zone or a.area_desc}** · {a.issued_at:%H:%M} · {a.description}"
+            + (f" *(FloodSense: {tiers[a.zone]})*" if a.zone in tiers else "")
+            for a in pub_alerts
+        ]
+        st.error(
+            f"**{len(pub_alerts)} active PUB flash-flood alert(s)**\n\n" + "\n".join(lines),
+            icon=":material/flood:",
+        )
+    else:
+        st.caption(
+            ":material/check_circle: No active PUB flash-flood alerts in the last 3 hours "
+            "(PUB via data.gov.sg; refreshes every 2 min). The page reloads live readings every "
+            f"{LIVE_REFRESH.total_seconds() / 60:g} min."
+        )
 
 high_risk_count = int((df_results["risk_tier"] == "High").sum())
 mod_risk_count = int((df_results["risk_tier"] == "Moderate").sum())
@@ -1076,9 +1125,10 @@ with status_col, st.container(border=True):
         "human sign-off.\n"
         "- **Model:** a calibrated 60-minute-rainfall rule. It beat logistic regression and "
         "LightGBM at matched false-alarm levels on 2020–23.\n"
-        "- **Held-out test (2024 to Sep 2026, 30 floods):** High caught 12 (40%), median warning "
-        "7.5 min; Moderate caught 21 (70%), median warning 15 min. Gauges alone give little lead "
-        "time; radar nowcasting is next.\n"
+        "- **Held-out test (2024 to Sep 2026, 30 floods, 90% confidence intervals):** High caught "
+        "12 (40%, 27–53%), median warning 10 min, 4 warned 15+ min ahead (13%, 3–23%); "
+        "Moderate caught 21 (70%, 57–83%), median warning 15 min, 10 warned 15+ min ahead "
+        "(33%, 20–47%). Gauges alone give little lead time; radar nowcasting is next.\n"
         "- **Zones:** the 55 URA Master Plan 2019 planning areas."
     )
 

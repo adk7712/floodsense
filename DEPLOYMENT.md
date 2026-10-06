@@ -245,3 +245,29 @@ After it:
 Gold now shows live data instead of the 17 Apr 2021 replay, because it always scores the 24 h before
 the newest reading. The replay proof stays in update `34cfa680…` and the committed parity export.
 Re-checking parity on the workspace now needs a full refresh with only the replay files landed.
+
+## 12. PUB flood alerts, dashboard and governance (6 Oct 2026)
+
+**Flood alerts.** Each poller run also lands today's recent flood-alert pages, unchanged, in
+`/Volumes/workspace/floodsense/landing/flood_alerts/`. The pipeline has two more tables, which gold
+doesn't read:
+- `pub_flood_alerts_bronze`: one row per file (Auto Loader, schema location
+  `autoloader/flood_alerts`)
+- `pub_flood_alerts_silver`: one row per alert or cancellation, with the location circle;
+  deduplicated on (identifier, msg_type)
+
+Run `87423630652188` succeeded: 1 alert file and 0 alerts (none issued that day). Gold was live to
+17:35 SGT, 15,840 rows, 0 quarantined. The silver parsing was checked on the warehouse against
+PUB's documented example alert, and time, identifier, type, description and circle all parse.
+Before the upload, the deployed pipeline source differed from the committed one only in comments.
+
+**AI/BI dashboard** "FloodSense – Live Flood Risk" (id `01f1c168d5ba1a44819705ab969bf3ea`). It
+reads gold and the pipeline tables, with times in SGT. The definition is in
+`databricks/dashboards/`.
+
+**Governance.** These were set through the SQL warehouse:
+- Descriptions on schema `workspace.floodsense`, the `landing` and `artifacts` volumes and the
+  registered model.
+- Tags: `project`, `track` and `data_classification` on the schema; `source` and `layer` on every
+  table.
+

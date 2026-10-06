@@ -12,9 +12,11 @@ anonymous (rate-limited) API is used.
 """
 
 import argparse
+import json
 import logging
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from floodsense.common.config import settings
 from floodsense.ingestion.poller import NEAPoller, parse_rainfall_payload
@@ -22,6 +24,7 @@ from floodsense.ingestion.poller import NEAPoller, parse_rainfall_payload
 log = logging.getLogger("floodsense.poll_rainfall")
 
 ANONYMOUS_PAGE_DELAY_SEC = 4.0
+FLOOD_ALERTS_URL = "https://api-open.data.gov.sg/v2/real-time/api/weather/flood-alerts"
 
 
 def _api_key(scope: str, key: str) -> str | None:
@@ -38,6 +41,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--landing-dir", default="/Volumes/workspace/floodsense/landing/rainfall/live"
+    )
+    parser.add_argument(
+        "--alerts-landing-dir", default="/Volumes/workspace/floodsense/landing/flood_alerts"
     )
     parser.add_argument("--lookback-minutes", type=int, default=40)
     parser.add_argument("--secret-scope", default="floodsense")
@@ -79,6 +85,28 @@ def main(argv: list[str] | None = None) -> int:
 
     if not staged:
         raise RuntimeError("The rainfall API returned no readings; nothing landed")
+
+    # PUB flood alerts: the API keeps no history, so land today's recent pages on every run.
+    alerts_dir = Path(args.alerts_landing_dir)
+    alerts_dir.mkdir(parents=True, exist_ok=True)
+    token, page = None, 0
+    while True:
+        params = {"date": now.date().isoformat()}
+        if token:
+            params["paginationToken"] = token
+        payload = poller._get_json(FLOOD_ALERTS_URL, params)
+        target = (
+            alerts_dir / f"flood_alerts_{now:%Y%m%d}_p{page:02d}_fetched_{now:%Y%m%d_%H%M%S}.json"
+        )
+        target.write_text(json.dumps(payload))
+        records = (payload.get("data") or {}).get("records") or []
+        oldest = min((datetime.fromisoformat(r["datetime"]) for r in records), default=None)
+        token = (payload.get("data") or {}).get("paginationToken")
+        if not token or oldest is None or oldest < start:
+            break
+        page += 1
+        time.sleep(page_delay)
+    log.info("Landed %d flood-alert page(s) in %s", page + 1, alerts_dir)
     log.info("Landed %d page(s) in %s; newest reading %s", staged, args.landing_dir, newest)
     return 0
 

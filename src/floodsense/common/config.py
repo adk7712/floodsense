@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     # NEA / data.gov.sg endpoints. The v2 API also serves history via ``?date=YYYY-MM-DD``.
     nea_api_primary: str = "https://api-open.data.gov.sg/v2/real-time/api/rainfall"
     nea_api_fallback: str = "https://api.data.gov.sg/v1/environment/rainfall"
+    pub_flood_alerts_url: str = "https://api-open.data.gov.sg/v2/real-time/api/weather/flood-alerts"
     # Optional data.gov.sg API key; anonymous use is rate-limited to a few calls per ~10 s.
     data_gov_api_key: str | None = None
     api_timeout_sec: float = 8.0

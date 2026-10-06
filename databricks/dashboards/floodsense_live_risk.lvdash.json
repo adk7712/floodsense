@@ -1,0 +1,466 @@
+{
+  "datasets": [
+    {
+      "name": "kpis",
+      "displayName": "Right now",
+      "queryLines": [
+        "SELECT date_format(from_utc_timestamp(max(timestamp),'Asia/Singapore'),'dd MMM HH:mm') AS latest_time_sgt, sum(CASE WHEN risk_tier='High' THEN 1 ELSE 0 END) AS zones_high, sum(CASE WHEN risk_tier='Moderate' THEN 1 ELSE 0 END) AS zones_moderate, round(max(rain_60m),1) AS max_rain_60m FROM workspace.floodsense.flood_risk_predictions_gold WHERE timestamp=(SELECT max(timestamp) FROM workspace.floodsense.flood_risk_predictions_gold)"
+      ]
+    },
+    {
+      "name": "top_zones",
+      "displayName": "Top 10 zones",
+      "queryLines": [
+        "SELECT ura_planning_area AS zone, round(flood_probability*100,4) AS probability_pct, round(rain_60m,1) AS rain_60m_mm FROM workspace.floodsense.flood_risk_predictions_gold WHERE timestamp=(SELECT max(timestamp) FROM workspace.floodsense.flood_risk_predictions_gold) ORDER BY flood_probability DESC, rain_60m DESC LIMIT 10"
+      ]
+    },
+    {
+      "name": "trend",
+      "displayName": "Last 24 hours",
+      "queryLines": [
+        "SELECT from_utc_timestamp(timestamp,'Asia/Singapore') AS time_sgt, round(max(rain_60m),1) AS max_rain_60m_mm, sum(CASE WHEN risk_tier IN ('Moderate','High') THEN 1 ELSE 0 END) AS zones_moderate_or_high FROM workspace.floodsense.flood_risk_predictions_gold GROUP BY timestamp ORDER BY timestamp"
+      ]
+    },
+    {
+      "name": "zone_table",
+      "displayName": "All zones",
+      "queryLines": [
+        "SELECT ura_planning_area AS zone, risk_tier AS risk, round(flood_probability*100,4) AS probability_pct, round(rain_60m,1) AS rain_60m_mm FROM workspace.floodsense.flood_risk_predictions_gold WHERE timestamp=(SELECT max(timestamp) FROM workspace.floodsense.flood_risk_predictions_gold) ORDER BY flood_probability DESC, rain_60m DESC"
+      ]
+    },
+    {
+      "name": "health",
+      "displayName": "Pipeline health",
+      "queryLines": [
+        "SELECT 'Raw files received' AS metric, CAST(count(DISTINCT source_file) AS STRING) AS value FROM workspace.floodsense.raw_rainfall_bronze UNION ALL SELECT 'Files quarantined (bad data)', CAST(count(DISTINCT source_file) AS STRING) FROM workspace.floodsense.raw_payloads_quarantine UNION ALL SELECT 'Cleaned rain readings', CAST(count(*) AS STRING) FROM workspace.floodsense.rainfall_readings_silver UNION ALL SELECT 'Newest reading (SGT)', date_format(from_utc_timestamp(max(timestamp),'Asia/Singapore'),'dd MMM HH:mm') FROM workspace.floodsense.rainfall_readings_silver"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "main",
+      "displayName": "Live Flood Risk",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "intro",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# FloodSense - Live Flood Risk for Singapore\n",
+                "**How to read this:** Risk is the calibrated chance of a reported flash flood in the next hour, per planning area, from NEA 5-minute rain gauges. Moderate from 0.30%, High from 0.71%. On a dry day every area stays Low and the chance is close to 0% - that is the correct answer."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_time",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "latest_time_sgt",
+                      "expression": "`latest_time_sgt`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "latest_time_sgt",
+                  "displayName": "Latest data (Singapore time)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Latest data (Singapore time)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_high",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "zones_high",
+                      "expression": "`zones_high`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "zones_high",
+                  "displayName": "Areas at High risk now"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Areas at High risk now"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 3,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_mod",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "zones_moderate",
+                      "expression": "`zones_moderate`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "zones_moderate",
+                  "displayName": "Areas at Moderate risk now"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Areas at Moderate risk now"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_rain",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis",
+                  "fields": [
+                    {
+                      "name": "max_rain_60m",
+                      "expression": "`max_rain_60m`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max_rain_60m",
+                  "displayName": "Heaviest 60-min rain now (mm)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Heaviest 60-min rain now (mm)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 3,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_zones",
+                  "fields": [
+                    {
+                      "name": "zone",
+                      "expression": "`zone`"
+                    },
+                    {
+                      "name": "probability_pct",
+                      "expression": "SUM(`probability_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "zone",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  },
+                  "displayName": "Planning area"
+                },
+                "y": {
+                  "fieldName": "probability_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Flood chance next hour (%)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "10 areas with the highest flood chance right now (%)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "trend",
+                  "fields": [
+                    {
+                      "name": "time_sgt",
+                      "expression": "`time_sgt`"
+                    },
+                    {
+                      "name": "max_rain_60m_mm",
+                      "expression": "MAX(`max_rain_60m_mm`)"
+                    },
+                    {
+                      "name": "zones_moderate_or_high",
+                      "expression": "MAX(`zones_moderate_or_high`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "time_sgt",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Singapore time"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "max_rain_60m_mm",
+                      "displayName": "Heaviest 60-min rain (mm)"
+                    },
+                    {
+                      "fieldName": "zones_moderate_or_high",
+                      "displayName": "Areas at Moderate or High risk"
+                    }
+                  ]
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Last 24 hours: heaviest rain and areas at risk"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 6,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "tbl",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "zone_table",
+                  "fields": [
+                    {
+                      "name": "zone",
+                      "expression": "`zone`"
+                    },
+                    {
+                      "name": "risk",
+                      "expression": "`risk`"
+                    },
+                    {
+                      "name": "probability_pct",
+                      "expression": "`probability_pct`"
+                    },
+                    {
+                      "name": "rain_60m_mm",
+                      "expression": "`rain_60m_mm`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "zone",
+                    "displayName": "Planning area"
+                  },
+                  {
+                    "fieldName": "risk",
+                    "displayName": "Risk level"
+                  },
+                  {
+                    "fieldName": "probability_pct",
+                    "displayName": "Flood chance next hour (%)"
+                  },
+                  {
+                    "fieldName": "rain_60m_mm",
+                    "displayName": "Rain, last 60 min (mm)"
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "frame": {
+                "showTitle": true,
+                "title": "Every planning area, highest risk first"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 4,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "health",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "health",
+                  "fields": [
+                    {
+                      "name": "metric",
+                      "expression": "`metric`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "metric",
+                    "displayName": "Check"
+                  },
+                  {
+                    "fieldName": "value",
+                    "displayName": "Value"
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "frame": {
+                "showTitle": true,
+                "title": "Data pipeline health"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 13,
+            "width": 2,
+            "height": 9
+          }
+        }
+      ]
+    }
+  ]
+}

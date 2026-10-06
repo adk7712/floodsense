@@ -37,6 +37,7 @@ from floodsense.models.calibration import (
 from floodsense.models.evaluation import (
     evaluate_alerts,
     hit_rate_ci,
+    outcome_cis,
     ranking_check,
     row_metrics,
     select_threshold,
@@ -377,7 +378,7 @@ def final_report(model: FloodModel, data: LabelledData) -> dict[str, Any]:
     high = model.thresholds["high"]
     summary, outcomes, _ = evaluate_alerts(scored, test.windows, high, test.zone_years())
     lo, hi = hit_rate_ci([o.hit for o in outcomes])
-    moderate, _, _ = evaluate_alerts(
+    moderate, moderate_outcomes, _ = evaluate_alerts(
         scored, test.windows, model.thresholds["moderate"], test.zone_years()
     )
     n_zones = len(URA_PLANNING_AREAS)
@@ -390,6 +391,7 @@ def final_report(model: FloodModel, data: LabelledData) -> dict[str, Any]:
         "events_high": summary,
         "hit_rate_ci90": (lo, hi),
         "events_moderate": moderate,
+        "ci90": {"high": outcome_cis(outcomes), "moderate": outcome_cis(moderate_outcomes)},
         "ranking": ranking_check(scored, test.windows, n_zones),
         "outcomes": outcomes,
         "test_years": sorted(int(y) for y in test.year.unique()),
