@@ -64,7 +64,6 @@ data/reference/ Station snapshot, URA planning-area polygons, sourced flood even
                 and the Databricks parity export (phase5/)
 databricks/     Lakeflow pipeline and spec, poller job, model registration, parity export, local Spark runner
 docs/           Flood reports examined and excluded, with reasons
-submission/     Round 1 slide brief and demo video script
 ```
 
 Configuration (risk thresholds, false-alarm budgets, timing constants, API URLs, paths) lives in `src/floodsense/common/config.py` and can be overridden with `FLOODSENSE_*` environment variables.
