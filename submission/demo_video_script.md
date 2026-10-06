@@ -1,33 +1,46 @@
 # FloodSense demo video: script
 
-About 3 minutes. Every time and number below comes from the app and data as of 2 Oct 2026.
+About 3:30. Numbers come from `submission/round1_pitch_deck.md` and `models/final_report.json`
+(checked 6 Oct 2026). Recording at about 20:00 SGT on 6 Oct 2026.
 
-**Before recording**
-- Check whether the Round 1 form accepts a video link (the brief only asks for the PDF). If it
-  doesn't, keep the video for later rounds.
-- Start the app: `uv run streamlit run src/floodsense/app/streamlit_app.py`, then open
-  http://localhost:8501 in a full-width desktop browser and hide the bookmarks bar.
-- Do one full run-through first. It warms the cache, so slider moves are instant on camera.
-- Open a second tab on the Databricks workspace: **Jobs & Pipelines → floodsense**, update
-  `34cfa680…` (started 19:36 SGT, 2 Oct 2026), with the graph showing row counts.
-- The ⋮ menu and **Deploy** button in the top right belong to Streamlit itself. Ignore them, or
-  crop them out.
+**Before recording (do these in order)**
+1. Start the app: `uv run streamlit run src/floodsense/app/streamlit_app.py`. Open
+   http://localhost:8501 in a desktop browser, full width. Set browser zoom to 90%.
+2. Hide the bookmarks bar, close other tabs, and make sure no tokens or passwords are visible
+   (Databricks URL bar and any open notebooks included).
+3. Do one full run-through of the whole video. This warms the cache so the sliders are instant
+   on camera. Then go back to **Live Feed** and reload the page so you start clean.
+4. Open the Databricks tabs, already signed in, in this order (left to right):
+   - Tab 2: **Jobs & Pipelines → floodsense** (the pipeline graph with row counts)
+   - Tab 3: **Jobs & Pipelines → floodsense-rainfall-poller** (the job and a run on the Runs page)
+   - Tab 4: AI/BI dashboard **FloodSense – Live Flood Risk**
+   - Tab 5: **Catalog → workspace → floodsense → flood_model** (alias `champion`, and the tags
+     on the schema or a table)
+5. Do NOT click Run on the poller during the video. Show the existing run. Its schedule is paused.
+6. The ⋮ menu and Deploy button at the top right belong to Streamlit. Ignore them.
+7. Start with tab 1 (the app) in front. Keep the sidebar open.
 
 | # | Time | On screen | Say (roughly) |
 |---|---|---|---|
-| 1 | 0:00–0:15 | The app header | "This is FloodSense: flash-flood risk for each of Singapore's 55 planning areas, for the next hour, built entirely on open data." |
-| 2 | 0:15–0:40 | **Live Feed** (opens by default). Point at the green "Live: N of 89 gauges reporting" badge, then the map (URA boundaries, grey gauge dots), then the five cards. | "This is live NEA rain-gauge data. Each zone's rain is interpolated from the gauges that are reporting; a gauge that's offline is left out, never treated as dry. Every zone gets a calibrated chance of a reported flood in the next hour." If it's raining, say so. |
-| 3 | 0:40–0:55 | Click **"⟳ Replay the 17 Apr 2021 storm"** (under the rarity gauge). The app switches to Replay at 12:15. | "Now a real storm: 17 April 2021, when Dunearn Road flooded. Same model, the real 5-minute readings from that afternoon." |
-| 4 | 0:55–1:40 | Keep **Bukit Timah** selected. Drag the time slider slowly: 12:15 → **12:25** (Moderate) → **12:45** (High) → 13:00. Point at the status, the rolling-rain tiles and the rarity gauge. | "At 12:25 Bukit Timah goes Moderate. At 12:45 it's High: 47 mm in the last hour, at the very top of this zone's 2017–2023 record. The flood on Dunearn Road was reported at about 1:44 pm, roughly an hour later." |
-| 5 | 1:40–2:00 | Scroll to **"Reported floods this day"**: the 13:44 Bukit Timah entry and the Jurong East entry, with their source links. | "Every flood we learn from is sourced: a link, a quoted sentence, and a person who checked it. Jurong East also flooded that day; we had it at Moderate from 12:50 and High from 13:15." |
-| 6 | 2:00–2:20 | Drag to **13:35** and point at the map's "High (11)" count, then the **Prototype Status** panel. | "To be straight about the cost: at 13:35, 11 zones are on High, and 24 went High at some point that afternoon. Most had no flood report. On floods from 2024 to 2026 that the model never saw, we caught 70% at Moderate and 40% at High, with about 1.6 false High alerts per zone per year." |
-| 7 | 2:20–2:35 | In the sidebar, click another major storm, e.g. **"22 Nov 2024 · Sembawang, Toa Payoh, Yishun"**, or pick any date. | "Any day from 2017 to September 2026 can be replayed the same way." |
-| 8 | 2:35–2:55 | Databricks tab: the pipeline graph with row counts (949 bronze → 64,223 silver readings → 15,840 gold rows). | "And this runs on Databricks Free Edition: one Lakeflow pipeline, raw files to readings to zone risk, using exactly the same scoring code. On this storm, every zone's risk tier matched our local results." |
-| 9 | 2:55–3:05 | Back to the map | "Next: radar nowcasting for more warning time, and live scoring on Databricks. FloodSense: earlier, per-zone flood warnings that complement PUB." |
+| 1 | 0:00–0:15 | App header, Live Feed. | "17 April 2021: 161 mm of rain fell on western Singapore in three hours, and Dunearn Road flooded. The water was gone in about half an hour, so a warning only helps if it comes early. This is FloodSense: flash-flood risk for each of Singapore's 55 planning areas, for the next hour, built on open data." |
+| 2 | 0:15–0:45 | **Live Feed** (opens by default). Point at the line under the title: "No active PUB flash-flood alerts in the last 3 hours…" (or the red alert box if one is active). Then the green "Live: N of 89 gauges" badge, the risk map, and the KPI cards. | "This is live NEA rain-gauge data, and it reloads every 5 minutes. Under the title is PUB's live flood-alert feed. Today there are none. If PUB issues one, it shows here, next to our own risk. Each zone's rain comes from the gauges that are reporting. A gauge that's offline is left out, never treated as dry. Every zone gets a calibrated chance of a reported flood in the next hour." |
+| 3 | 0:45–1:00 | Scroll to **Public transport at risk** (live, probably empty), then the **Hydrological Context & Archive** panel. Open the expander **PUB flood-prone areas, 2022–2025**. | "Below the map we list MRT and LRT stations that sit in a Moderate or High area, or inside a PUB alert circle. That's exposure, not observed disruption. PUB's flood-prone land keeps shrinking, 27 down to 23.3 hectares from 2022 to 2025, yet flash floods keep recurring in a few zones. That's the gap we target." |
+| 4 | 1:00–1:15 | Scroll back up. Click **"⟳ Replay the 17 Apr 2021 storm"** (under the rarity gauge). The sidebar switches to Replay Storm, step 2: "Simulating 17 Apr 2021", **Select Planning Area** = Bukit Timah, the time slider at 12:15. | "Now a real storm. The sidebar's Replay Storm mode works in two steps: choose a date, then simulate it. This button jumps straight to the second step, 17 April 2021, using the real 5-minute readings from that afternoon. Same model, same code." |
+| 5 | 1:15–1:50 | Keep **Bukit Timah** selected. Drag the time slider slowly: 12:15 → **12:25** (Moderate) → **12:45** (High). Point at the status, the rolling-rain tiles and the rarity gauge. | "At 12:25 Bukit Timah goes Moderate. At 12:45 it's High: 47 millimetres in the last hour, at the top of this zone's 2017 to 2023 record. The flood on Dunearn Road was reported at about 1:44 pm, so that's roughly an hour of warning. That is our best case, not the typical one." |
+| 6 | 1:50–2:10 | At 12:45, scroll to **Public transport at risk**. Point at "Stations in High areas: 25" and the table (Beauty World, King Albert Park, Sixth Avenue, Tan Kah Kee). | "At 12:45, 25 stations have an exit in a High area, including Beauty World, King Albert Park, Sixth Avenue and Tan Kah Kee. 117 including Moderate. This is exposure from the risk map, not a record of disruption." |
+| 7 | 2:10–2:35 | Drag the slider to **13:35**. Point at the map's "High (11)" count, then scroll to the **Prototype Status & Verification** panel and the 90% intervals. Optionally, at the bottom of the sidebar, click **Choose another date** to show step 1 (date picker and major-storm buttons), then **Simulate this date**. | "To be straight about the cost: 24 zones went High that afternoon, at most 11 at once, and most had no flood report. On floods from 2024 to September 2026 that the model never saw, scored once, we caught 70% at Moderate (90% interval 57 to 83) and 40% at High (27 to 53), with 1.6 false High alerts per zone per year. Median warning is 10 to 15 minutes. Any day from 2017 can be replayed the same way." |
+| 8 | 2:35–2:50 | Databricks tab 2: the **floodsense** pipeline graph, bronze → silver → gold, and the `pub_flood_alerts` tables. | "Behind this is a Lakeflow pipeline on Databricks Free Edition. Raw gauge files go to bronze, parsed readings in silver, zone risk in gold, with the same scoring code as the app. A second branch archives PUB's flood alerts, which the API doesn't keep. On 2 October it turned 949 files into 64,223 readings and 15,840 zone-risk rows, and every tier matched our local results." |
+| 9 | 2:50–3:05 | Databricks tab 3: job **floodsense-rainfall-poller** and its last run. | "This job fetches the last 96 hours of live NEA readings and triggers the pipeline. It has a 30-minute schedule, paused to stay inside Free Edition's compute, so we run it on demand." |
+| 10 | 3:05–3:15 | Databricks tab 4: AI/BI dashboard **FloodSense – Live Flood Risk**. | "The AI/BI dashboard on gold shows live risk by zone and pipeline health." |
+| 11 | 3:15–3:30 | Databricks tab 5: Unity Catalog model `workspace.floodsense.flood_model`, alias `champion`, then the tags. Finish on the app, Live Feed map. | "The model is registered in Unity Catalog as flood_model, alias champion, with its model card and test report. Today the app and gold still use the committed model file. Next: radar nowcasting for more warning time, and live feeds for public transport. FloodSense: earlier, per-zone flood warnings that complement PUB." |
+| 12 | optional | (only if LTA live disruptions are added) | (one line, to be written if the feature ships) |
 
 **Don't say:**
-- that the app reads from Databricks
-- that the model is registered
-- that radar, tide or `ai_query` are working
+- that the app reads from Databricks (it doesn't)
+- that gold or the app loads the model from the registry (it's only registered)
+- that `ai_query`, radar or tide are in use
+- that stations were "disrupted" (we show exposure only)
+- that the poller runs continuously (its schedule is paused)
+- anything about bus stops or LTA live disruption feeds, unless shot 12 is recorded
 
-None of these is built yet.
+**If you run long:** cut shot 3 and shot 10 first.

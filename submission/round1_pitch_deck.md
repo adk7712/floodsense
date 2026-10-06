@@ -233,6 +233,29 @@ They are the dashed parts of the diagram.
 
 ---
 
+### Photos to submit (individual images)
+
+App screenshots, already captured at 2× resolution in `submission/screenshots/`:
+
+| File | Shows | Use on |
+|---|---|---|
+| `01_live_feed.png` | Live Feed today: live gauges, the PUB alerts line, KPIs, map | Slide 2 or a photo |
+| `02_replay_17apr2021_1245.png` | 17 Apr 2021, 12:45: 9 High and 19 Moderate zones, Bukit Timah High | Slide 2 main visual, or a photo |
+| `03_risk_map_1245.png` | The risk map alone at 12:45 | Slide 1 or 2 |
+| `04_zone_diagnostic_bukit_timah_high.png` | Bukit Timah: High, 46.6 mm in 60 min, rarer than any half-hour in 2017–2023 | Slide 2 ("with the reason") |
+| `05_transport_at_risk_1245.png` | 25 MRT stations in High areas, 92 in Moderate | Slide 3 (impact) |
+| `06_flood_prone_trend_and_context.png` | PUB flood-prone land, 27 → 23.3 ha (2022–2025), plus that day's reported floods | Slide 1 |
+| `07_prototype_status_and_test_results.png` | Test results with 90% intervals | Slide 2 results box |
+
+Databricks screenshots (you take these; sign in first):
+
+| Shot | Where | Use on |
+|---|---|---|
+| Pipeline graph | Jobs & Pipelines → `floodsense` → latest update (bronze → silver → gold, plus the PUB alert tables) | Slide 3 |
+| Poller job run | Jobs & Pipelines → `floodsense-rainfall-poller` → the green run | Slide 3 or a photo |
+| AI/BI dashboard | the published dashboard "FloodSense – Live Flood Risk" | Slide 3 or a photo |
+| Registered model | Catalog → workspace → floodsense → Models → `flood_model` (alias `champion`) | Slide 3 or a photo |
+
 ### Sources
 
 1. Mothership, "161.4mm of rain over western S'pore in 3 hours…", 17 Apr 2021 (quoting PUB). https://mothership.sg/2021/04/singapore-floods-april-17/
