@@ -896,7 +896,7 @@ model, model_caption = get_model()
 st.sidebar.markdown(
     '<div style="margin-bottom: 14px;">'
     '  <div style="font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px;">'
-    '<span>FloodSense</span>'
+    "<span>FloodSense</span>"
     "</div>"
     f'  <div style="font-size: 0.72rem; color: {tokens["text_muted"]}; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: 2px;">'
     "    Urban Drainage Intelligence"
