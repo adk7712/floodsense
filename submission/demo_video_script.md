@@ -33,7 +33,6 @@ About 3:30. Numbers come from `submission/round1_pitch_deck.md` and `models/fina
 | 9 | 2:50–3:05 | Databricks tab 3: job **floodsense-rainfall-poller** and its last run. | "This job fetches the last 96 hours of live NEA readings and triggers the pipeline. It has a 30-minute schedule, paused to stay inside Free Edition's compute, so we run it on demand." |
 | 10 | 3:05–3:15 | Databricks tab 4: AI/BI dashboard **FloodSense – Live Flood Risk**. | "The AI/BI dashboard on gold shows live risk by zone and pipeline health." |
 | 11 | 3:15–3:30 | Databricks tab 5: Unity Catalog model `workspace.floodsense.flood_model`, alias `champion`, then the tags. Finish on the app, Live Feed map. | "The model is registered in Unity Catalog as flood_model, alias champion, with its model card and test report. Today the app and gold still use the committed model file. Next: radar nowcasting for more warning time, and live feeds for public transport. FloodSense: earlier, per-zone flood warnings that complement PUB." |
-| 12 | optional | (only if LTA live disruptions are added) | (one line, to be written if the feature ships) |
 
 **Don't say:**
 - that the app reads from Databricks (it doesn't)
@@ -41,6 +40,6 @@ About 3:30. Numbers come from `submission/round1_pitch_deck.md` and `models/fina
 - that `ai_query`, radar or tide are in use
 - that stations were "disrupted" (we show exposure only)
 - that the poller runs continuously (its schedule is paused)
-- anything about bus stops or LTA live disruption feeds, unless shot 12 is recorded
+- anything about bus stops or LTA live disruption feeds (not built)
 
 **If you run long:** cut shot 3 and shot 10 first.
