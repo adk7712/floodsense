@@ -4,9 +4,9 @@
 Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / Databricks architecture and impact).
 
 > This is the content brief for the slides. Each slide has a headline, the short on-slide text, the
-> visuals with their exact data, and speaker notes. Every number was checked on 2 Oct 2026 against
-> `models/final_report.json`, the 17 Apr 2021 replay, `data/reference/flood_events.csv` and
-> `DEPLOYMENT.md`. Sources are numbered at the end. Keep each slide to one headline, about three short
+> visuals with their exact data, and speaker notes. Every number was checked on 6 Oct 2026 against
+> `models/final_report.json`, `models/model_card.json`, the 17 Apr 2021 replay, `data/reference/flood_events.csv`,
+> `data/reference/pub_flood_prone_areas.csv` and `DEPLOYMENT.md`. Sources are numbered at the end. Keep each slide to one headline, about three short
 > blocks and one main visual.
 
 **Team details for the cover or footer (fill in before submitting):**
@@ -26,9 +26,8 @@ Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / 
   91% of April's average monthly rainfall. Dunearn Road flooded, and the water was gone within about
   30 minutes. [1][2]
 - **PUB's system is strong:** flood-prone land is down from about 3,200 ha in the 1970s [5] to
-  23.3 ha in 2025 (PUB's annual Flood Prone Areas data: 27 → 24.1 → 23.6 → 23.3 ha, 2022–2025 [9]).
-  More than 1,000 water-level sensors, over 500 CCTV cameras, and radar that forecasts rain about
-  30 minutes ahead. [5][6]
+  23.3 ha in 2025 (27 → 24.1 → 23.6 → 23.3 ha, 2022–2025 [9]), with more than 1,000 water-level
+  sensors and over 500 CCTV cameras. [5][6]
 - **But warnings are broad or late:** public flood alerts are mostly regional, or fire when water in
   a drain rises, after the rain has fallen. Few say *which* zone and *how likely*:
   ***will my area flood in the next hour?*** [6]
@@ -42,10 +41,9 @@ Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / 
 | 1 | 8 | 4 | 8 | 9 | 4 | 2 | 8 | 15 | 7 |
 
 Optional callout: 2025 had Singapore's wettest March on record. [4] Note on the slide that these are
-floods *we could source*, not all floods. More recent years are easier to source, so don't call
-this a trend.
+floods *we could source*, not all floods, and that recent years are easier to source, so this is not a trend.
 
-**Optional second visual: where the recent floods were (sourced events, 2023 to Sep 2026)**
+**Optional second visual: where the recent floods were (sourced events, 2023 to Sep 2026; the four areas with most events, Marine Parade is tied with Jurong West and Sengkang at 2)**
 
 | Planning area | 2023 | 2024 | 2025 | 2026 (to Sep) | Total |
 |---|---|---|---|---|---|
@@ -54,15 +52,14 @@ this a trend.
 | Jurong East | 0 | 0 | 2 | 1 | 3 |
 | Marine Parade | 0 | 0 | 1 | 1 | 2 |
 
-The flood-prone land keeps shrinking (PUB data), yet flash floods keep recurring in the same few
-zones. That's the gap FloodSense targets.
+Flood-prone land keeps shrinking (PUB data), yet flash floods keep recurring in a few zones. That's the gap FloodSense targets.
 
 <details><summary>Speaker notes</summary>
 
 Open with 17 April 2021. The water cleared in half an hour, so a warning is only useful if it arrives
 before the rain peaks. PUB's alerts are triggered by water levels in drains, which is late for a
-flash flood. Close on rarity, because it shapes every design choice on the next slide. The counts
-are floods we could source with a link and a quote, not every flood that happened.
+flash flood. PUB's radar forecasts rain about 30 minutes ahead [6], but that is rain, not flooding in your zone. Close on rarity, because it shapes every design choice on the next slide. The counts
+are floods we could source with a link and a quote, not every flood that happened, and recent years are easier to source.
 </details>
 
 ---
@@ -79,15 +76,16 @@ are floods we could source with a link and a quote, not every flood that happene
 | **2. Know each place** | Rain measured per zone, so each zone gets its own risk (the alert threshold is shared across zones); *storm rarity* (how unusual this rain is in this zone) shown as the reason | Zone susceptibility (which zones flood more), tide for coastal zones (Jalan Seaview flooded on 10 Jan 2025 when heavy rain met a 2.8 m high tide [3]); terrain and paved area |
 | **3. Honest labels** | 66 flood events, each with a source link, a quoted sentence and a human sign-off | More events as alerts come in |
 | **4. Model the rare event** | Rules, logistic regression and LightGBM compete at equal false-alarm levels; time-based validation; calibrated probabilities | Retrain as labels grow |
-| **5. Explain and alert** | A risk map and plain reasons, e.g. *"Bukit Timah: HIGH. 47 mm in the last hour, at the top of this zone's 2017–2023 record"* (the real 12:45 reading on 17 April 2021) | Push alerts |
+| **5. Explain and alert** | A risk map, PUB's live flood alerts, MRT/LRT stations at risk, and plain reasons, e.g. *"Bukit Timah: HIGH. 47 mm in the last hour, at the top of this zone's 2017–2023 record"* (the real 12:45 reading on 17 April 2021) | Push notifications (PUB's live flood alerts are already shown beside the map in the app) |
 
 **Data strip (all open data):**
 - NEA 5-minute rain gauges via data.gov.sg, 2017 to Sep 2026: **60.8 million readings** [7]
 - URA Master Plan 2019 planning-area boundaries (55 zones)
 - PUB Flood Prone Areas, 2022–2025 (annual hectares), shown as a trend in the app [9]
-- LTA MRT Station Exits (data.gov.sg): which stations each risk area exposes (stretch goal: cascading
-  impact). This is exposure, not measured disruption. LTA ridership history only covers the last
-  ~3 months, so a ridership correlation with past floods isn't possible yet
+- LTA MRT Station Exits (data.gov.sg): MRT/LRT stations with an exit in a Moderate/High area or a PUB
+  alert circle (12:45, 17 Apr 2021: 25 stations in High areas). This is exposure, not observed
+  disruption. LTA ridership history only covers the last ~3 months, so a ridership correlation with
+  past floods isn't possible yet
 - **66 flood events** from PUB alerts and news, each sourced and signed off
 - **PUB Flood Alerts (real-time API)**: shown live in the app and archived in Databricks on every
   poll. The API keeps no past alerts, so the archive starts now. That's 4 of 4 Track B2 datasets in use
@@ -114,15 +112,15 @@ nowcasting, LLM-drafted flood events with human sign-off, and one model that sha
 | Moderate (from 0.30% chance) | 21 of 30 (70%; 90% CI 57–83%) | 15 min | 7.3 |
 | High (from 0.71% chance) | 12 of 30 (40%; 90% CI 27–53%) | 10 min | 1.6 |
 
-Uncertainty (stretch goal): every rate has a bootstrap 90% interval (2,000 resamples of the 30
+Uncertainty: every rate has a bootstrap 90% interval (2,000 resamples of the 30
 floods). For example, warned 15+ min ahead: High 13% (3–23%), Moderate 33% (20–47%).
 
 - **Warning time, honestly:** with High alerts, 4 of the 30 test floods were flagged 15+ minutes
   ahead, and 11 were flagged by the reported start time. With Moderate alerts, 10 and 19.
-- **Precision, honestly:** about 1 in 16 High alerts was followed by a *reported* flood. Reported floods
+- **Precision, honestly:** about 1 in 17 High alert episodes (15 of 250) was followed by a *reported* flood. Reported floods
   undercount real ones, so some "false" alarms are floods nobody wrote about.
 - **Ranking:** in 16 of the 30 test floods, the flooded zone was among our 5 riskiest of 55.
-- Median warning counts floods with a reported time; the 3 date-only reports count as hits or misses but carry no warning time.
+- Median warning uses floods with a reported time. The 3 date-only test reports count as hits or misses but carry no warning time.
 - **Honest limit:** rain gauges alone give 10–15 minutes of warning. Radar nowcasting is how we get more.
 
 <details><summary>Speaker notes</summary>
@@ -161,9 +159,9 @@ flowchart LR
 ```
 
 Poller fact (6 Oct 2026): the Databricks job `floodsense-rainfall-poller` fetched the last 96 h of
-live NEA readings and triggered the pipeline. Gold now holds live risk for all 55 zones up to
-16:40 SGT on 6 Oct (15,840 rows), with 0 quarantined files. The job has a 30-minute schedule,
-paused to stay inside Free Edition's daily compute; it is run on demand until Demo Day.
+live NEA readings and triggered the pipeline. Gold holds live risk for all 55 zones (15,840 rows); after the later alert-archive run it was live to
+17:35 SGT on 6 Oct, with 0 quarantined files. The job has a 30-minute schedule,
+paused to stay inside Free Edition's daily compute; it is run on demand until Demo Day. Say "live poller job", not "always-on".
 
 Registry fact (6 Oct 2026): `workspace.floodsense.flood_model` version 1, alias `champion`, logged with
 its model card, test report and test metrics. Loaded back from the registry, it scores the 17 Apr
@@ -193,9 +191,9 @@ Caption: "Best case on record: High about an hour before the report. The typical
 | Who | What they get |
 |---|---|
 | Residents and drivers | Earlier, per-zone warnings with a reason, including where PUB has no sensors |
-| LTA and commuters | **Built:** MRT/LRT stations with an exit in a Moderate/High area or a PUB alert circle (e.g. 12:45, 17 Apr 2021: 25 stations in High areas, including Beauty World, Sixth Avenue and Tan Kah Kee). **Next:** bus stops, and LTA's live disruption feeds |
+| LTA and commuters | **Built:** MRT/LRT stations with an exit in a Moderate/High area or a PUB alert circle This is exposure, not observed disruption (e.g. 12:45, 17 Apr 2021: 25 stations in High areas, including Beauty World, Sixth Avenue and Tan Kah Kee). **Next:** bus stops, and LTA's live disruption feeds |
 | Town councils | Which zones' drains to clear first before a storm |
-| Planners | Zones becoming more flood-prone over the years, to guide drainage spending |
+| Planners | PUB's flood-prone-area trend (27 → 23.3 ha, 2022–2025) beside where recent floods cluster, to guide drainage spending |
 
 **How we'll measure success:**
 - minutes of warning before PUB's own alert
@@ -204,12 +202,12 @@ Caption: "Best case on record: High about an hour before the report. The typical
 
 **Also running (6 Oct):**
 - AI/BI dashboard on gold: live risk by zone, the last 24 h and pipeline health (screenshot it)
-- Unity Catalog: descriptions on the schema, volumes and model; source and layer tags on every table;
-  lineage from the landing volume to gold
+- PUB flood alerts archived to bronze → silver on every poll (0 alerts so far: none issued that day)
+- Unity Catalog: descriptions on the schema, volumes and model; project, track and data-classification tags on the schema, source and layer tags on every table
 
 **Free Edition limits respected:**
 - one pipeline
-- triggered runs, not a 24/7 stream
+- triggered runs, not a 24/7 stream (poller schedule paused)
 - small serverless compute
 
 <details><summary>Speaker notes</summary>
@@ -223,8 +221,11 @@ which is why radar is next.
 
 Don't claim any of these; none is built yet:
 - that the app reads from Databricks
-- that gold or the app loads the model from the registry (it's registered, not served from there yet)
+- that gold or the app loads the model from the registry (it's registered as `workspace.floodsense.flood_model@champion`, not served from there)
 - that `ai_query`, radar or tide are in use
+- that bus stops or LTA live disruption feeds are used, or that ridership was correlated with floods
+- that MRT stations are *disrupted* (we show exposure only)
+- that the poller runs continuously (its schedule is paused)
 - that every storm is replayed before each model change
 
 They are the dashed parts of the diagram.
