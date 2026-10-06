@@ -1,8 +1,8 @@
 # FloodSense UI/UX and Streamlit Quality Assurance Stress Test Report
 
-**Date:** 06 October 2026  
-**Auditor:** Independent UI/UX & Streamlit QA Engineering Agent  
-**Target Environment:** FloodSense Streamlit App (`http://localhost:8501`)  
+**Date:** 06 October 2026
+**Auditor:** Independent UI/UX & Streamlit QA Engineering Agent
+**Target Environment:** FloodSense Streamlit App (`http://localhost:8501`)
 **Methodology:** Automated End-to-End Playwright Browser Automation, DOM Tree Inspection, Network Failure Emulation, Multi-Viewport Rendering, and Static AST/Code Analysis.
 
 ---
@@ -45,7 +45,7 @@ A comprehensive, unsparing stress test of the FloodSense application was perform
   if mode == "Live Feed":
       features, total_stations, live_error = live_features()
       if features is None:
-          st.title("🌊 FloodSense Intelligence Center")
+          st.title("FloodSense Intelligence Center")
           st.error(f"Live feed unavailable: {live_error}", icon=":material/cloud_off:")
           st.info(
               "No data is shown rather than substituting simulated rain. Switch to **Replay Storm**, "

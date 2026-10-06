@@ -896,8 +896,8 @@ model, model_caption = get_model()
 st.sidebar.markdown(
     '<div style="margin-bottom: 14px;">'
     '  <div style="font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px;">'
-    '    <span style="font-size: 1.35rem;">🌊</span> <span>FloodSense</span>'
-    "  </div>"
+    '<span>FloodSense</span>'
+    "</div>"
     f'  <div style="font-size: 0.72rem; color: {tokens["text_muted"]}; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: 2px;">'
     "    Urban Drainage Intelligence"
     "  </div>"
@@ -933,7 +933,7 @@ def render_app_header() -> None:
     with st.container(key="theme_toggle"):  # pinned to the top-right corner (CSS)
         is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
     with st.container(key="app_header"):
-        st.title("🌊 FloodSense Intelligence Center")
+        st.title("FloodSense Intelligence Center")
     if is_dark_active != IS_DARK:
         st.session_state["theme"] = "dark" if is_dark_active else "light"
         st.rerun()
@@ -1245,7 +1245,7 @@ with map_col, st.container(border=True):
     st.markdown(
         f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">'
         f'  <div style="display: flex; align-items: center; gap: 8px;">'
-        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">🗺️ Singapore Urban Risk Map</span>"
+        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Singapore Urban Risk Map</span>"
         f"    <span style=\"background: {tokens['bg_subtle']}; border: 1px solid {tokens['border_main']}; color: {tokens['text_muted']}; font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;\">55 URA ZONES</span>"
         f"  </div>"
         f"</div>"
@@ -1374,7 +1374,7 @@ with detail_col, st.container(border=True):
     st.markdown(
         f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">'
         f'  <div style="display: flex; align-items: center; gap: 8px;">'
-        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">📊 Zone Diagnostic</span>"
+        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Zone Diagnostic</span>"
         f"  </div>"
         f"</div>",
         unsafe_allow_html=True,
