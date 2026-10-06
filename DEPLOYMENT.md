@@ -130,11 +130,12 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 
 ## 6. Not done yet
 
-- **Live poller job** (a scheduled job calling `NEAPoller.stage_payload_to_volume` every 5–10
-  minutes) has not been created. The landing volume and pipeline are ready for it.
+- **Poller on a live schedule**: the job exists and has run (section 11), but its schedule is paused
+  to protect the daily compute cap.
 - **Databricks App / dashboard** reading the gold table has not been deployed. The app still
   computes risk itself from the API, with the same feature and scoring functions.
-- **Model registry**: the model has not been logged to MLflow or registered in Unity Catalog.
+- **Serving from the registry**: gold still loads the committed `models/flood_model.joblib`, not the
+  registered model (section 10).
 
 ## 7. Answers to plan §9
 
@@ -187,3 +188,60 @@ identical to local scoring for the replay window (4,675 rows, same tiers, larges
 difference 2.6e-17, Bukit Timah High at 12:45). It did **not** catch the two workspace failures in
 section 5: Auto Loader options, Lakeflow's graph evaluation and serverless are only exercised in
 the workspace.
+
+## 10. Model registry (MLflow + Unity Catalog), as run on 6 Oct 2026
+
+```bash
+DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py   # --no-register: log only
+```
+
+- Logs the committed `FloodModel` as an `mlflow.pyfunc` model that scores through
+  `floodsense.models.scoring.score_zone_features` (code shipped with `code_paths=src/floodsense`), with
+  its signature, `model_card.json`, `final_report.json`, the thresholds and the test metrics.
+- Experiment `/Users/akul.sharma009@gmail.com/floodsense-model` (the `floodsense` name is taken by the
+  workspace folder), run `85df4e2d536f43d4a4df1663f1f5c14a`.
+- Registered as **`workspace.floodsense.flood_model` version 1, alias `champion`** (status READY).
+  Each re-run adds a version and moves `champion`.
+- Check: `models:/workspace.floodsense.flood_model@champion`, loaded back with `mlflow.pyfunc`, scores
+  the 17 Apr 2021 replay (4,675 rows) identically to the joblib model: max probability difference 0,
+  tiers identical (4,113 Low, 367 Moderate, 195 High).
+
+## 11. Live poller job, as run on 6 Oct 2026
+
+Job `floodsense-rainfall-poller` (id `986423263843293`), defined in `databricks/jobs/poller_job.json`:
+
+1. `poll_rainfall` (serverless Python task, `databricks/jobs/poll_rainfall.py`, uploaded to
+   `/Workspace/Users/<login>/floodsense/poll_rainfall.py`, floodsense wheel as a dependency). It
+   fetches the data.gov.sg `?date=` pages covering the last `--lookback-minutes` (default 40) and
+   lands each page unchanged in `/Volumes/workspace/floodsense/landing/rainfall/live/`. Pages
+   overlap between runs; silver deduplicates. The API key comes from the secret
+   `floodsense/data_gov_api_key`. Without it, the anonymous API is used, with slower paging.
+2. `refresh_pipeline`: a triggered (not full-refresh) update of pipeline `c32feb3d…`.
+
+Schedule: every 30 min, Asia/Singapore, **paused** (Free Edition's daily compute cap). Unpause it in
+the Jobs UI for Demo Day.
+
+```bash
+databricks secrets create-scope floodsense                       # once
+databricks secrets put-secret floodsense data_gov_api_key        # once; prompts for the key
+databricks workspace import /Workspace/Users/<login>/floodsense/poll_rainfall.py \
+    --file databricks/jobs/poll_rainfall.py --format AUTO --overwrite
+databricks jobs create --json @databricks/jobs/poller_job.json   # after filling in <login>
+databricks jobs run-now --json '{"job_id": <id>, "python_params": ["--lookback-minutes", "5760"]}'  # first run: 96 h warm-up
+```
+
+Runs:
+- The first 96 h run was rate-limited (HTTP 429) on the anonymous API.
+- The next run landed 48 pages but was marked failed: `SystemExit` under Databricks' IPython counts
+  as a failure.
+- Both were fixed. Run `1048810239233343` succeeded end to end, using the API key.
+
+After it:
+- gold holds live risk for 55 zones × 288 steps (15,840 rows), from 16:45 SGT on 5 Oct to 16:40 SGT
+  on 6 Oct
+- bronze 1,058 files (949 replay + 109 live, each ingested once), 0 quarantined
+- silver 167,332 readings
+
+Gold now shows live data instead of the 17 Apr 2021 replay, because it always scores the 24 h before
+the newest reading. The replay proof stays in update `34cfa680…` and the committed parity export.
+Re-checking parity on the workspace now needs a full refresh with only the replay files landed.

@@ -18,7 +18,7 @@
     "events": 30.0,
     "hits": 12.0,
     "hit_rate": 0.4,
-    "median_lead_minutes": 7.5,
+    "median_lead_minutes": 10.0,
     "episodes": 250.0,
     "false_episodes": 235.0,
     "episode_false_alarm_ratio": 0.94,
@@ -83,7 +83,7 @@
       "zone": "SEMBAWANG",
       "hit": true,
       "first_alert": "2024-11-22T15:20:00+08:00",
-      "lead_minutes": -200.5
+      "lead_minutes": null
     },
     {
       "event_id": "2024-11-22-toa-payoh-wan-tho-ave",

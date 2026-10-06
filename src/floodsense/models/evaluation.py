@@ -87,7 +87,9 @@ class EventOutcome:
     zone: str
     hit: bool
     first_alert: pd.Timestamp | None
-    lead_minutes: float | None  # reported start - alert episode start; None when missed
+    # reported start - alert episode start; None when missed, or when the report gives only a
+    # date (the flood may have started any time that day, so a warning time would be invented)
+    lead_minutes: float | None
 
 
 def alert_episodes(
@@ -156,6 +158,9 @@ def evaluate_alerts(
             continue
         first = timely.sort_values("start").iloc[0]
         first_alert = max(first["start"], window_lo)
+        if w.precision == "day_only":
+            outcomes.append(EventOutcome(w.event_id, w.zone, True, first_alert, None))
+            continue
         reported_start = w.start_lo + (w.start_hi - w.start_lo) / 2
         lead = (reported_start - first["start"]) / pd.Timedelta(minutes=1)
         outcomes.append(EventOutcome(w.event_id, w.zone, True, first_alert, float(lead)))

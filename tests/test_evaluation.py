@@ -153,6 +153,23 @@ def test_imprecise_event_accepts_alerts_inside_the_uncertainty():
     assert outcomes[0].lead_minutes == 0  # measured against the reported start (12:00)
 
 
+def test_day_only_event_is_a_hit_without_a_warning_time():
+    day = ts("12:00").normalize()
+    w = EventWindow(
+        "day",
+        "A",
+        day,
+        day + pd.Timedelta(hours=24, minutes=-1),
+        day + pd.Timedelta(hours=25),
+        "day_only",
+    )
+    scored = _probs("09:00", "14:00", on=[("13:00", "13:20")])
+    summary, outcomes, _ = evaluate_alerts(scored, [w], 0.5, zone_years=1.0, horizon=H)
+    assert outcomes[0].hit
+    assert outcomes[0].lead_minutes is None  # no reported time, so no warning time
+    assert np.isnan(summary["median_lead_minutes"])
+
+
 # --- trade-off and selection ----------------------------------------------------------------
 
 

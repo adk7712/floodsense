@@ -5,12 +5,15 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 > **Status: working prototype on real data.**
 > - **Model:** a calibrated 60-minute-rainfall rule (`models/flood_model.joblib`). It beat logistic regression and LightGBM at matched false-alarm levels.
 > - **Data:** trained on NEA rainfall 2017–2023 and 66 sourced flood events. It was scored once on held-out floods from 2024 to Sep 2026 (30 floods):
->   - High alerts caught 12 (40%), median warning 7.5 min, 1.6 false alarms per zone-year
+>   - High alerts caught 12 (40%), median warning 10 min, 1.6 false alarms per zone-year
 >   - Moderate alerts caught 21 (70%), median warning 15 min, 7.3 false alarms per zone-year
 >
 >   Details are in `models/final_report.json` and `models/model_card.json`.
-> - **Databricks:** the pipeline runs on Databricks Free Edition and reproduces local scoring on the 17 April 2021 storm (`DEPLOYMENT.md`).
-> - **Not built yet:** radar nowcasting, tide, and live scheduling on Databricks.
+> - **Databricks:** on Free Edition (`DEPLOYMENT.md`):
+>   - the pipeline reproduces local scoring on the 17 April 2021 storm
+>   - a poller job lands live NEA readings and refreshes it (schedule paused to save compute)
+>   - the model is registered in Unity Catalog as `workspace.floodsense.flood_model@champion`
+> - **Not built yet:** radar nowcasting, tide, the app reading gold, and gold loading the model from the registry.
 
 ## Quickstart
 
@@ -54,7 +57,7 @@ data/raw/rainfall/  NEA 5-minute rainfall store, 2017 onward (~18 MB Parquet, co
 data/replay/    Real NEA readings for the 17 April 2021 storm (with 72 h warm-up)
 data/reference/ Station snapshot, URA planning-area polygons, sourced flood events,
                 and the Databricks parity export (phase5/)
-databricks/     Lakeflow pipeline, its spec, the parity export script, a local Spark runner
+databricks/     Lakeflow pipeline and spec, poller job, model registration, parity export, local Spark runner
 docs/           Flood reports examined and excluded, with reasons
 submission/     Round 1 slide brief and demo video script
 ```
@@ -158,6 +161,8 @@ How the numbers are kept honest:
 - **Validation.** Forward-chaining cross-validation by year, with rarity curves refitted inside each
   fold. The candidate is chosen on 2020–2023. 2024 onwards is the test set and is scored once, by
   `--final-report`.
+- **Warning time.** The median is over floods with a reported time. Date-only reports count as
+  hits but carry no warning time, since the flood could have started any time that day.
 - **Metrics.** The false-alarm *ratio* FP/(FP+TP), event hit rate and lead time, and false-alarm
   *episodes* per zone-year, alongside PR-AUC and Brier score. Calibration is cross-fitted, so it is
   never scored on the data it was fitted to.
