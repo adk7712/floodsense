@@ -257,6 +257,20 @@ div[data-testid="stSidebarCollapsedControl"],
     border-color: var(--border-main) !important;
 }}
 
+/* Expanders: Streamlit paints the open header from the light theme; use the page's colours. */
+[data-testid="stExpander"] details,
+[data-testid="stExpander"] summary {{
+    background-color: var(--bg-surface) !important;
+    border-color: var(--border-main) !important;
+}}
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary * {{
+    color: var(--text-main) !important;
+}}
+[data-testid="stExpander"] summary:hover {{
+    background-color: var(--bg-subtle) !important;
+}}
+
 /* Page container */
 .block-container {{
     padding-top: 0.4rem !important;
