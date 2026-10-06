@@ -271,6 +271,27 @@ div[data-testid="stSidebarCollapsedControl"],
     background-color: var(--bg-subtle) !important;
 }}
 
+/* Date-picker calendar popup: Streamlit paints it from the light theme while the page's text
+   colour follows the toggle, which left the day numbers invisible in dark mode. */
+[data-testid="stDateInputCalendar"] {{
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
+    color: var(--text-main) !important;
+}}
+[data-testid="stDateInputCalendar"] *:not(svg):not(path) {{
+    background-color: transparent;
+    color: var(--text-main);
+}}
+[data-testid="stDateInputCalendar"] [data-outside-month],
+[data-testid="stDateInputCalendar"] [data-disabled],
+[data-testid="stDateInputCalendar"] [aria-disabled="true"] {{
+    color: var(--text-dim) !important;
+}}
+[data-testid="stDateInputCalendar"] svg {{
+    color: var(--text-main) !important;
+    fill: currentColor;
+}}
+
 /* Page container */
 .block-container {{
     padding-top: 0.4rem !important;
@@ -1120,8 +1141,6 @@ st.markdown(
     "  <span>📍 Singapore Urban Flash-Flood Risk</span>"
     f'  <span style="color: {tokens["text_dim"]};">•</span>'
     "  <span>55 URA Planning Areas</span>"
-    f'  <span style="color: {tokens["text_dim"]};">•</span>'
-    "  <span>Chance of a flood in the next hour</span>"
     "</div>",
     unsafe_allow_html=True,
 )
