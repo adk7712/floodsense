@@ -413,12 +413,6 @@ def store_range() -> tuple[date, date]:
     return replay_days.store_date_range()
 
 
-def hotspot_roads(zone: str, limit: int = 2) -> list[str]:
-    """Places in ``zone`` with sourced past floods, most frequent first."""
-    places = pd.Series([e.location_raw for e in flood_events() if e.ura_planning_area == zone])
-    return list(places.value_counts().index[:limit]) if len(places) else []
-
-
 @st.cache_data
 def flood_events() -> list[FloodEvent]:
     try:
@@ -1122,27 +1116,6 @@ with detail_col, st.container(border=True):
         if zone_data["rain_30m"] <= 0
         else f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
     )
-    with st.container(border=True):
-        st.markdown("**Who should act now**")
-        zone_tier = zone_data["risk_tier"]
-        if zone_tier in ("High", "Moderate"):
-            zone_stations = stations_at_risk(df_results[df_results["zone"] == selected_zone])
-            station_text = ", ".join(zone_stations["station"]) or "none in this area"
-            roads = hotspot_roads(selected_zone)
-            urgency = "now" if zone_tier == "High" else "in the next hour"
-            st.markdown(
-                f"- **Commuters and drivers:** expect flooding {urgency}; avoid low-lying roads"
-                + (f" such as {' and '.join(roads)}" if roads else "")
-                + f". MRT/LRT exits in this area: {station_text}.\n"
-                f"- **Town council:** check drains and grates at past flood spots {urgency}.\n"
-                "- **PUB / responders:** watch this area's drain sensors and CCTV; FloodSense "
-                f"rates it {zone_tier} ({zone_data['flood_probability']:.2%} chance of a reported "
-                "flood in the next hour)."
-            )
-        else:
-            st.caption(
-                "No action needed: this area is at Low risk. Actions appear here at Moderate or High."
-            )
     st.button(
         "⟳ Replay the 17 Apr 2021 storm",
         on_click=_replay_pinned_storm,
