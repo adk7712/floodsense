@@ -11,6 +11,7 @@ Zone features are recomputed from the readings for every view (and cached by inp
 accumulated across reruns, so the page depends only on the selected mode, time and zone.
 """
 
+import html
 import json
 import time
 from datetime import date, datetime, timedelta
@@ -43,118 +44,317 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
-MODERN_TELEMETRY_LIGHT_CSS = """
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "light"
+
+# Synchronize dark mode switch and theme state
+if "dark_mode_switch" in st.session_state and st.session_state["dark_mode_switch"] != (
+    st.session_state["theme"] == "dark"
+):
+    st.session_state["theme"] = "dark" if st.session_state["dark_mode_switch"] else "light"
+else:
+    st.session_state["dark_mode_switch"] = st.session_state["theme"] == "dark"
+
+IS_DARK = st.session_state["theme"] == "dark"
+
+THEME_TOKENS = {
+    "dark": {
+        "bg_canvas": "#090D16",
+        "bg_surface": "#111827",
+        "bg_subtle": "#1A2234",
+        "bg_hover": "#222D42",
+        "border_main": "#1F293D",
+        "border_subtle": "#162032",
+        "text_main": "#F8FAFC",
+        "text_muted": "#94A3B8",
+        "text_dim": "#64748B",
+        "accent": "#38BDF8",
+        "primary": "#FB923C",
+        "primary_hover": "#F97316",
+        "accent_hover": "#0EA5E9",
+        "accent_muted": "rgba(56, 189, 248, 0.12)",
+        "card_shadow": "0 1px 3px 0 rgba(0, 0, 0, 0.4)",
+        "map_style": "carto-darkmatter",
+        "grid_color": "rgba(255, 255, 255, 0.08)",
+        "gauge_tick": "#64748B",
+        "gauge_num": "#F8FAFC",
+        "badge_border": "#27272A",
+        "badge_bg": "#1E293B",
+        "badge_text": "#CBD5E1",
+        "stat_tile_bg": "#151F30",
+        "stat_tile_border": "#233047",
+        "gauge_step_0_70": "rgba(56, 189, 248, 0.18)",
+        "gauge_step_70_90": "rgba(245, 158, 11, 0.22)",
+        "gauge_step_90_100": "rgba(239, 68, 68, 0.25)",
+    },
+    "light": {
+        "bg_canvas": "#F8FAFC",
+        "bg_surface": "#FFFFFF",
+        "bg_subtle": "#F1F5F9",
+        "bg_hover": "#F8FAFC",
+        "border_main": "#E2E8F0",
+        "border_subtle": "#F1F5F9",
+        "text_main": "#0F172A",
+        "text_muted": "#64748B",
+        "text_dim": "#94A3B8",
+        "accent": "#0284C7",
+        "primary": "#EA580C",
+        "primary_hover": "#C2410C",
+        "accent_hover": "#0369A1",
+        "accent_muted": "rgba(2, 132, 199, 0.08)",
+        "card_shadow": "0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04)",
+        "map_style": "carto-positron",
+        "grid_color": "rgba(0, 0, 0, 0.06)",
+        "gauge_tick": "#94A3B8",
+        "gauge_num": "#0F172A",
+        "badge_border": "#E2E8F0",
+        "badge_bg": "#EEF2F6",
+        "badge_text": "#475569",
+        "stat_tile_bg": "#F8FAFC",
+        "stat_tile_border": "#E2E8F0",
+        "gauge_step_0_70": "#E0F2FE",
+        "gauge_step_70_90": "#FEF3C7",
+        "gauge_step_90_100": "#FEE2E2",
+    },
+}
+
+tokens = THEME_TOKENS["dark" if IS_DARK else "light"]
+c_muted = tokens["text_muted"]
+c_main = tokens["text_main"]
+c_accent = tokens["accent"]
+c_subtle = tokens["bg_subtle"]
+c_surface = tokens["bg_surface"]
+c_border = tokens["border_main"]
+c_border_subtle = tokens["border_subtle"]
+c_dim = tokens["text_dim"]
+c_badge_bg = tokens["badge_bg"]
+c_badge_border = tokens["badge_border"]
+c_badge_text = tokens["badge_text"]
+c_stat_bg = tokens["stat_tile_bg"]
+c_stat_border = tokens["stat_tile_border"]
+c_accent_muted = tokens["accent_muted"]
+
+MODERN_TELEMETRY_CSS = f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* --- 1. GLOBAL APP CANVAS & TYPOGRAPHY --- */
-.stApp {
-    background-color: #F8FAFC !important;
-    color: #0F172A !important;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-}
+:root {{
+    --bg-canvas: {tokens["bg_canvas"]};
+    --bg-surface: {tokens["bg_surface"]};
+    --bg-subtle: {tokens["bg_subtle"]};
+    --bg-hover: {tokens["bg_hover"]};
+    --border-main: {tokens["border_main"]};
+    --border-subtle: {tokens["border_subtle"]};
+    --text-main: {tokens["text_main"]};
+    --text-muted: {tokens["text_muted"]};
+    --text-dim: {tokens["text_dim"]};
+    --accent: {tokens["accent"]};
+    --accent-hover: {tokens["accent_hover"]};
+    --accent-muted: {tokens["accent_muted"]};
+    --primary: {tokens["primary"]};
+    --primary-hover: {tokens["primary_hover"]};
+    --card-shadow: {tokens["card_shadow"]};
+    --radius-card: 12px;
+}}
 
-header[data-testid="stHeader"] {
-    background-color: #F8FAFC !important;
-    border-bottom: 1px solid #E2E8F0 !important;
-}
+/* --- 1. COMPLETELY HIDE STREAMLIT CHROME ON TOP --- */
+header[data-testid="stHeader"] {{
+    background: transparent !important;
+    height: 0px !important;
+    min-height: 0px !important;
+    padding: 0px !important;
+    border: none !important;
+    pointer-events: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+}}
+
+#MainMenu,
+footer,
+.stDeployButton,
+.stAppDeployButton,
+[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"],
+[data-testid="stDecoration"],
+[data-testid="stToolbarActions"],
+div[data-testid="stSidebarNav"] {{
+    display: none !important;
+    height: 0px !important;
+    width: 0px !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}}
+
+
+div[data-testid="stToolbar"] {{
+    background: transparent !important;
+    height: 0px !important;
+    overflow: visible !important;
+    pointer-events: none !important;
+}}
+
+/* Ensure sidebar expand control floats cleanly when sidebar is collapsed */
+div[data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"] {{
+    pointer-events: auto !important;
+    display: flex !important;
+    position: fixed !important;
+    top: 14px !important;
+    left: 14px !important;
+    z-index: 1000000 !important;
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--card-shadow) !important;
+    color: var(--text-main) !important;
+    width: 32px !important;
+    height: 32px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}}
+
+[data-testid="stExpandSidebarButton"] svg,
+[data-testid="stExpandSidebarButton"] span {{
+    color: var(--text-main) !important;
+}}
+
+/* Page container */
+.block-container {{
+    padding-top: 1rem !important;
+    padding-bottom: 2.75rem !important;
+    padding-left: 2.25rem !important;
+    padding-right: 2.25rem !important;
+    max-width: 1420px !important;
+}}
+
+/* Responsive metric cards grid on smaller viewports */
+@media (max-width: 900px) {{
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) {{
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }}
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) > div {{
+        min-width: 140px !important;
+        flex: 1 1 calc(33.333% - 0.5rem) !important;
+    }}
+}}
+@media (max-width: 600px) {{
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stMetric"]) > div {{
+        min-width: 130px !important;
+        flex: 1 1 calc(50% - 0.5rem) !important;
+    }}
+}}
+
+/* --- 2. GLOBAL APP CANVAS & TYPOGRAPHY --- */
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stApp"], .main, section[data-testid="stMain"] {{
+    background-color: var(--bg-canvas) !important;
+    color: var(--text-main) !important;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}}
 
 /* Sidebar */
-section[data-testid="stSidebar"] {
-    background-color: #FFFFFF !important;
-    border-right: 1px solid #E2E8F0 !important;
-}
+section[data-testid="stSidebar"] {{
+    background-color: var(--bg-surface) !important;
+    border-right: 1px solid var(--border-main) !important;
+}}
 
-section[data-testid="stSidebar"] .stMarkdown h3 {
+section[data-testid="stSidebar"] * {{
+    color: var(--text-main);
+}}
+
+section[data-testid="stSidebar"] .stMarkdown h3 {{
     font-family: 'Inter', sans-serif !important;
     font-weight: 700 !important;
     letter-spacing: -0.01em !important;
-    color: #0F172A !important;
+    color: var(--text-main) !important;
     font-size: 1.05rem !important;
-}
+}}
 
 /* Headings */
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6 {{
     font-family: 'Inter', system-ui, sans-serif !important;
-    color: #0F172A !important;
+    color: var(--text-main) !important;
     font-weight: 700 !important;
     letter-spacing: -0.01em !important;
-}
+}}
 
-h1 {
+h1 {{
     font-size: 1.6rem !important;
     margin-bottom: 0.2rem !important;
     padding-bottom: 0px !important;
     border-bottom: none !important;
     letter-spacing: -0.02em !important;
-}
+}}
 
-h2, h3 {
+h2, h3 {{
     font-size: 1.1rem !important;
-    color: #0F172A !important;
-}
+    color: var(--text-main) !important;
+}}
 
-/* --- 2. CLEAN WHITE ENTERPRISE CARDS --- */
-div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    background-color: #FFFFFF !important;
-    border: 1px solid #E2E8F0 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+/* --- 3. ENTERPRISE CARDS --- */
+div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: var(--radius-card) !important;
+    box-shadow: var(--card-shadow) !important;
     padding: 1.15rem 1.25rem !important;
-}
+}}
 
-/* Zone Diagnostic Card: Orange Accent Top Border */
-div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    border-top: 4px solid #EA580C !important;
-}
+/* Top border accent on Diagnostic Card matches active telemetry theme */
+div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+    border-top: 3px solid var(--accent) !important;
+}}
 
-/* Rarity gauge: no element toolbar (full screen would leave its text tiny) */
-.st-key-rarity_gauge [data-testid="stElementToolbar"] {
+/* Rarity gauge: no element toolbar */
+.st-key-rarity_gauge [data-testid="stElementToolbar"] {{
     display: none !important;
-}
+}}
 
-/* --- 3. TOP KPI METRIC CARDS --- */
-[data-testid="stMetric"] {
+/* --- 4. TOP KPI METRIC CARDS --- */
+[data-testid="stMetric"] {{
     background-color: transparent !important;
     padding: 0px !important;
-}
+}}
 
 [data-testid="stMetricLabel"],
 [data-testid="stMetricLabel"] p,
-[data-testid="stMetricLabel"] div {
+[data-testid="stMetricLabel"] div {{
     font-family: 'Inter', sans-serif !important;
     font-size: clamp(0.65rem, 0.75vw, 0.72rem) !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.04em !important;
-    color: #64748B !important;
+    color: var(--text-muted) !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
-}
+}}
 
-[data-testid="stMetricValue"] {
+[data-testid="stMetricValue"] {{
     font-family: 'Inter', system-ui, sans-serif !important;
     font-size: clamp(1.25rem, 1.8vw, 2rem) !important;
     font-weight: 800 !important;
-    color: #0F172A !important;
+    color: var(--text-main) !important;
     font-variant-numeric: tabular-nums !important;
     letter-spacing: -0.02em !important;
     line-height: 1.15 !important;
-}
+}}
 
-[data-testid="stMetricDelta"] {
+[data-testid="stMetricDelta"] {{
     font-family: 'Inter', sans-serif !important;
     font-size: 0.75rem !important;
     font-weight: 600 !important;
     font-variant-numeric: tabular-nums !important;
-}
+}}
 
-/* --- 4. BUTTONS --- */
+/* --- 5. BUTTONS --- */
 button[kind="primary"],
-[data-testid="baseButton-primary"] {
-    background-color: #EA580C !important;
-    border: 1px solid #EA580C !important;
+[data-testid="baseButton-primary"] {{
+    background-color: var(--primary) !important;
+    border: 1px solid var(--primary) !important;
     color: #FFFFFF !important;
     border-radius: 8px !important;
     font-family: 'Inter', sans-serif !important;
@@ -162,167 +362,305 @@ button[kind="primary"],
     font-size: 0.85rem !important;
     box-shadow: 0 1px 2px rgba(234, 88, 12, 0.2) !important;
     transition: all 0.15s ease !important;
-}
+}}
 
 button[kind="primary"]:hover,
-[data-testid="baseButton-primary"]:hover {
-    background-color: #C2410C !important;
-    border-color: #C2410C !important;
+[data-testid="baseButton-primary"]:hover {{
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
     color: #FFFFFF !important;
-}
+}}
 
 button[kind="secondary"],
-[data-testid="baseButton-secondary"] {
-    background-color: #F8FAFC !important;
-    border: 1px solid #E2E8F0 !important;
-    color: #334155 !important;
+[data-testid="baseButton-secondary"] {{
+    background-color: var(--bg-subtle) !important;
+    border: 1px solid var(--border-main) !important;
+    color: var(--text-main) !important;
     border-radius: 8px !important;
     font-family: 'Inter', sans-serif !important;
-    font-weight: 600 !important;
+    font-weight: 500 !important;
     font-size: 0.85rem !important;
     box-shadow: none !important;
     transition: all 0.15s ease !important;
-}
+}}
 
 button[kind="secondary"]:hover,
-[data-testid="baseButton-secondary"]:hover {
-    background-color: #F1F5F9 !important;
-    border-color: #CBD5E1 !important;
-    color: #0F172A !important;
-}
+[data-testid="baseButton-secondary"]:hover {{
+    background-color: var(--bg-hover) !important;
+    border-color: var(--border-main) !important;
+    color: var(--text-main) !important;
+}}
 
-/* --- 5. SEGMENTED CONTROL --- */
-div[data-testid="stSegmentedControl"] {
-    background-color: #F1F5F9 !important;
-    border: 1px solid #E2E8F0 !important;
-    border-radius: 20px !important;
+/* --- 5.1 TOP-RIGHT THEME TOGGLE SWITCH --- */
+.st-key-theme_toggle {{
+    position: fixed !important;
+    top: 0.7rem !important;
+    right: 1.25rem !important;
+    width: auto !important;
+    z-index: 999990 !important;
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 9999px !important;
+    padding: 4px 12px !important;
+    box-shadow: var(--card-shadow) !important;
+}}
+
+.st-key-app_header h1 {{
+    padding-top: 0.25rem !important;
+}}
+
+/* Less empty space above the sidebar's brand (keeps the collapse button) */
+[data-testid="stSidebarHeader"] {{
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+    margin-bottom: 0 !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0 !important;
+}}
+
+div[data-testid="stToggle"] {{
+    display: inline-flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    margin-bottom: 0px !important;
+}}
+
+div[data-testid="stToggle"] label {{
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    color: var(--text-main) !important;
+    cursor: pointer !important;
+}}
+
+div[data-testid="stToggle"] label p {{
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    color: var(--text-main) !important;
+    margin: 0 !important;
+}}
+
+/* --- 6. SEGMENTED CONTROL --- */
+/* Line the "Mode" label up with the first option's text (button padding + border). */
+section[data-testid="stSidebar"] [data-testid="stButtonGroup"] [data-testid="stWidgetLabel"] {{
+    padding-left: 15px !important;
+}}
+
+div[data-testid="stSegmentedControl"],
+.stButtonGroup {{
+    background-color: var(--bg-subtle) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 10px !important;
     padding: 3px !important;
-}
+}}
 
-button[data-testid="stButtonGroupButton"] {
-    border-radius: 16px !important;
-    border: none !important;
+button[data-variant="segmented_control"],
+button[data-testid="stButtonGroupButton"] {{
+    border-radius: 7px !important;
+    border: 1px solid transparent !important;
     background-color: transparent !important;
-    color: #64748B !important;
+    color: var(--text-muted) !important;
     font-family: 'Inter', sans-serif !important;
     font-size: 0.82rem !important;
     font-weight: 600 !important;
     padding: 5px 14px !important;
     transition: all 0.15s ease !important;
-}
+}}
 
-button[data-testid="stButtonGroupButton"][aria-pressed="true"] {
-    background-color: #EA580C !important;
-    color: #FFFFFF !important;
-    box-shadow: 0 1px 3px rgba(234, 88, 12, 0.3) !important;
-}
+button[data-variant="segmented_control"][aria-checked="true"],
+button[data-variant="segmented_control"][aria-pressed="true"],
+button[data-testid="stButtonGroupButton"][aria-pressed="true"] {{
+    background-color: var(--bg-surface) !important;
+    color: var(--text-main) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid var(--border-subtle) !important;
+}}
 
-button[data-testid="stButtonGroupButton"]:hover {
-    color: #0F172A !important;
-}
+button[data-variant="segmented_control"]:hover,
+button[data-testid="stButtonGroupButton"]:hover {{
+    color: var(--text-main) !important;
+}}
 
-/* --- 6. INPUTS & SELECTBOXES --- */
-div[data-baseweb="select"] > div {
-    background-color: #FFFFFF !important;
-    border: 1px solid #CBD5E1 !important;
+/* --- 7. INPUTS & SELECTBOXES (BaseWeb & React-Aria) --- */
+/* Selectbox / ComboBox */
+div[data-baseweb="select"] > div,
+div[data-testid="stSelectbox"] div[data-rac][role="group"],
+div.react-aria-ComboBox div[data-rac][role="group"] {{
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
     border-radius: 8px !important;
-    color: #0F172A !important;
+    color: var(--text-main) !important;
     font-size: 0.875rem !important;
     font-family: 'Inter', sans-serif !important;
-}
+    transition: border-color 0.15s ease !important;
+}}
 
-div[data-baseweb="input"] {
-    background-color: #FFFFFF !important;
-    border: 1px solid #CBD5E1 !important;
-    border-radius: 8px !important;
-}
+div[data-testid="stSelectbox"] div[data-rac][role="group"]:focus-within,
+div.react-aria-ComboBox div[data-rac][role="group"]:focus-within {{
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 1px var(--accent) !important;
+}}
 
-div[data-baseweb="input"] input {
-    color: #0F172A !important;
+div[data-testid="stSelectbox"] input,
+div.react-aria-ComboBox input {{
+    background-color: transparent !important;
+    color: var(--text-main) !important;
     font-size: 0.875rem !important;
     font-family: 'Inter', sans-serif !important;
-}
+}}
 
+div[data-testid="stSelectbox"] button svg,
+div.react-aria-ComboBox button svg {{
+    fill: var(--text-muted) !important;
+}}
+
+/* DateInput & DateField */
+div[data-baseweb="input"],
+div[data-testid="stDateInput"] div[data-testid="stDateInputField"],
+div.react-aria-DateField,
+div.react-aria-DateField [role="group"] {{
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 8px !important;
+    color: var(--text-main) !important;
+}}
+
+div[data-baseweb="input"] input,
+div[data-testid="stDateInput"] input {{
+    background-color: transparent !important;
+    color: var(--text-main) !important;
+    font-size: 0.875rem !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}}
+
+div[data-testid="stDateInput"] span[role="spinbutton"],
+div[data-testid="stDateInput"] span[data-rac] {{
+    color: var(--text-main) !important;
+    background-color: transparent !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}}
+
+/* Dropdown popover & Listbox */
 div[data-baseweb="popover"],
-ul[role="listbox"] {
-    background-color: #FFFFFF !important;
-    border: 1px solid #E2E8F0 !important;
+div.react-aria-Popover,
+div[data-rac][role="listbox"],
+ul[role="listbox"] {{
+    background-color: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
     border-radius: 8px !important;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
-}
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2) !important;
+    color: var(--text-main) !important;
+}}
 
-li[role="option"] {
-    color: #0F172A !important;
+li[role="option"],
+div[data-rac][role="option"] {{
+    color: var(--text-main) !important;
     font-size: 0.875rem !important;
     border-radius: 6px !important;
     font-family: 'Inter', sans-serif !important;
-}
+    padding: 6px 12px !important;
+    background-color: transparent !important;
+}}
 
-li[role="option"][aria-selected="true"] {
-    background-color: #FFF7ED !important;
-    color: #EA580C !important;
+li[role="option"]:hover,
+div[data-rac][role="option"]:hover,
+div[data-rac][role="option"][data-focused="true"] {{
+    background-color: var(--bg-subtle) !important;
+    color: var(--accent) !important;
+}}
+
+li[role="option"][aria-selected="true"],
+div[data-rac][role="option"][aria-selected="true"] {{
+    background-color: var(--bg-hover) !important;
+    color: var(--accent) !important;
     font-weight: 600 !important;
-}
+}}
 
-/* --- 7. SLIDERS: SIGNAL ORANGE ACCENT --- */
+/* Tooltips */
+[data-testid="stTooltipIcon"] button svg {{
+    stroke: var(--text-muted) !important;
+}}
+
+/* --- 8. SLIDERS: TELEMETRY ACCENT --- */
 div[data-testid="stSlider"] div[role="slider"],
-div[data-testid="stSelectSlider"] div[role="slider"] {
+div[data-testid="stSelectSlider"] div[role="slider"],
+div[data-testid="stSlider"] div[role="group"] > div > div,
+div[data-testid="stSelectSlider"] div[role="group"] > div > div {{
     border-radius: 9999px !important;
-    width: 16px !important;
-    height: 16px !important;
-    border: 2px solid #FFFFFF !important;
-    background-color: #EA580C !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
-}
+    background-color: var(--primary) !important;
+}}
 
 div[data-testid="stSlider"] div[data-baseweb="slider"] div,
-div[data-testid="stSelectSlider"] div[data-baseweb="slider"] div {
-    background-color: #EA580C !important;
-}
+div[data-testid="stSelectSlider"] div[data-baseweb="slider"] div {{
+    background-color: var(--primary) !important;
+}}
 
-/* --- 8. CODE & TELEMETRY --- */
-code {
+/* The min/max labels shown while the slider has focus are text, not track. */
+div[data-testid="stSlider"] div[role="group"] > div > div[data-testid="stSliderTickBar"],
+div[data-testid="stSlider"] div[role="group"] > div > div[data-testid="stSliderTickBar"] * {{
+    background-color: transparent !important;
+    color: var(--text-muted) !important;
+}}
+
+/* --- 9. CODE & TELEMETRY --- */
+code {{
     font-family: 'JetBrains Mono', monospace !important;
-    background-color: #F1F5F9 !important;
-    border: 1px solid #E2E8F0 !important;
-    color: #0284C7 !important;
+    background-color: var(--bg-subtle) !important;
+    border: 1px solid var(--border-main) !important;
+    color: var(--accent) !important;
     padding: 2px 6px !important;
     border-radius: 4px !important;
     font-size: 0.85em !important;
-}
+}}
 
-.stMarkdown code {
+.stMarkdown code {{
     white-space: nowrap !important;
     display: inline-block !important;
-}
+}}
 
-.stMarkdown ul li {
+.stMarkdown ul li {{
     white-space: normal !important;
     line-height: 1.5 !important;
     margin-bottom: 0.35rem !important;
-}
+}}
 
-/* --- 9. ALERTS & DIVIDERS --- */
-div[data-testid="stAlert"] {
+/* --- 10. ALERTS & DIVIDERS --- */
+div[data-testid="stAlert"] {{
     border-radius: 8px !important;
-    border: 1px solid #E2E8F0 !important;
-    background-color: #FFFFFF !important;
-    color: #0F172A !important;
-}
+    border: 1px solid var(--border-main) !important;
+    background-color: var(--bg-surface) !important;
+    color: var(--text-main) !important;
+}}
 
-hr {
+hr {{
     border: none !important;
-    border-top: 1px solid #E2E8F0 !important;
+    border-top: 1px solid var(--border-main) !important;
     margin: 1.25rem 0 !important;
-}
+}}
 
-.stCaption, [data-testid="stCaptionContainer"] {
-    color: #64748B !important;
+.stCaption, [data-testid="stCaptionContainer"] {{
+    color: var(--text-muted) !important;
     font-size: 0.78rem !important;
-}
+}}
 </style>
 """
-st.markdown(MODERN_TELEMETRY_LIGHT_CSS, unsafe_allow_html=True)
+st.markdown(MODERN_TELEMETRY_CSS, unsafe_allow_html=True)
+
+
+def tier_style(tier: str, is_dark: bool) -> tuple[str, str, str]:
+    """Return (bg_color, border_color, text_color) for the given risk tier."""
+    if tier == "High":
+        if is_dark:
+            return ("rgba(239, 68, 68, 0.16)", "rgba(239, 68, 68, 0.4)", "#FCA5A5")
+        return ("#FEF2F2", "#FECACA", "#DC2626")
+    elif tier == "Moderate":
+        if is_dark:
+            return ("rgba(245, 158, 11, 0.16)", "rgba(245, 158, 11, 0.4)", "#FCD34D")
+        return ("#FFFBEB", "#FDE68A", "#D97706")
+    else:  # Low
+        if is_dark:
+            return ("rgba(56, 189, 248, 0.16)", "rgba(56, 189, 248, 0.4)", "#7DD3FC")
+        return ("#EFF6FF", "#BFDBFE", "#0284C7")
 
 
 @st.cache_data
@@ -501,7 +839,17 @@ def live_auto_refresh() -> None:
 model, model_caption = get_model()
 
 # --- SIDEBAR -------------------------------------------------------------------------------
-st.sidebar.markdown("### :material/water_damage: **FloodSense**")
+st.sidebar.markdown(
+    '<div style="margin-bottom: 14px;">'
+    '  <div style="font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px;">'
+    '    <span style="font-size: 1.35rem;">🌊</span> <span>FloodSense</span>'
+    "  </div>"
+    f'  <div style="font-size: 0.72rem; color: {tokens["text_muted"]}; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: 2px;">'
+    "    Urban Drainage Intelligence"
+    "  </div>"
+    "</div>",
+    unsafe_allow_html=True,
+)
 
 st.session_state.setdefault("mode", "Live Feed")
 mode = st.sidebar.segmented_control(
@@ -525,13 +873,26 @@ selected_zone = str(st.session_state["zone"])
 if mode == "Live Feed":
     selected_zone = zone_picker()
 
+
+# --- TOP HEADER & APPEARANCE SWITCH --------------------------------------------------------
+def render_app_header() -> None:
+    with st.container(key="theme_toggle"):  # pinned to the top-right corner (CSS)
+        is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
+    with st.container(key="app_header"):
+        st.title("🌊 FloodSense Intelligence Center")
+    if is_dark_active != IS_DARK:
+        st.session_state["theme"] = "dark" if is_dark_active else "light"
+        st.rerun()
+
+
+render_app_header()
+
 # --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
 replay_warning: str | None = None
 day_events: list[FloodEvent] | None = None  # reported floods for the replayed day
 if mode == "Live Feed":
     features, total_stations, live_error = live_features()
     if features is None:
-        st.title("🌊 FloodSense Intelligence Center")
         st.error(f"Live feed unavailable: {live_error}", icon=":material/cloud_off:")
         st.info(
             "No data is shown rather than substituting simulated rain. Switch to **Replay Storm**, "
@@ -551,15 +912,18 @@ if mode == "Live Feed":
                 st.rerun()
         st.stop()
     view_time = features["timestamp"].iloc[0]
+    live_bg = "rgba(16, 185, 129, 0.15)" if IS_DARK else "#ECFDF5"
+    live_border = "rgba(16, 185, 129, 0.35)" if IS_DARK else "#A7F3D0"
+    live_color = "#34D399" if IS_DARK else "#059669"
     live_badge = (
-        '<span style="background: #ECFDF5; border: 1px solid #A7F3D0; '
-        "color: #059669; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        f'<span style="background: {live_bg}; border: 1px solid {live_border}; '
+        f"color: {live_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
         f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
         f"● Live: {int(features['reporting_stations'].iloc[0])} of {total_stations} gauges "
         "reporting (data.gov.sg)</span>"
     )
     status_line = (
-        f"{live_badge} &nbsp;·&nbsp; <span style='color: #64748B; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Latest Reading:</span> "
+        f"{live_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Latest Reading:</span> "
         f"`{view_time:%d %b %Y %H:%M} SGT`"
     )
     history_note = (
@@ -594,7 +958,6 @@ elif replay_days.store_available():
             disabled=True,
             help="NEA has no readings for this day.",
         )
-        st.title("🌊 FloodSense Intelligence Center")
         st.warning(
             f"NEA has no rain-gauge readings for {replay_day:%d %b %Y}. It is one of the gaps in "
             "NEA's record, so there is nothing to replay. Missing data is not shown as dry. "
@@ -641,14 +1004,17 @@ elif replay_days.store_available():
         )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
+    replay_bg = "rgba(245, 158, 11, 0.15)" if IS_DARK else "#FEF3C7"
+    replay_border = "rgba(245, 158, 11, 0.35)" if IS_DARK else "#FDE68A"
+    replay_color = "#FBBF24" if IS_DARK else "#D97706"
     replay_badge = (
-        '<span style="background: #FEF3C7; border: 1px solid #FDE68A; '
-        "color: #D97706; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
-        "font-family: 'Inter', sans-serif; font-weight: 600;\">"
+        f'<span style="background: {replay_bg}; border: 1px solid {replay_border}; '
+        f"color: {replay_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
         "⟳ Replay: NEA gauge readings</span>"
     )
     status_line = (
-        f"{replay_badge} &nbsp;·&nbsp; <span style='color: #64748B; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
+        f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
         f"`{view_time:%d %b %Y %H:%M} SGT`"
     )
     history_note = "Features include the 72 hours of real readings before the day."
@@ -671,14 +1037,17 @@ else:
     )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
+    replay_bg = "rgba(245, 158, 11, 0.15)" if IS_DARK else "#FEF3C7"
+    replay_border = "rgba(245, 158, 11, 0.35)" if IS_DARK else "#FDE68A"
+    replay_color = "#FBBF24" if IS_DARK else "#D97706"
     replay_badge = (
-        '<span style="background: #FEF3C7; border: 1px solid #FDE68A; '
-        "color: #D97706; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        f'<span style="background: {replay_bg}; border: 1px solid {replay_border}; '
+        f"color: {replay_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
         f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
         f"⟳ Historical Replay: {event_name}</span>"
     )
     status_line = (
-        f"{replay_badge} &nbsp;·&nbsp; <span style='color: #64748B; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
+        f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
         f"`{view_time:%d %b %Y %H:%M} SGT`"
     )
     history_note = "Features include the 72 hours of real readings before the replay window."
@@ -689,16 +1058,15 @@ df_results["zone"] = df_results["ura_planning_area"]
 reporting_stations = int(features["reporting_stations"].iloc[0])
 
 # --- TOP BAR & SCOPE INDICATORS -----------------------------------------------------------
-st.title("🌊 FloodSense Intelligence Center")
 st.markdown(status_line, unsafe_allow_html=True)
 st.markdown(
-    '<div style="background: #EEF2F6; border: 1px solid #E2E8F0; border-radius: 9999px; '
-    "padding: 4px 14px; margin: 8px 0 18px 0; display: inline-flex; align-items: center; "
-    "gap: 8px; font-size: 0.78rem; font-family: 'Inter', sans-serif; color: #475569;\">"
+    f'<div style="background: {tokens["badge_bg"]}; border: 1px solid {tokens["badge_border"]}; border-radius: 9999px; '
+    f"padding: 5px 16px; margin: 8px 0 18px 0; display: inline-flex; align-items: center; "
+    f"gap: 8px; font-size: 0.78rem; font-family: 'Inter', sans-serif; color: {tokens['badge_text']};\">"
     "  <span>📍 Singapore Urban Flash-Flood Risk</span>"
-    '  <span style="color: #CBD5E1;">•</span>'
+    f'  <span style="color: {tokens["text_dim"]};">•</span>'
     "  <span>55 URA Planning Areas</span>"
-    '  <span style="color: #CBD5E1;">•</span>'
+    f'  <span style="color: {tokens["text_dim"]};">•</span>'
     "  <span>Chance of a flood in the next hour</span>"
     "</div>",
     unsafe_allow_html=True,
@@ -739,7 +1107,7 @@ wettest = df_results.sort_values("rain_decay_72h", ascending=False).iloc[0]
 # --- 5 TOP KPI METRIC CARDS ---------------------------------------------------------------
 # Every card has the same three parts, each one line: label, value, footer (label | value).
 _LABEL = (
-    "font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:#64748B; "
+    f"font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:{tokens['text_muted']}; "
     "text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; overflow:hidden; "
     "text-overflow:ellipsis; display:block;"
 )
@@ -754,11 +1122,11 @@ def card_header(label: str) -> None:
 
 def card_footer(left: str, right: str) -> None:
     st.markdown(
-        '<div style="display:flex; justify-content:space-between; font-size:0.72rem; '
-        "font-family:'Inter', sans-serif; color:#64748B; border-top:1px solid #F1F5F9; "
-        'padding-top:6px; margin-top:2px; gap:8px; white-space:nowrap;">'
+        f'<div style="display:flex; justify-content:space-between; font-size:0.72rem; '
+        f"font-family:'Inter', sans-serif; color:{tokens['text_muted']}; border-top:1px solid {tokens['border_subtle']}; "
+        f'padding-top:6px; margin-top:2px; gap:8px; white-space:nowrap;">'
         f"<span>{left}</span>"
-        '<span style="font-weight:700; color:#0F172A; overflow:hidden; text-overflow:ellipsis;" '
+        f'<span style="font-weight:700; color:{tokens["text_main"]}; overflow:hidden; text-overflow:ellipsis;" '
         f'title="{right}">{right}</span></div>',
         unsafe_allow_html=True,
     )
@@ -821,20 +1189,20 @@ map_col, detail_col = st.columns([1.7, 1.3])
 
 with map_col, st.container(border=True):
     st.markdown(
-        '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">'
-        '  <div style="display: flex; align-items: center; gap: 8px;">'
-        "    <span style=\"font-size: 1.15rem; font-weight: 700; color: #0F172A; font-family: 'Inter', sans-serif;\">🗺️ Singapore Urban Risk Map</span>"
-        "    <span style=\"background: #F1F5F9; border: 1px solid #E2E8F0; color: #475569; font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;\">55 URA ZONES</span>"
-        "  </div>"
-        "</div>"
-        "<div style=\"font-size: 0.78rem; color: #64748B; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
-        "Rainfall at each zone interpolated from NEA rain gauges (inverse-distance weighting)."
-        "</div>"
+        f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">'
+        f'  <div style="display: flex; align-items: center; gap: 8px;">'
+        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">🗺️ Singapore Urban Risk Map</span>"
+        f"    <span style=\"background: {tokens['bg_subtle']}; border: 1px solid {tokens['border_main']}; color: {tokens['text_muted']}; font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;\">55 URA ZONES</span>"
+        f"  </div>"
+        f"</div>"
+        f"<div style=\"font-size: 0.78rem; color: {tokens['text_muted']}; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
+        f"Rainfall at each zone interpolated from NEA rain gauges (inverse-distance weighting)."
+        f"</div>"
         f"<div style=\"display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
-        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#0EA5E9;">●</span> Low ({NUM_ZONES - high_risk_count - mod_risk_count})</span>'
-        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#F59E0B;">●</span> Moderate ({mod_risk_count})</span>'
-        f'  <span style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #64748B; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#EF4444;">●</span> High ({high_risk_count})</span>'
-        f'  <span style="background: #E0F2FE; border: 1px solid #BAE6FD; color: #0284C7; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">{reporting_stations} of {total_stations} gauges reporting</span>'
+        f'  <span style="background: {tokens["bg_subtle"]}; border: 1px solid {tokens["border_main"]}; color: {tokens["text_muted"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#0EA5E9;">●</span> Low ({NUM_ZONES - high_risk_count - mod_risk_count})</span>'
+        f'  <span style="background: {tokens["bg_subtle"]}; border: 1px solid {tokens["border_main"]}; color: {tokens["text_muted"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#F59E0B;">●</span> Moderate ({mod_risk_count})</span>'
+        f'  <span style="background: {tokens["bg_subtle"]}; border: 1px solid {tokens["border_main"]}; color: {tokens["text_muted"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#EF4444;">●</span> High ({high_risk_count})</span>'
+        f'  <span style="background: {tokens["accent_muted"]}; border: 1px solid {tokens["accent"]}; color: {tokens["accent"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">{reporting_stations} of {total_stations} gauges reporting</span>'
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -859,7 +1227,7 @@ with map_col, st.container(border=True):
         "size_max": 28,
         "zoom": 10.5,
         "center": {"lat": 1.3521, "lon": 103.8198},
-        style_key: "carto-positron",
+        style_key: tokens["map_style"],
     }
     fig_map = map_func(df_results, **map_kwargs)  # type: ignore[misc]
 
@@ -869,9 +1237,9 @@ with map_col, st.container(border=True):
             trace.update(
                 hovertemplate=(
                     "<b>ZONE: %{hovertext}</b><br>"
-                    "<span style='color:#64748B;'>Risk Classification:</span> %{customdata[0]}<br>"
-                    "<span style='color:#64748B;'>Flood Probability:</span> %{customdata[1]:.2%}<br>"
-                    "<span style='color:#64748B;'>Max 30m Rain:</span> %{customdata[2]:.1f} mm<extra></extra>"
+                    f"<span style='color:{tokens['text_muted']};'>Risk Classification:</span> %{{customdata[0]}}<br>"
+                    f"<span style='color:{tokens['text_muted']};'>Flood Probability:</span> %{{customdata[1]:.2%}}<br>"
+                    f"<span style='color:{tokens['text_muted']};'>Max 30m Rain:</span> %{{customdata[2]:.1f}} mm<extra></extra>"
                 ),
             )
 
@@ -882,7 +1250,7 @@ with map_col, st.container(border=True):
         stn_lons = [s["lon"] for s in stns.values()]
         stn_names = [
             f"<b>NEA rain gauge {sid}</b><br>"
-            f"<span style='color:#64748B;'>{s.get('name', sid)}</span>"
+            f"<span style='color:{tokens['text_muted']};'>{s.get('name', sid)}</span>"
             for sid, s in stns.items()
         ]
         trace_cls = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
@@ -892,7 +1260,7 @@ with map_col, st.container(border=True):
                     lat=stn_lats,
                     lon=stn_lons,
                     mode="markers",
-                    marker=dict(size=4, color="#64748B", opacity=0.7),
+                    marker=dict(size=4, color="#94A3B8" if IS_DARK else "#64748B", opacity=0.7),
                     name="NEA rain gauges (locations)",
                     hoverinfo="text",
                     hovertext=stn_names,
@@ -908,7 +1276,7 @@ with map_col, st.container(border=True):
                 "sourcetype": "geojson",
                 "source": ura_geojson,
                 "type": "line",
-                "color": "rgba(148, 163, 184, 0.45)",
+                "color": "rgba(100, 116, 139, 0.45)" if IS_DARK else "rgba(148, 163, 184, 0.45)",
                 "line": {"width": 1.0},
             }
         )
@@ -917,30 +1285,30 @@ with map_col, st.container(border=True):
     fig_map.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         height=500,
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         hoverlabel=dict(
-            bgcolor="#FFFFFF",
-            bordercolor="#E2E8F0",
+            bgcolor=tokens["bg_surface"],
+            bordercolor=tokens["border_main"],
             font_family="Inter, sans-serif",
             font_size=12,
-            font_color="#0F172A",
+            font_color=tokens["text_main"],
         ),
         legend=dict(
             yanchor="top",
             y=0.98,
             xanchor="left",
             x=0.02,
-            bgcolor="rgba(255, 255, 255, 0.95)",
-            bordercolor="#E2E8F0",
+            bgcolor=f"rgba({17 if IS_DARK else 255}, {24 if IS_DARK else 255}, {39 if IS_DARK else 255}, 0.92)",
+            bordercolor=tokens["border_main"],
             borderwidth=1,
-            font=dict(family="Inter, sans-serif", size=11, color="#334155"),
+            font=dict(family="Inter, sans-serif", size=11, color=tokens["text_main"]),
             title=dict(
                 text="RISK CLASSIFICATION",
-                font=dict(family="Inter, sans-serif", size=10, color="#64748B"),
+                font=dict(family="Inter, sans-serif", size=10, color=tokens["text_muted"]),
             ),
         ),
-        **{map_layout_key: {"style": "carto-positron", "layers": map_layers}},
+        **{map_layout_key: {"style": tokens["map_style"], "layers": map_layers}},
     )
     st.plotly_chart(fig_map)
     st.caption(
@@ -950,11 +1318,11 @@ with map_col, st.container(border=True):
 
 with detail_col, st.container(border=True):
     st.markdown(
-        '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">'
-        '  <div style="display: flex; align-items: center; gap: 8px;">'
-        "    <span style=\"font-size: 1.15rem; font-weight: 700; color: #0F172A; font-family: 'Inter', sans-serif;\">📊 Zone Diagnostic</span>"
-        "  </div>"
-        "</div>",
+        f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">'
+        f'  <div style="display: flex; align-items: center; gap: 8px;">'
+        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">📊 Zone Diagnostic</span>"
+        f"  </div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
     zone_data = df_results[df_results["zone"] == selected_zone].iloc[0]
@@ -964,41 +1332,27 @@ with detail_col, st.container(border=True):
         "Moderate": "MODERATE RISK",
         "Low": "LOW RISK",
     }[zone_data["risk_tier"]]
-    tier_bg = {
-        "High": "#FEF2F2",
-        "Moderate": "#FFFBEB",
-        "Low": "#EFF6FF",
-    }[zone_data["risk_tier"]]
-    tier_border = {
-        "High": "#FECACA",
-        "Moderate": "#FDE68A",
-        "Low": "#BFDBFE",
-    }[zone_data["risk_tier"]]
-    tier_text_color = {
-        "High": "#DC2626",
-        "Moderate": "#D97706",
-        "Low": "#1E40AF",
-    }[zone_data["risk_tier"]]
+    tier_bg, tier_border, tier_text_color = tier_style(zone_data["risk_tier"], IS_DARK)
 
     st.markdown(
         f'<div style="margin: 8px 0 12px 0;">'
-        f'  <div style="font-weight: 600; color: #0F172A; font-size: 0.95rem;">'
-        f'📍 {selected_zone.title()} <span style="color: #64748B; font-weight: 500;">'
+        f'  <div style="font-weight: 600; color: {tokens["text_main"]}; font-size: 0.95rem;">'
+        f'📍 {selected_zone.title()} <span style="color: {tokens["text_muted"]}; font-weight: 500;">'
         f"· {zone_data['region']} Region · change in the sidebar</span></div>"
         f"</div>",
         unsafe_allow_html=True,
     )
 
     st.markdown(
-        f'<div style="background: {tier_bg}; border: 1px solid {tier_border}; border-radius: 8px; padding: 12px 16px; margin: 10px 0 14px 0; display: flex; align-items: center; justify-content: space-between;">'
+        f'<div style="background: {tier_bg}; border: 1px solid {tier_border}; border-radius: 8px; padding: 10px 14px; margin: 10px 0 14px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">'
         f'  <div style="display: flex; align-items: center; gap: 10px;">'
         f'    <span style="color: {tier_text_color}; font-size: 1.2rem; font-weight: 700;">{"✓" if zone_data["risk_tier"] == "Low" else "!"}</span>'
         f"    <div>"
-        f"      <div style=\"font-size: 0.65rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">STATUS</div>"
+        f"      <div style=\"font-size: 0.65rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">STATUS</div>"
         f"      <div style=\"font-size: 0.95rem; font-weight: 700; color: {tier_text_color}; font-family: 'Inter', sans-serif;\">{tier_label}</div>"
         f"    </div>"
         f"  </div>"
-        f"  <span style=\"background: #FFFFFF; color: {tier_text_color}; border: 1px solid {tier_border}; border-radius: 9999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;\">{zone_data['flood_probability']:.2%} chance</span>"
+        f"  <span style=\"background: {tokens['bg_surface']}; color: {tier_text_color}; border: 1px solid {tier_border}; border-radius: 9999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; white-space: nowrap;\">{zone_data['flood_probability']:.2%} chance</span>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -1013,33 +1367,33 @@ with detail_col, st.container(border=True):
     # Rolling rainfall and wet-ground tiles
     st.markdown(
         f'<div style="display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px 0;">'
-        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">ROLLING RAINFALL & WET-GROUND</span>"
-        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: #0284C7; font-family: 'Inter', sans-serif;\">{'Live' if mode == 'Live Feed' else 'Replay'} · {view_time:%H:%M} SGT</span>"
+        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">ROLLING RAINFALL & WET-GROUND</span>"
+        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: {tokens['accent']}; font-family: 'Inter', sans-serif;\">{'Live' if mode == 'Live Feed' else 'Replay'} · {view_time:%H:%M} SGT</span>"
         f"</div>"
         f'<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">'
-        f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">5-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_5m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
+        f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
+        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">5-min Rain</div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_5m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
-        f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">15-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_15m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
+        f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
+        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">15-min Rain</div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_15m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
-        f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">30-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_30m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
+        f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
+        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">30-min Rain</div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_30m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
-        f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">60-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_60m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
+        f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
+        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">60-min Rain</div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_60m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
-        f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">120-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_120m"]:.2f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">mm</span></div>'
+        f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
+        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">120-min Rain</div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_120m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
-        f'  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: #64748B; margin-bottom: 2px;">Wet-Ground</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: #0284C7; font-variant-numeric: tabular-nums;">{zone_data["rain_decay_72h"]:.1f} <span style="font-size: 0.72rem; color: #94A3B8; font-weight: 400;">idx</span></div>'
+        f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
+        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Wet-Ground</div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_decay_72h"]:.1f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">idx</span></div>'
         f"  </div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -1067,8 +1421,8 @@ with detail_col, st.container(border=True):
     # arc when the chart is opened full screen.
     st.markdown(
         '<div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0 0 0;">'
-        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">{rarity_title}</span>"
-        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: #0284C7; font-family: 'Inter', sans-serif;\">{rarity_status}</span>"
+        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">{rarity_title}</span>"
+        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: {tokens['accent']}; font-family: 'Inter', sans-serif;\">{rarity_status}</span>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -1077,15 +1431,19 @@ with detail_col, st.container(border=True):
             mode="gauge+number",
             value=rarity * 100,
             number={
-                "font": {"family": "Inter, sans-serif", "size": 34, "color": "#0F172A"},
+                "font": {"family": "Inter, sans-serif", "size": 34, "color": tokens["gauge_num"]},
                 "valueformat": ".1f",
                 "suffix": "%",
             },
             gauge={
                 "axis": {
                     "range": [0, 100],
-                    "tickcolor": "#CBD5E1",
-                    "tickfont": {"family": "Inter, sans-serif", "size": 11, "color": "#64748B"},
+                    "tickcolor": tokens["gauge_tick"],
+                    "tickfont": {
+                        "family": "Inter, sans-serif",
+                        "size": 11,
+                        "color": tokens["text_muted"],
+                    },
                 },
                 "bar": {
                     "color": "#0EA5E9"
@@ -1094,9 +1452,9 @@ with detail_col, st.container(border=True):
                     "thickness": 0.26,
                 },
                 "steps": [
-                    {"range": [0, 70], "color": "#E0F2FE"},
-                    {"range": [70, 90], "color": "#FEF3C7"},
-                    {"range": [90, 100], "color": "#FEE2E2"},
+                    {"range": [0, 70], "color": tokens["gauge_step_0_70"]},
+                    {"range": [70, 90], "color": tokens["gauge_step_70_90"]},
+                    {"range": [90, 100], "color": tokens["gauge_step_90_100"]},
                 ],
             },
         )
@@ -1144,21 +1502,43 @@ with st.container(border=True):
         t_cols[0].metric("Stations in High areas", int(counts.get("High", 0)))
         t_cols[1].metric("Stations in Moderate areas", int(counts.get("Moderate", 0)))
         t_cols[2].metric("Stations near a PUB alert", int(counts.get("PUB alert", 0)))
-        st.dataframe(
-            at_risk.assign(
-                zone=at_risk["zone"].str.title(),
-                probability=at_risk["probability"].map(lambda p: "" if pd.isna(p) else f"{p:.2%}"),
-            ).rename(
-                columns={
-                    "station": "Station",
-                    "zone": "Planning area",
-                    "tier": "Risk",
-                    "probability": "Chance of flood (next hour)",
-                    "reason": "Why",
-                }
-            ),
-            hide_index=True,
-            width="stretch",
+
+        # An HTML table rather than st.dataframe: the dataframe is drawn on a canvas that the
+        # page's light/dark styling can't reach.
+        def _tier_chip(tier: str) -> str:
+            bg, border, text = (
+                tier_style(tier, IS_DARK) if tier != "PUB alert" else tier_style("High", IS_DARK)
+            )
+            return (
+                f'<span style="background:{bg}; border:1px solid {border}; color:{text}; '
+                f'padding:1px 8px; border-radius:9999px; font-weight:600;">{html.escape(tier)}</span>'
+            )
+
+        cell = f"padding:7px 10px; border-bottom:1px solid {c_border_subtle};"
+        head = (
+            f"position:sticky; top:0; background:{c_subtle}; color:{c_muted}; "
+            f"text-align:left; font-weight:600; {cell}"
+        )
+        rows_html = "".join(
+            "<tr>"
+            f'<td style="{cell}">{html.escape(str(r.station))}</td>'
+            f'<td style="{cell}">{html.escape(str(r.zone).title())}</td>'
+            f'<td style="{cell}">{_tier_chip(str(r.tier))}</td>'
+            f'<td style="{cell}">{"" if pd.isna(r.probability) else f"{r.probability:.2%}"}</td>'
+            f'<td style="{cell} color:{c_muted};">{html.escape(str(r.reason))}</td>'
+            "</tr>"
+            for r in at_risk.itertuples(index=False)
+        )
+        headers = ["Station", "Planning area", "Risk", "Chance of flood (next hour)", "Why"]
+        st.markdown(
+            f'<div style="max-height:380px; overflow-y:auto; border:1px solid {c_border}; '
+            f'border-radius:10px; background:{c_surface};">'
+            f'<table style="width:100%; border-collapse:collapse; font-size:0.85rem; '
+            f"font-family:'Inter', sans-serif; color:{c_main}; margin:0;\">"
+            "<thead><tr>"
+            + "".join(f'<th style="{head}">{h}</th>' for h in headers)
+            + f"</tr></thead><tbody>{rows_html}</tbody></table></div>",
+            unsafe_allow_html=True,
         )
     st.caption(
         f"Stations with an exit in a planning area rated Moderate or High, or within an active PUB "
@@ -1211,8 +1591,18 @@ with context_col, st.container(border=True):
         except FileNotFoundError as exc:
             st.warning(str(exc))
         else:
+            fig_trend = build_trend_chart(flood_prone)
+            fig_trend.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                title=dict(font=dict(color=tokens["text_main"], family="Inter, sans-serif")),
+                yaxis=dict(
+                    gridcolor=tokens["grid_color"], tickfont=dict(color=tokens["text_muted"])
+                ),
+                xaxis=dict(tickfont=dict(color=tokens["text_muted"])),
+            )
             st.plotly_chart(
-                build_trend_chart(flood_prone),
+                fig_trend,
                 use_container_width=True,
                 config={"displayModeBar": False},
             )
@@ -1242,8 +1632,8 @@ with status_col, st.container(border=True):
 
 # --- FOOTER --------------------------------------------------------------------------------
 st.markdown(
-    '<div style="padding: 24px 0 16px 0; border-top: 1px solid #E2E8F0; margin-top: 32px; '
-    "color: #64748B; font-size: 0.78rem; font-family: 'Inter', sans-serif;\">"
+    f'<div style="padding: 24px 0 16px 0; border-top: 1px solid {tokens["border_main"]}; margin-top: 32px; '
+    f"color: {tokens['text_muted']}; font-size: 0.78rem; font-family: 'Inter', sans-serif;\">"
     "FloodSense · flash-flood risk for Singapore's 55 planning areas · Rainfall: NEA via "
     "data.gov.sg · Boundaries: URA Master Plan 2019"
     "</div>",
