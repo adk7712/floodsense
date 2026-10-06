@@ -216,6 +216,36 @@ div[data-testid="stSidebarCollapsedControl"],
     transition: all 0.15s ease !important;
 }}
 
+/* The close button mirrors the open button: same box, always visible, 14px from the corner */
+[data-testid="stSidebarContent"] {{
+    position: relative !important;  /* anchor for the close button: the panel's own edges */
+}}
+[data-testid="stSidebarHeader"] {{
+    position: static !important;
+}}
+[data-testid="stSidebarCollapseButton"] {{
+    visibility: visible !important;
+    display: flex !important;
+    position: absolute !important;
+    top: 14px !important;
+    right: 11px !important;  /* 14px from the panel edge, past its 3px resize strip */
+    z-index: 1000 !important;
+}}
+[data-testid="stSidebarCollapseButton"] button {{
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--card-shadow) !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+}}
+[data-testid="stSidebarCollapseButton"] span {{
+    color: var(--text-main) !important;
+}}
 [data-testid="stExpandSidebarButton"] svg,
 [data-testid="stExpandSidebarButton"] span {{
     color: var(--text-main) !important;
@@ -223,7 +253,7 @@ div[data-testid="stSidebarCollapsedControl"],
 
 /* Page container */
 .block-container {{
-    padding-top: 1rem !important;
+    padding-top: 0.4rem !important;
     padding-bottom: 2.75rem !important;
     padding-left: 2.25rem !important;
     padding-right: 2.25rem !important;
@@ -406,7 +436,7 @@ button[kind="secondary"]:hover,
 }}
 
 .st-key-app_header h1 {{
-    padding-top: 0.25rem !important;
+    padding-top: 0 !important;  /* level with the sidebar's "FloodSense" */
 }}
 
 /* Less empty space above the sidebar's brand (keeps the collapse button) */
