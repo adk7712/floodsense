@@ -9,6 +9,12 @@ Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / 
 > `DEPLOYMENT.md`. Sources are numbered at the end. Keep each slide to one headline, about three short
 > blocks and one main visual.
 
+**Team details for the cover or footer (fill in before submitting):**
+- Team name: [fill in]
+- Members: [name · institution · course · year · email], one line each
+- Track: B2, Climate Action & Resilience
+- Repository: `adk7712/floodsense`
+
 ---
 
 ## Slide 1: The problem and why it matters
@@ -19,7 +25,8 @@ Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / 
 - **17 April 2021:** 161.4 mm of rain fell on western Singapore in three hours (12:25–15:25),
   91% of April's average monthly rainfall. Dunearn Road flooded, and the water was gone within about
   30 minutes. [1][2]
-- **PUB's system is strong:** flood-prone land is down from about 3,200 ha in the 1970s to under 25 ha.
+- **PUB's system is strong:** flood-prone land is down from about 3,200 ha in the 1970s [5] to
+  23.3 ha in 2025 (PUB's annual Flood Prone Areas data: 27 → 24.1 → 23.6 → 23.3 ha, 2022–2025 [9]).
   More than 1,000 water-level sensors, over 500 CCTV cameras, and radar that forecasts rain about
   30 minutes ahead. [5][6]
 - **But warnings are broad or late:** public flood alerts are mostly regional, or fire when water in
@@ -34,7 +41,21 @@ Due **Tue 6 Oct 2026, 23:59 SGT**: a 3-slide PDF (problem / solution and data / 
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | 8 | 4 | 8 | 9 | 4 | 2 | 8 | 15 | 7 |
 
-Optional callout: 2025 had Singapore's wettest March on record. [4]
+Optional callout: 2025 had Singapore's wettest March on record. [4] Note on the slide that these are
+floods *we could source*, not all floods. More recent years are easier to source, so don't call
+this a trend.
+
+**Optional second visual: where the recent floods were (sourced events, 2023 to Sep 2026)**
+
+| Planning area | 2023 | 2024 | 2025 | 2026 (to Sep) | Total |
+|---|---|---|---|---|---|
+| Bukit Timah | 1 | 4 | 2 | 1 | 8 |
+| Yishun | 0 | 1 | 3 | 0 | 4 |
+| Jurong East | 0 | 0 | 2 | 1 | 3 |
+| Marine Parade | 0 | 0 | 1 | 1 | 2 |
+
+The flood-prone land keeps shrinking (PUB data), yet flash floods keep recurring in the same few
+zones. That's the gap FloodSense targets.
 
 <details><summary>Speaker notes</summary>
 
@@ -63,6 +84,7 @@ are floods we could source with a link and a quote, not every flood that happene
 **Data strip (all open data):**
 - NEA 5-minute rain gauges via data.gov.sg, 2017 to Sep 2026: **60.8 million readings** [7]
 - URA Master Plan 2019 planning-area boundaries (55 zones)
+- PUB Flood Prone Areas, 2022–2025 (annual hectares), shown as a trend in the app [9]
 - **66 flood events** from PUB alerts and news, each sourced and signed off
 - Next: rain-area radar frames (no public archive, so we archive from now on) [8], tide tables
 
@@ -87,6 +109,8 @@ nowcasting, LLM-drafted flood events with human sign-off, and one model that sha
 | Moderate (from 0.30% chance) | 21 of 30 (70%) | 15 min | 7.3 |
 | High (from 0.71% chance) | 12 of 30 (40%; 90% CI 27–53%) | 10 min | 1.6 |
 
+- **Warning time, honestly:** with High alerts, 4 of the 30 test floods were flagged 15+ minutes
+  ahead, and 11 were flagged by the reported start time. With Moderate alerts, 10 and 19.
 - **Precision, honestly:** about 1 in 16 High alerts was followed by a *reported* flood. Reported floods
   undercount real ones, so some "false" alarms are floods nobody wrote about.
 - **Ranking:** in 16 of the 30 test floods, the flooded zone was among our 5 riskiest of 55.
@@ -158,6 +182,7 @@ Caption: "Best case on record: High about an hour before the report. The typical
 | Who | What they get |
 |---|---|
 | Residents and drivers | Earlier, per-zone warnings with a reason, including where PUB has no sensors |
+| LTA and commuters (next) | Zone alerts mapped onto roads such as Dunearn Rd, so buses can divert early |
 | Town councils | Which zones' drains to clear first before a storm |
 | Planners | Zones becoming more flood-prone over the years, to guide drainage spending |
 
@@ -201,3 +226,4 @@ They are the dashed parts of the diagram.
 6. PUB, "Flood Forecasting and Monitoring". https://www.pub.gov.sg/Public/KeyInitiatives/Flood-Resilience/Flood-Forecasting-and-Monitoring
 7. data.gov.sg, real-time rainfall API and "Historical Rainfall across Singapore" (NEA). https://data.gov.sg/
 8. Meteorological Service Singapore, "Rain Areas" radar imagery. https://www.weather.gov.sg/weather-rain-area-50km/
+9. PUB, "Flood Prone Areas" (annual, 2022–2025), data.gov.sg dataset d_c4aed98f1533eb3a66f65dbb1a30da46. https://data.gov.sg/datasets?resultId=d_c4aed98f1533eb3a66f65dbb1a30da46

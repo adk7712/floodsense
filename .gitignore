@@ -33,6 +33,8 @@ build/
 .env.*
 !.env.example
 .streamlit/secrets.toml
+.streamlit/credentials.toml
+.streamlit/machine_id_v4
 
 # Coverage / notebooks
 htmlcov/

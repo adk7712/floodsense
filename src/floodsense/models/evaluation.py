@@ -168,6 +168,13 @@ def evaluate_alerts(
     n_events = len(outcomes)
     hits = sum(o.hit for o in outcomes)
     leads = [o.lead_minutes for o in outcomes if o.lead_minutes is not None]
+    # Hits with a known warning time: alerted before the reported start, and 15+ minutes before.
+    advance_hits = sum(
+        o.hit and o.lead_minutes is not None and o.lead_minutes >= 0 for o in outcomes
+    )
+    actionable_hits = sum(
+        o.hit and o.lead_minutes is not None and o.lead_minutes >= 15 for o in outcomes
+    )
     n_eps = len(episodes)
     n_false = int(episodes["is_false"].sum()) if n_eps else 0
     false_steps = int(episodes.loc[episodes["is_false"], "steps"].sum()) if n_eps else 0
@@ -176,6 +183,10 @@ def evaluate_alerts(
         "events": float(n_events),
         "hits": float(hits),
         "hit_rate": hits / n_events if n_events else float("nan"),
+        "advance_hits": float(advance_hits),
+        "advance_hit_rate": advance_hits / n_events if n_events else float("nan"),
+        "actionable_hits": float(actionable_hits),
+        "actionable_hit_rate": actionable_hits / n_events if n_events else float("nan"),
         "median_lead_minutes": float(np.median(leads)) if leads else float("nan"),
         "episodes": float(n_eps),
         "false_episodes": float(n_false),

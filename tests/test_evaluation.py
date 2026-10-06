@@ -168,6 +168,14 @@ def test_day_only_event_is_a_hit_without_a_warning_time():
     assert outcomes[0].hit
     assert outcomes[0].lead_minutes is None  # no reported time, so no warning time
     assert np.isnan(summary["median_lead_minutes"])
+    assert summary["advance_hits"] == 0  # a hit, but with no warning time to count
+
+
+def test_advance_and_actionable_hits_count_warning_time():
+    scored = _probs("09:00", "14:00", on=[("11:30", "11:50")])  # 30 min before the 12:00 start
+    summary, _, _ = evaluate_alerts(scored, [exact_event()], 0.5, zone_years=1.0, horizon=H)
+    assert summary["advance_hits"] == 1
+    assert summary["actionable_hits"] == 1
 
 
 # --- trade-off and selection ----------------------------------------------------------------

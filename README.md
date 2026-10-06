@@ -122,6 +122,12 @@ Sea), data.gov.sg `d_4765db0e87b9c86336792efe8a1f7a66`, fetched by
 `uv run python -m floodsense.spatial.download_ura_polygons`. Each zone's reference point is its
 polygon's `representative_point()`.
 
+### Flood-prone areas (`data/reference/pub_flood_prone_areas.csv`)
+
+PUB's annual flood-prone land in hectares, 2022–2025 (data.gov.sg `d_c4aed98f1533eb3a66f65dbb1a30da46`),
+fetched by `uv run python -m floodsense.data.flood_prone`, with the source on every row. The app
+shows it as a trend. A missing file is reported, never filled in.
+
 ### Flood events (`data/reference/flood_events.csv`)
 
 66 events, 2017 to Sep 2026, across 27 planning areas. Each row has:
