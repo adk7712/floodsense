@@ -142,16 +142,16 @@ python, databricks, lakeflow-declarative-pipelines, auto-loader, delta-lake, uni
 
 ## Images (max 15), in upload order, with captions
 
-1. `slide_visuals/architecture_diagram.png`: Databricks architecture. Solid = running on Free Edition, dashed = next.
-2. `screenshots/02_replay_17apr2021_1245.png`: Replay of 17 Apr 2021 at 12:45. Bukit Timah is HIGH, about an hour before the Dunearn Road flood report.
-3. `screenshots/04_zone_diagnostic_bukit_timah_high.png`: Zone diagnostic. 46.6 mm in the last hour, rarer than any half-hour in this zone's 2017–2023 record.
-4. `screenshots/05_transport_at_risk_1245.png`: 25 MRT stations in High-risk areas at 12:45 (exposure, not observed disruption).
-5. `screenshots/03_risk_map_1245.png`: Risk map. 9 High and 19 Moderate zones at the storm's peak.
-6. `screenshots/01_live_feed.png`: Live Feed, with live NEA gauges and PUB's live flood-alert line.
-7. `slide_visuals/floods_per_year.png`: 66 sourced flash floods, 2017 to Sep 2026.
-8. `screenshots/06_flood_prone_trend_and_context.png`: PUB flood-prone land, 27 → 23.3 ha (2022–2025), with that day's reported floods.
-9. `screenshots/07_prototype_status_and_test_results.png`: Held-out test results with 90% confidence intervals.
-10. *(your screenshot)* Databricks Lakeflow pipeline graph: bronze → silver → gold, plus PUB alert tables.
-11. *(your screenshot)* Poller job `floodsense-rainfall-poller`, successful run.
-12. *(your screenshot)* AI/BI dashboard "FloodSense – Live Flood Risk".
-13. *(your screenshot)* Unity Catalog model `flood_model`, alias `champion`.
+1. [slide_visuals/architecture_diagram.png](slide_visuals/architecture_diagram.png): Databricks architecture. Solid = running on Free Edition, dashed = next.
+2. [screenshots/02_replay_17apr2021_1245.png](screenshots/02_replay_17apr2021_1245.png): Replay of 17 Apr 2021 at 12:45. Bukit Timah is HIGH, about an hour before the Dunearn Road flood report.
+3. [screenshots/04_zone_diagnostic_bukit_timah_high.png](screenshots/04_zone_diagnostic_bukit_timah_high.png): Zone diagnostic. 46.6 mm in the last hour, rarer than any half-hour in this zone's 2017–2023 record.
+4. [screenshots/05_transport_at_risk_1245.png](screenshots/05_transport_at_risk_1245.png): 25 MRT stations in High-risk areas at 12:45 (exposure, not observed disruption).
+5. [screenshots/03_risk_map_1245.png](screenshots/03_risk_map_1245.png): Risk map. 9 High and 19 Moderate zones at the storm's peak.
+6. [screenshots/01_live_feed.png](screenshots/01_live_feed.png): Live Feed, with live NEA gauges and PUB's live flood-alert line.
+7. [slide_visuals/floods_per_year.png](slide_visuals/floods_per_year.png): 66 sourced flash floods, 2017 to Sep 2026.
+8. [screenshots/06_flood_prone_trend_and_context.png](screenshots/06_flood_prone_trend_and_context.png): PUB flood-prone land, 27 → 23.3 ha (2022–2025), with that day's reported floods.
+9. [screenshots/07_prototype_status_and_test_results.png](screenshots/07_prototype_status_and_test_results.png): Held-out test results with 90% confidence intervals.
+10. [screenshots/10_databricks_pipeline_graph.png](screenshots/10_databricks_pipeline_graph.png): Lakeflow pipeline on Databricks Free Edition. Rainfall and PUB alerts flow bronze → silver → gold; the last run succeeded.
+11. [screenshots/11_databricks_poller_job_run.png](screenshots/11_databricks_poller_job_run.png): Poller job run, launched on demand. It fetches live NEA rain and PUB alerts, then refreshes the pipeline. Both tasks succeeded in 3m 49s.
+12. [screenshots/12_databricks_ai_bi_dashboard.png](screenshots/12_databricks_ai_bi_dashboard.png): AI/BI dashboard on the gold table: live risk per planning area and pipeline health. 6 Oct was a dry day, so every area is Low, which is the correct answer. (Full page, including the two charts: [12b](screenshots/12b_databricks_ai_bi_dashboard_full.png))
+13. [screenshots/13_databricks_uc_model.png](screenshots/13_databricks_uc_model.png): The model registered in Unity Catalog as flood_model, version 1, alias @champion.
