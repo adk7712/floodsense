@@ -1,0 +1,557 @@
+{
+  "task1_mode_switching_cold_start": {
+    "cold_start": {
+      "load_time_seconds": 2.6,
+      "alerts": [],
+      "halted_at_st_stop": false,
+      "has_metrics": true,
+      "has_map": true,
+      "retry_button_present": false,
+      "fallback_replay_button_in_main_view": true,
+      "analysis": "When live data.gov.sg API fails/rate-limits on cold start, the app renders raw HTTP error traceback in st.error and halts immediately with st.stop(). No metrics, map, or zone cards are rendered. Critically, there is NO direct action button in the main alert area to switch to Replay mode; only a 'Retry now' button is rendered, leaving the user stranded unless they discover the sidebar control."
+    },
+    "mode_switch_to_replay": {
+      "latency_seconds": 3.05,
+      "metrics_count": 5,
+      "metrics": {
+        "High Risk": "0 / 55",
+        "Moderate Risk": "6 / 55",
+        "Max 30-min Rain": "39 mm",
+        "Wet-Ground Index": "48",
+        "Gauges Live": "67 / 70"
+      },
+      "map_rendered": true,
+      "status_badge": "\u27f3 Replay: NEA gauge readings"
+    },
+    "preset_buttons": [
+      {
+        "preset": "17 Apr 2021",
+        "expected_iso": "2021-04-17",
+        "actual_date_input": "2021-04-17",
+        "date_match": true,
+        "latency_seconds": 2.52,
+        "slider_present": true,
+        "slider_summary": [
+          "Replay time (SGT, 17 Apr 2021)",
+          ""
+        ],
+        "status_timestamp": "Timestamp:",
+        "metrics": {
+          "High Risk": "0 / 55",
+          "Moderate Risk": "6 / 55",
+          "Max 30-min Rain": "39 mm",
+          "Wet-Ground Index": "48",
+          "Gauges Live": "67 / 70"
+        },
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_preset_17_Apr_2021.png"
+      },
+      {
+        "preset": "08 Jan 2018",
+        "expected_iso": "2018-01-08",
+        "actual_date_input": "2018-01-08",
+        "date_match": true,
+        "latency_seconds": 2.52,
+        "slider_present": true,
+        "slider_summary": [
+          "Replay time (SGT, 08 Jan 2018)",
+          ""
+        ],
+        "status_timestamp": "Timestamp:",
+        "metrics": {
+          "High Risk": "0 / 55",
+          "Moderate Risk": "5 / 55",
+          "Max 30-min Rain": "28 mm",
+          "Wet-Ground Index": "63",
+          "Gauges Live": "46 / 52"
+        },
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_preset_08_Jan_2018.png"
+      },
+      {
+        "preset": "23 Jun 2020",
+        "expected_iso": "2020-06-23",
+        "actual_date_input": "2020-06-23",
+        "date_match": true,
+        "latency_seconds": 2.52,
+        "slider_present": true,
+        "slider_summary": [
+          "Replay time (SGT, 23 Jun 2020)",
+          ""
+        ],
+        "status_timestamp": "Timestamp:",
+        "metrics": {
+          "High Risk": "4 / 55",
+          "Moderate Risk": "19 / 55",
+          "Max 30-min Rain": "37 mm",
+          "Wet-Ground Index": "83",
+          "Gauges Live": "66 / 78"
+        },
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_preset_23_Jun_2020.png"
+      },
+      {
+        "preset": "22 Nov 2024",
+        "expected_iso": "2024-11-22",
+        "actual_date_input": "2024-11-22",
+        "date_match": true,
+        "latency_seconds": 2.52,
+        "slider_present": true,
+        "slider_summary": [
+          "Replay time (SGT, 22 Nov 2024)",
+          ""
+        ],
+        "status_timestamp": "Timestamp:",
+        "metrics": {
+          "High Risk": "4 / 55",
+          "Moderate Risk": "20 / 55",
+          "Max 30-min Rain": "40 mm",
+          "Wet-Ground Index": "102",
+          "Gauges Live": "60 / 61"
+        },
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_preset_22_Nov_2024.png"
+      },
+      {
+        "preset": "13 Apr 2025",
+        "expected_iso": "2025-04-13",
+        "actual_date_input": "2025-04-13",
+        "date_match": true,
+        "latency_seconds": 2.53,
+        "slider_present": true,
+        "slider_summary": [
+          "Replay time (SGT, 13 Apr 2025)",
+          ""
+        ],
+        "status_timestamp": "Timestamp:",
+        "metrics": {
+          "High Risk": "16 / 55",
+          "Moderate Risk": "26 / 55",
+          "Max 30-min Rain": "41 mm",
+          "Wet-Ground Index": "104",
+          "Gauges Live": "56 / 58"
+        },
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_preset_13_Apr_2025.png"
+      },
+      {
+        "preset": "04 Dec 2025",
+        "expected_iso": "2025-12-04",
+        "actual_date_input": "2025-12-04",
+        "date_match": true,
+        "latency_seconds": 2.52,
+        "slider_present": true,
+        "slider_summary": [
+          "Replay time (SGT, 04 Dec 2025)",
+          ""
+        ],
+        "status_timestamp": "Timestamp:",
+        "metrics": {
+          "High Risk": "1 / 55",
+          "Moderate Risk": "1 / 55",
+          "Max 30-min Rain": "28 mm",
+          "Wet-Ground Index": "52",
+          "Gauges Live": "59 / 59"
+        },
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_preset_04_Dec_2025.png"
+      }
+    ]
+  },
+  "task2_stress_controls": {
+    "slider_scrubbing": {
+      "total_steps": 85,
+      "avg_latency_seconds": 0.201,
+      "min_latency_seconds": 0.183,
+      "max_latency_seconds": 0.479,
+      "p95_latency_seconds": 0.252,
+      "flicker_or_empty_render_count": 0,
+      "sampled_steps": [
+        {
+          "step_index": 0,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "0 / 55",
+            "0 / 55",
+            "1 mm",
+            "18",
+            "67 / 70"
+          ],
+          "latency_s": 0.19,
+          "captured": null
+        },
+        {
+          "step_index": 10,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "0 / 55",
+            "0 / 55",
+            "15 mm",
+            "35",
+            "67 / 70"
+          ],
+          "latency_s": 0.187,
+          "captured": null
+        },
+        {
+          "step_index": 20,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "9 / 55",
+            "19 / 55",
+            "41 mm",
+            "77",
+            "67 / 70"
+          ],
+          "latency_s": 0.255,
+          "captured": null
+        },
+        {
+          "step_index": 30,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "11 / 55",
+            "7 / 55",
+            "40 mm",
+            "101",
+            "67 / 70"
+          ],
+          "latency_s": 0.187,
+          "captured": null
+        },
+        {
+          "step_index": 40,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "4 / 55",
+            "4 / 55",
+            "21 mm",
+            "110",
+            "67 / 70"
+          ],
+          "latency_s": 0.187,
+          "captured": null
+        },
+        {
+          "step_index": 50,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "0 / 55",
+            "2 / 55",
+            "19 mm",
+            "118",
+            "67 / 70"
+          ],
+          "latency_s": 0.189,
+          "captured": null
+        },
+        {
+          "step_index": 60,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "0 / 55",
+            "0 / 55",
+            "6 mm",
+            "122",
+            "67 / 70"
+          ],
+          "latency_s": 0.466,
+          "captured": null
+        },
+        {
+          "step_index": 70,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "0 / 55",
+            "0 / 55",
+            "2 mm",
+            "122",
+            "67 / 70"
+          ],
+          "latency_s": 0.188,
+          "captured": null
+        },
+        {
+          "step_index": 80,
+          "timestamp": "Timestamp:",
+          "metrics": [
+            "0 / 55",
+            "0 / 55",
+            "0 mm",
+            "119",
+            "67 / 70"
+          ],
+          "latency_s": 0.187,
+          "captured": null
+        }
+      ]
+    },
+    "zone_cycling": [
+      {
+        "zone": "BUKIT TIMAH",
+        "latency_seconds": 2.21,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "0.0% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_BUKIT_TIMAH.png"
+      },
+      {
+        "zone": "BEDOK",
+        "latency_seconds": 1.57,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "2.9% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_BEDOK.png"
+      },
+      {
+        "zone": "JURONG EAST",
+        "latency_seconds": 1.56,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "0.0% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_JURONG_EAST.png"
+      },
+      {
+        "zone": "CENTRAL WATER CATCHMENT",
+        "latency_seconds": 1.59,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "3.1% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_CENTRAL_WATER_CATCHMENT.png"
+      },
+      {
+        "zone": "CHANGI",
+        "latency_seconds": 1.56,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "0.0% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_CHANGI.png"
+      },
+      {
+        "zone": "TUAS",
+        "latency_seconds": 1.56,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "4.7% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_TUAS.png"
+      },
+      {
+        "zone": "PUNGGOL",
+        "latency_seconds": 1.57,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "0.0% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_PUNGGOL.png"
+      },
+      {
+        "zone": "NOVENA",
+        "latency_seconds": 1.57,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "0.0% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_NOVENA.png"
+      },
+      {
+        "zone": "QUEENSTOWN",
+        "latency_seconds": 1.57,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "2.4% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_QUEENSTOWN.png"
+      },
+      {
+        "zone": "MARINA SOUTH",
+        "latency_seconds": 1.57,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "3.3% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_MARINA_SOUTH.png"
+      },
+      {
+        "zone": "SIMPANG",
+        "latency_seconds": 1.56,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "3.8% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_SIMPANG.png"
+      },
+      {
+        "zone": "WESTERN ISLANDS",
+        "latency_seconds": 1.58,
+        "has_nan_or_error": false,
+        "gauge_present": true,
+        "gauge_text_sample": "2.5% 0 20 40 60 80 100",
+        "zone_diagnostic_sample": "MODERATE RISK ZONES |  | 0 / 55 |  | Moderate from | 0.30%",
+        "screenshot": "tests/screenshots/qa_zone_WESTERN_ISLANDS.png"
+      }
+    ],
+    "edge_dates": [
+      {
+        "iso_date": "2020-02-29",
+        "description": "Leap year date (29 Feb 2020)",
+        "latency_seconds": 2.53,
+        "metrics_rendered": 5,
+        "metrics": [
+          "0 / 55",
+          "0 / 55",
+          "0 mm",
+          "118",
+          "67 / 70"
+        ],
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_edge_date_2020_02_29.png"
+      },
+      {
+        "iso_date": "2017-01-01",
+        "description": "Store boundary start (1 Jan 2017)",
+        "latency_seconds": 2.51,
+        "metrics_rendered": 5,
+        "metrics": [
+          "0 / 55",
+          "0 / 55",
+          "0 mm",
+          "118",
+          "67 / 70"
+        ],
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_edge_date_2017_01_01.png"
+      },
+      {
+        "iso_date": "2019-02-15",
+        "description": "Completely dry day (no rain)",
+        "latency_seconds": 2.51,
+        "metrics_rendered": 5,
+        "metrics": [
+          "0 / 55",
+          "0 / 55",
+          "0 mm",
+          "118",
+          "67 / 70"
+        ],
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_edge_date_2019_02_15.png"
+      },
+      {
+        "iso_date": "2010-01-01",
+        "description": "Out of bounds date (pre-store era, 0 readings)",
+        "latency_seconds": 2.52,
+        "metrics_rendered": 5,
+        "metrics": [
+          "0 / 55",
+          "0 / 55",
+          "0 mm",
+          "118",
+          "67 / 70"
+        ],
+        "alerts": [],
+        "screenshot": "tests/screenshots/qa_edge_date_2010_01_01.png"
+      }
+    ],
+    "responsive_layouts": [
+      {
+        "viewport": "desktop_1440x900",
+        "width": 1440,
+        "height": 900,
+        "scroll_width": 1440,
+        "client_width": 1440,
+        "has_horizontal_overflow": false,
+        "overflow_pixels": 0,
+        "metrics_rendered": 5,
+        "charts_rendered": 3,
+        "screenshot": "tests/screenshots/qa_layout_desktop_1440x900.png"
+      },
+      {
+        "viewport": "laptop_1024x768",
+        "width": 1024,
+        "height": 768,
+        "scroll_width": 1024,
+        "client_width": 1024,
+        "has_horizontal_overflow": false,
+        "overflow_pixels": 0,
+        "metrics_rendered": 5,
+        "charts_rendered": 3,
+        "screenshot": "tests/screenshots/qa_layout_laptop_1024x768.png"
+      },
+      {
+        "viewport": "mobile_390x844",
+        "width": 390,
+        "height": 844,
+        "scroll_width": 390,
+        "client_width": 390,
+        "has_horizontal_overflow": false,
+        "overflow_pixels": 0,
+        "metrics_rendered": 5,
+        "charts_rendered": 3,
+        "screenshot": "tests/screenshots/qa_layout_mobile_390x844.png"
+      }
+    ]
+  },
+  "task3_console_and_dom": {
+    "console_errors_count": 0,
+    "unique_console_errors": [],
+    "console_warnings_count": 4,
+    "unique_console_warnings": [
+      {
+        "text": "[.WebGL-0x114074a2400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "location": {
+          "url": "http://localhost:8501/",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      },
+      {
+        "text": "[.WebGL-0x114074a2400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+        "location": {
+          "url": "http://localhost:8501/",
+          "line": 0,
+          "column": 0,
+          "lineNumber": 0,
+          "columnNumber": 0
+        }
+      }
+    ],
+    "page_errors": []
+  },
+  "screenshots": [
+    "tests/screenshots/qa_task1_cold_start.png",
+    "tests/screenshots/qa_task1_switched_to_replay.png",
+    "tests/screenshots/qa_preset_17_Apr_2021.png",
+    "tests/screenshots/qa_preset_08_Jan_2018.png",
+    "tests/screenshots/qa_preset_23_Jun_2020.png",
+    "tests/screenshots/qa_preset_22_Nov_2024.png",
+    "tests/screenshots/qa_preset_13_Apr_2025.png",
+    "tests/screenshots/qa_preset_04_Dec_2025.png",
+    "tests/screenshots/qa_zone_BUKIT_TIMAH.png",
+    "tests/screenshots/qa_zone_BEDOK.png",
+    "tests/screenshots/qa_zone_JURONG_EAST.png",
+    "tests/screenshots/qa_zone_CENTRAL_WATER_CATCHMENT.png",
+    "tests/screenshots/qa_zone_CHANGI.png",
+    "tests/screenshots/qa_zone_TUAS.png",
+    "tests/screenshots/qa_zone_PUNGGOL.png",
+    "tests/screenshots/qa_zone_NOVENA.png",
+    "tests/screenshots/qa_zone_QUEENSTOWN.png",
+    "tests/screenshots/qa_zone_MARINA_SOUTH.png",
+    "tests/screenshots/qa_zone_SIMPANG.png",
+    "tests/screenshots/qa_zone_WESTERN_ISLANDS.png",
+    "tests/screenshots/qa_edge_date_2020_02_29.png",
+    "tests/screenshots/qa_edge_date_2017_01_01.png",
+    "tests/screenshots/qa_edge_date_2019_02_15.png",
+    "tests/screenshots/qa_edge_date_2010_01_01.png",
+    "tests/screenshots/qa_layout_desktop_1440x900.png",
+    "tests/screenshots/qa_layout_laptop_1024x768.png",
+    "tests/screenshots/qa_layout_mobile_390x844.png"
+  ]
+}

@@ -36,7 +36,7 @@ st.set_page_config(
     page_title="FloodSense | Urban Drainage Intelligence",
     page_icon="🌊",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 MODERN_TELEMETRY_LIGHT_CSS = """
@@ -119,17 +119,19 @@ div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorde
 [data-testid="stMetricLabel"] p,
 [data-testid="stMetricLabel"] div {
     font-family: 'Inter', sans-serif !important;
-    font-size: 0.72rem !important;
+    font-size: clamp(0.65rem, 0.75vw, 0.72rem) !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
+    letter-spacing: 0.04em !important;
     color: #64748B !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
     white-space: nowrap !important;
 }
 
 [data-testid="stMetricValue"] {
     font-family: 'Inter', system-ui, sans-serif !important;
-    font-size: 2rem !important;
+    font-size: clamp(1.25rem, 1.8vw, 2rem) !important;
     font-weight: 800 !important;
     color: #0F172A !important;
     font-variant-numeric: tabular-nums !important;
@@ -423,6 +425,7 @@ def _replay_pinned_storm() -> None:
     """Jump to the 17 Apr 2021 replay. A callback, so it runs before the widgets are drawn."""
     st.session_state["mode"] = "Replay Storm"
     st.session_state["replay_date"] = replay_days.PINNED_STORM
+    st.session_state[f"replay-time-{replay_days.PINNED_STORM}"] = REPLAY_DEFAULT_TIME
 
 
 def storm_buttons(selected: date) -> None:
@@ -487,9 +490,18 @@ if mode == "Live Feed":
             "No data is shown rather than substituting simulated rain. Switch to **Replay Storm**, "
             "or retry. Setting `FLOODSENSE_DATA_GOV_API_KEY` avoids anonymous rate limits."
         )
-        if st.button("Retry now"):
-            live_features.clear()
-            st.rerun()
+        col_fb1, col_fb2 = st.columns(2)
+        with col_fb1:
+            st.button(
+                "⚡ Switch to Replay Storm (17 Apr 2021)",
+                type="primary",
+                on_click=_replay_pinned_storm,
+                use_container_width=True,
+            )
+        with col_fb2:
+            if st.button("🔄 Retry Live Feed", use_container_width=True):
+                live_features.clear()
+                st.rerun()
         st.stop()
     view_time = features["timestamp"].iloc[0]
     live_badge = (
@@ -1034,6 +1046,10 @@ with context_col, st.container(border=True):
         "- **PUB monitoring:** more than 1,000 water-level sensors and over 500 CCTV cameras. "
         "([PUB](https://www.pub.gov.sg/Public/KeyInitiatives/Flood-Resilience/Flood-Forecasting-and-Monitoring))"
     )
+    with st.expander("📊 PUB Flood-Prone Areas Trend (2022–2025)", expanded=False):
+        from floodsense.data.flood_prone import build_trend_chart
+        st.plotly_chart(build_trend_chart(), use_container_width=True, config={"displayModeBar": False})
+        st.caption("Official PUB annual hectarage gazette. While physical drainage infrastructure has reduced flood-prone land by 99% since the 1970s, high-intensity microbursts require real-time hyper-local predictive intelligence.")
 
 with status_col, st.container(border=True):
     st.subheader(":material/construction: Prototype Status & Verification")
