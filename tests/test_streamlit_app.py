@@ -51,7 +51,8 @@ def test_streamlit_app_mode_toggle(offline):
     at.sidebar.button_group[0].set_value("Replay Storm")
     at.run(timeout=60)
     assert not at.exception
-    assert len(at.metric) == 5
+    # 5 KPI cards, plus 3 transport counters: 12:15 on 17 Apr 2021 has Moderate areas with MRT.
+    assert len(at.metric) == 8
 
 
 def test_streamlit_app_replay_scrubbing_changes_the_view():

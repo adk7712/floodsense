@@ -85,6 +85,9 @@ are floods we could source with a link and a quote, not every flood that happene
 - NEA 5-minute rain gauges via data.gov.sg, 2017 to Sep 2026: **60.8 million readings** [7]
 - URA Master Plan 2019 planning-area boundaries (55 zones)
 - PUB Flood Prone Areas, 2022–2025 (annual hectares), shown as a trend in the app [9]
+- LTA MRT Station Exits (data.gov.sg): which stations each risk area exposes (stretch goal: cascading
+  impact). This is exposure, not measured disruption. LTA ridership history only covers the last
+  ~3 months, so a ridership correlation with past floods isn't possible yet
 - **66 flood events** from PUB alerts and news, each sourced and signed off
 - **PUB Flood Alerts (real-time API)**: shown live in the app and archived in Databricks on every
   poll. The API keeps no past alerts, so the archive starts now. That's 4 of 4 Track B2 datasets in use
@@ -190,7 +193,7 @@ Caption: "Best case on record: High about an hour before the report. The typical
 | Who | What they get |
 |---|---|
 | Residents and drivers | Earlier, per-zone warnings with a reason, including where PUB has no sensors |
-| LTA and commuters (next) | Zone alerts mapped onto roads such as Dunearn Rd, so buses can divert early |
+| LTA and commuters | **Built:** MRT/LRT stations with an exit in a Moderate/High area or a PUB alert circle (e.g. 12:45, 17 Apr 2021: 25 stations in High areas, including Beauty World, Sixth Avenue and Tan Kah Kee). **Next:** bus stops, and LTA's live disruption feeds |
 | Town councils | Which zones' drains to clear first before a storm |
 | Planners | Zones becoming more flood-prone over the years, to guide drainage spending |
 

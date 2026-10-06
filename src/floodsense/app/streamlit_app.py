@@ -27,6 +27,8 @@ from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data.flood_events import load_flood_events
 from floodsense.data.replay import load_replay
+from floodsense.data.transport import SOURCE_NAME as MRT_SOURCE
+from floodsense.data.transport import stations_at_risk
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.ingestion.flood_alerts import FloodAlert, active_alerts, fetch_flood_alerts
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
@@ -411,6 +413,12 @@ def store_range() -> tuple[date, date]:
     return replay_days.store_date_range()
 
 
+def hotspot_roads(zone: str, limit: int = 2) -> list[str]:
+    """Places in ``zone`` with sourced past floods, most frequent first."""
+    places = pd.Series([e.location_raw for e in flood_events() if e.ura_planning_area == zone])
+    return list(places.value_counts().index[:limit]) if len(places) else []
+
+
 @st.cache_data
 def flood_events() -> list[FloodEvent]:
     try:
@@ -648,9 +656,11 @@ st.markdown(
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
 
+active_pub_alerts: list[FloodAlert] = []  # live PUB alerts (none in Replay: no history)
 if mode == "Live Feed":
     live_auto_refresh()
     pub_alerts, pub_alerts_error = live_flood_alerts()
+    active_pub_alerts = pub_alerts or []
     if pub_alerts_error:
         st.caption(f"PUB flood alerts unavailable right now: {pub_alerts_error}")
     elif pub_alerts:
@@ -1056,6 +1066,27 @@ with detail_col, st.container(border=True):
         if zone_data["rain_30m"] <= 0
         else f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
     )
+    with st.container(border=True):
+        st.markdown("**Who should act now**")
+        zone_tier = zone_data["risk_tier"]
+        if zone_tier in ("High", "Moderate"):
+            zone_stations = stations_at_risk(df_results[df_results["zone"] == selected_zone])
+            station_text = ", ".join(zone_stations["station"]) or "none in this area"
+            roads = hotspot_roads(selected_zone)
+            urgency = "now" if zone_tier == "High" else "in the next hour"
+            st.markdown(
+                f"- **Commuters and drivers:** expect flooding {urgency}; avoid low-lying roads"
+                + (f" such as {' and '.join(roads)}" if roads else "")
+                + f". MRT/LRT exits in this area: {station_text}.\n"
+                f"- **Town council:** check drains and grates at past flood spots {urgency}.\n"
+                "- **PUB / responders:** watch this area's drain sensors and CCTV; FloodSense "
+                f"rates it {zone_tier} ({zone_data['flood_probability']:.2%} chance of a reported "
+                "flood in the next hour)."
+            )
+        else:
+            st.caption(
+                "No action needed: this area is at Low risk. Actions appear here at Moderate or High."
+            )
     st.button(
         "⟳ Replay the 17 Apr 2021 storm",
         on_click=_replay_pinned_storm,
@@ -1063,6 +1094,54 @@ with detail_col, st.container(border=True):
         help="Real NEA readings from the day Dunearn Road flooded.",
     )
 
+
+# --- PUBLIC TRANSPORT AT RISK -------------------------------------------------------------
+with st.container(border=True):
+    st.subheader(":material/train: Public transport at risk")
+    try:
+        at_risk = stations_at_risk(df_results, active_pub_alerts)
+    except FileNotFoundError as exc:
+        st.warning(str(exc))
+        at_risk = None
+    if at_risk is not None and at_risk.empty:
+        st.caption(
+            "No MRT/LRT station has an exit in a Moderate or High area"
+            + (" or near an active PUB flood alert" if mode == "Live Feed" else "")
+            + " right now."
+        )
+    elif at_risk is not None:
+        counts = at_risk["tier"].value_counts()
+        t_cols = st.columns(3)
+        t_cols[0].metric("Stations in High areas", int(counts.get("High", 0)))
+        t_cols[1].metric("Stations in Moderate areas", int(counts.get("Moderate", 0)))
+        t_cols[2].metric("Stations near a PUB alert", int(counts.get("PUB alert", 0)))
+        st.dataframe(
+            at_risk.assign(
+                zone=at_risk["zone"].str.title(),
+                probability=at_risk["probability"].map(lambda p: "" if pd.isna(p) else f"{p:.2%}"),
+            ).rename(
+                columns={
+                    "station": "Station",
+                    "zone": "Planning area",
+                    "tier": "Risk",
+                    "probability": "Chance of flood (next hour)",
+                    "reason": "Why",
+                }
+            ),
+            hide_index=True,
+            width="stretch",
+        )
+    st.caption(
+        f"Stations with an exit in a planning area rated Moderate or High, or within an active PUB "
+        f"alert circle (exit locations: {MRT_SOURCE}). This shows exposure, not observed "
+        "service disruptions."
+        + (
+            " Today's station list is used for every replay, so stations that opened after the "
+            "replayed day can appear."
+            if mode != "Live Feed"
+            else ""
+        )
+    )
 
 # --- CONTEXT & PROTOTYPE STATUS -----------------------------------------------------------
 context_col, status_col = st.columns(2)

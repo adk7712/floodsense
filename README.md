@@ -16,6 +16,7 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 >   - PUB flood alerts are archived on every poll (the API keeps no history)
 >   - an AI/BI dashboard reads gold; tables carry source and layer tags
 > - **PUB flood alerts:** shown live in the app beside the risk map; the live view reloads every 5 min.
+> - **Transport at risk:** MRT/LRT stations with an exit in a Moderate/High area or a PUB alert circle (LTA MRT Station Exit, data.gov.sg), plus a "who should act" box per zone.
 > - **Uncertainty:** every test rate in `models/final_report.json` has a bootstrap 90% interval (`ci90`).
 > - **Not built yet:** radar nowcasting, tide, the app reading gold, and gold loading the model from the registry.
 
