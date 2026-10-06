@@ -54,6 +54,49 @@ def test_streamlit_app_mode_toggle(offline):
     assert len(at.metric) == 5
 
 
+def test_streamlit_app_theme_toggle():
+    at = _app()
+    assert at.toggle[0].value is False
+    assert at.session_state["theme"] == "light"
+
+    at.toggle[0].set_value(True)
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["theme"] == "dark"
+
+    at.toggle[0].set_value(False)
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["theme"] == "light"
+
+
+def test_streamlit_app_theme_toggle_preserves_session_state():
+    at = _app()
+    # Select non-default zone and scrub time slider
+    at.selectbox[0].set_value("BEDOK")
+    at.select_slider[0].set_value("11:30")
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.selectbox[0].value == "BEDOK"
+    assert at.select_slider[0].value == "11:30"
+
+    # Switch theme to Dark
+    at.toggle[0].set_value(True)
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["theme"] == "dark"
+    assert at.selectbox[0].value == "BEDOK"
+    assert at.select_slider[0].value == "11:30"
+
+    # Switch back to Light
+    at.toggle[0].set_value(False)
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["theme"] == "light"
+    assert at.selectbox[0].value == "BEDOK"
+    assert at.select_slider[0].value == "11:30"
+
+
 def test_streamlit_app_replay_scrubbing_changes_the_view():
     # Widget handles go stale after at.run(), so re-fetch them before every interaction.
     at = _app()
