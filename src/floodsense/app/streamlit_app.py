@@ -35,6 +35,7 @@ from floodsense.ingestion.flood_alerts import FloodAlert, active_alerts, fetch_f
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 from floodsense.models.artifact import load_model, rarity_scores
 from floodsense.models.scoring import default_thresholds, score_zone_features
+from floodsense.radar.live import RadarView, forecast_features, radar_view
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, load_station_snapshot
 
 st.set_page_config(
@@ -290,6 +291,16 @@ div[data-testid="stSidebarCollapsedControl"],
 [data-testid="stDateInputCalendar"] svg {{
     color: var(--text-main) !important;
     fill: currentColor;
+}}
+
+/* Widget labels in the main area (e.g. "Radar") follow the theme, like the sidebar's. */
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p {{
+    color: var(--text-main) !important;
+}}
+
+/* Toggle switches: the off-state track came from the light theme and vanished in dark mode. */
+[data-testid="stCheckbox"] label:not([data-selected]) > span:has(input[role="switch"]) + div {{
+    background-color: var(--text-dim) !important;
 }}
 
 /* Page container */
@@ -897,6 +908,15 @@ def live_flood_alerts() -> tuple[list[FloodAlert] | None, str | None]:
         return None, str(exc)
 
 
+@st.cache_data(ttl=300, show_spinner="Loading radar…")
+def radar_for(when_iso: str) -> RadarView | None:
+    """Radar now and the nowcast at a time (None: no radar exists for it). Cached per frame time."""
+    try:
+        return radar_view(datetime.fromisoformat(when_iso))
+    except ImportError:
+        return None  # the optional 'radar' extra (OpenCV) isn't installed
+
+
 LIVE_REFRESH = timedelta(minutes=5)
 
 
@@ -1279,6 +1299,36 @@ with map_col, st.container(border=True):
         f"</div>",
         unsafe_allow_html=True,
     )
+    radar_cols = st.columns([1.4, 1])
+    with radar_cols[0]:
+        radar_layer = st.segmented_control(
+            "Radar",
+            ["Off", "Now", "+30 min", "+60 min"],
+            default="Off",
+            key="radar_layer",
+            help="NEA rain-area radar. +30 and +60 min are a nowcast: today's rain moved along "
+            "its estimated track (it doesn't grow or decay).",
+        )
+    with radar_cols[1]:
+        forecast_on = st.toggle(
+            "Forecast risk (experimental)",
+            key="forecast_risk",
+            help="Each zone's risk tier once the nowcast's next-hour rain has fallen. Its flood skill "
+            "isn't validated yet: radar history starts 16 Jul 2026.",
+        )
+    need_radar = (radar_layer not in (None, "Off")) or forecast_on
+    radar = radar_for(view_time.isoformat()) if need_radar else None
+    if need_radar and radar is None:
+        st.caption(
+            "No radar for this time. data.gov.sg keeps about 3 months of radar and our archive "
+            "starts 16 Jul 2026. Try replaying **30 Sep 2026** (Woodlands flood)."
+        )
+    map_df = df_results
+    if forecast_on and radar is not None:
+        map_df = score_zone_features(forecast_features(features, radar.zones), model).merge(
+            ZONE_META, on="ura_planning_area"
+        )
+        map_df["zone"] = map_df["ura_planning_area"]
     map_func = getattr(px, "scatter_map", getattr(px, "scatter_mapbox", None))
     style_key = "map_style" if hasattr(px, "scatter_map") else "mapbox_style"
     map_kwargs = {
@@ -1302,7 +1352,7 @@ with map_col, st.container(border=True):
         "center": {"lat": 1.3521, "lon": 103.8198},
         style_key: tokens["map_style"],
     }
-    fig_map = map_func(df_results, **map_kwargs)  # type: ignore[misc]
+    fig_map = map_func(map_df, **map_kwargs)  # type: ignore[misc]
 
     # Clean tooltip formatting
     for trace in fig_map.data:
@@ -1342,7 +1392,7 @@ with map_col, st.container(border=True):
 
     # 55 URA planning area polygon boundaries: thin outlines
     ura_geojson = load_ura_boundaries()
-    map_layers = []
+    map_layers: list[dict[str, Any]] = []
     if ura_geojson:
         map_layers.append(
             {
@@ -1352,6 +1402,18 @@ with map_col, st.container(border=True):
                 "color": "rgba(100, 116, 139, 0.45)" if IS_DARK else "rgba(148, 163, 184, 0.45)",
                 "line": {"width": 1.0},
             }
+        )
+
+    if radar is not None and radar_layer in radar.images:
+        map_layers.insert(
+            0,
+            {
+                "sourcetype": "image",
+                "source": radar.data_uri(radar_layer),
+                "coordinates": radar.corners(),
+                "opacity": 0.6,
+                "below": "traces",
+            },
         )
 
     map_layout_key = "map" if hasattr(px, "scatter_map") else "mapbox"
@@ -1377,7 +1439,9 @@ with map_col, st.container(border=True):
             borderwidth=1,
             font=dict(family="Inter, sans-serif", size=11, color=tokens["text_main"]),
             title=dict(
-                text="RISK CLASSIFICATION",
+                text="FORECAST RISK (EXPERIMENTAL)"
+                if forecast_on and radar is not None
+                else "RISK CLASSIFICATION",
                 font=dict(family="Inter, sans-serif", size=10, color=tokens["text_muted"]),
             ),
         ),
@@ -1388,6 +1452,17 @@ with map_col, st.container(border=True):
         f"{model_caption} {history_note} Each risk marker sits inside its URA planning area; "
         "grey outlines are the URA Master Plan 2019 boundaries, small grey dots NEA gauge locations."
     )
+    if radar is not None:
+        st.caption(
+            f"Radar: NEA rain areas via data.gov.sg, frame {radar.timestamp:%H:%M} SGT, colours "
+            "calibrated against NEA gauges. +30/+60 min are an optical-flow nowcast. "
+            + (
+                "Markers show the **forecast** tier: the model's tier for the nowcast's next-hour "
+                "rain. Experimental: its flood skill isn't validated yet."
+                if forecast_on
+                else ""
+            )
+        )
 
 with detail_col, st.container(border=True):
     st.markdown(
@@ -1436,6 +1511,18 @@ with detail_col, st.container(border=True):
         f"low: Moderate from {tier_thresholds['moderate']:.2%}, "
         f"High from {tier_thresholds['high']:.2%}."
     )
+    if radar is not None:
+        zr = radar.zones.set_index("ura_planning_area").loc[selected_zone]
+        fc_tier = (
+            map_df.loc[map_df["zone"] == selected_zone, "risk_tier"].iloc[0]
+            if forecast_on
+            else None
+        )
+        st.caption(
+            f":material/radar: **Radar (experimental):** {zr['radar_now_mm_h']:.1f} mm/h now · "
+            f"{zr['nowcast_30_mm']:.1f} mm in the next 30 min · {zr['nowcast_60_mm']:.1f} mm in the "
+            "next hour" + (f" → forecast tier **{fc_tier}**" if fc_tier else "") + "."
+        )
 
     # Rolling rainfall and wet-ground tiles
     st.markdown(

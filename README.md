@@ -18,7 +18,12 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 > - **PUB flood alerts:** shown live in the app beside the risk map; the live view reloads every 5 min.
 > - **Transport at risk:** MRT/LRT stations with an exit in a Moderate/High area or a PUB alert circle (LTA MRT Station Exit, data.gov.sg).
 > - **Uncertainty:** every test rate in `models/final_report.json` has a bootstrap 90% interval (`ci90`).
-> - **Not built yet:** radar nowcasting, tide, the app reading gold, and gold loading the model from the registry.
+> - **Radar** (data.gov.sg rain areas):
+>   - archived daily from 16 Jul 2026 (the API keeps ~3 months)
+>   - colours calibrated to mm/h against NEA gauges (`docs/radar_calibration.md`)
+>   - an optical-flow nowcast that beats persistence (`docs/radar_nowcast_result.md`)
+>   - in the app: a map overlay (now, +30 and +60 min) and an experimental forecast-risk view (needs the `radar` extra)
+> - **Not built yet:** tide, the app reading gold, and gold loading the model from the registry.
 
 ## Quickstart
 
