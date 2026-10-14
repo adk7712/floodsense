@@ -1310,12 +1310,17 @@ with map_col, st.container(border=True):
             "its estimated track (it doesn't grow or decay).",
         )
     with radar_cols[1]:
-        forecast_on = st.toggle(
-            "Forecast risk (experimental)",
-            key="forecast_risk",
-            help="Each zone's risk tier once the nowcast's next-hour rain has fallen. Its flood skill "
-            "isn't validated yet: radar history starts 16 Jul 2026.",
+        risk_view = st.segmented_control(
+            "Risk",
+            ["Now", "In 1 hour (radar)"],
+            default="Now",
+            key="risk_view",
+            help="Now: from the rain that has already fallen (NEA gauges). In 1 hour: radar predicts "
+            "each zone's rain over the next hour, and the same model says what risk that rain would "
+            "bring, so it can warn before the rain arrives. Experimental: radar history starts "
+            "16 Jul 2026, so it isn't yet checked against real floods.",
         )
+        forecast_on = risk_view == "In 1 hour (radar)"
     need_radar = (radar_layer not in (None, "Off")) or forecast_on
     radar = radar_for(view_time.isoformat()) if need_radar else None
     if need_radar and radar is None:
@@ -1334,7 +1339,7 @@ with map_col, st.container(border=True):
     map_kwargs = {
         "lat": "lat",
         "lon": "lon",
-        "size": "rain_30m",
+        "size": "marker_size",
         "color": "risk_tier",
         "color_discrete_map": TIER_COLORS,
         "category_orders": {"risk_tier": list(TIER_COLORS)},
@@ -1344,6 +1349,7 @@ with map_col, st.container(border=True):
             "flood_probability": ":.4f",
             "rain_30m": ":.1f",
             "rain_decay_72h": False,
+            "marker_size": False,
             "lat": False,
             "lon": False,
         },
@@ -1352,6 +1358,8 @@ with map_col, st.container(border=True):
         "center": {"lat": 1.3521, "lon": 103.8198},
         style_key: tokens["map_style"],
     }
+    # Plotly's map hides markers of size exactly 0 (before sizemin applies), so floor at 0.01.
+    map_df = map_df.assign(marker_size=map_df["rain_30m"].clip(lower=0.01))
     fig_map = map_func(map_df, **map_kwargs)  # type: ignore[misc]
 
     # Clean tooltip formatting
@@ -1364,6 +1372,32 @@ with map_col, st.container(border=True):
                     f"<span style='color:{tokens['text_muted']};'>Flood Probability:</span> %{{customdata[1]:.2%}}<br>"
                     f"<span style='color:{tokens['text_muted']};'>Max 30m Rain:</span> %{{customdata[2]:.1f}} mm<extra></extra>"
                 ),
+            )
+
+    # Fixed marker scale (40 mm in 30 min = largest), so sizes compare across times; dry zones
+    # keep a small visible marker. Plotly's default scales to the wettest zone in view.
+    for trace in fig_map.data:
+        if trace.name in TIER_COLORS:
+            trace.update(marker=dict(sizemode="area", sizeref=2 * 40 / 28**2, sizemin=6))
+
+    # Always list all three tiers in the legend (plotly only lists tiers present on the map).
+    marker_cls = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
+    present = {t.name for t in fig_map.data}
+    for rank, tier in enumerate(TIER_COLORS):
+        for trace in fig_map.data:
+            if trace.name == tier:
+                trace.update(legendrank=rank)
+        if tier not in present and marker_cls:
+            fig_map.add_trace(
+                marker_cls(
+                    lat=[None],
+                    lon=[None],
+                    mode="markers",
+                    marker=dict(size=10, color=TIER_COLORS[tier]),
+                    name=tier,
+                    legendrank=rank,
+                    hoverinfo="skip",
+                )
             )
 
     # Weather station / sensor dots layer: cool cyan dots
@@ -1430,6 +1464,7 @@ with map_col, st.container(border=True):
             font_color=tokens["text_main"],
         ),
         legend=dict(
+            itemsizing="constant",
             yanchor="top",
             y=0.98,
             xanchor="left",
@@ -1439,7 +1474,7 @@ with map_col, st.container(border=True):
             borderwidth=1,
             font=dict(family="Inter, sans-serif", size=11, color=tokens["text_main"]),
             title=dict(
-                text="FORECAST RISK (EXPERIMENTAL)"
+                text="RISK IN 1 HOUR (RADAR, EXPERIMENTAL)"
                 if forecast_on and radar is not None
                 else "RISK CLASSIFICATION",
                 font=dict(family="Inter, sans-serif", size=10, color=tokens["text_muted"]),
@@ -1457,8 +1492,8 @@ with map_col, st.container(border=True):
             f"Radar: NEA rain areas via data.gov.sg, frame {radar.timestamp:%H:%M} SGT, colours "
             "calibrated against NEA gauges. +30/+60 min are an optical-flow nowcast. "
             + (
-                "Markers show the **forecast** tier: the model's tier for the nowcast's next-hour "
-                "rain. Experimental: its flood skill isn't validated yet."
+                "Markers show the **risk in 1 hour**: the model's risk level for the rain radar "
+                "predicts over the next hour. Experimental: not yet checked against real floods."
                 if forecast_on
                 else ""
             )
@@ -1521,7 +1556,7 @@ with detail_col, st.container(border=True):
         st.caption(
             f":material/radar: **Radar (experimental):** {zr['radar_now_mm_h']:.1f} mm/h now · "
             f"{zr['nowcast_30_mm']:.1f} mm in the next 30 min · {zr['nowcast_60_mm']:.1f} mm in the "
-            "next hour" + (f" → forecast tier **{fc_tier}**" if fc_tier else "") + "."
+            "next hour" + (f" → risk in 1 hour **{fc_tier}**" if fc_tier else "") + "."
         )
 
     # Rolling rainfall and wet-ground tiles
