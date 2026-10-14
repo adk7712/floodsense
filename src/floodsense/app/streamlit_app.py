@@ -371,6 +371,18 @@ div.st-key-map_subview div[data-testid="stButtonGroup"] button p {{
     margin-top: -6px !important;
 }}
 
+/* Map card and zone card: same height (the shorter stretches to the taller). */
+div[data-testid="stHorizontalBlock"]:has(.st-key-map_card) {{
+    align-items: stretch !important;
+}}
+div[data-testid="stHorizontalBlock"]:has(.st-key-map_card) > div[data-testid="stColumn"] > div,
+div[data-testid="stLayoutWrapper"]:has(> .st-key-map_card),
+div[data-testid="stLayoutWrapper"]:has(> .st-key-zone_card),
+.st-key-map_card,
+.st-key-zone_card {{
+    height: 100% !important;
+}}
+
 /* Page container */
 .block-container {{
     padding-top: 0.4rem !important;
@@ -1014,6 +1026,7 @@ mode = st.sidebar.segmented_control(
     "Mode",
     options=["Live Feed", "Replay Storm"],
     key="mode",
+    label_visibility="collapsed",
 )
 
 st.sidebar.markdown("---")
@@ -1332,7 +1345,7 @@ with kpi_cols[4]:
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
 map_col, detail_col = st.columns([1.7, 1.3])
 
-with map_col, st.container(border=True):
+with map_col, st.container(border=True, key="map_card"):
     st.markdown(
         f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">'
         f'  <div style="display: flex; align-items: center; gap: 8px;">'
@@ -1510,7 +1523,7 @@ with map_col, st.container(border=True):
             borderwidth=1,
             font=dict(family="Inter, sans-serif", size=11, color=tokens["text_main"]),
             title=dict(
-                text="RISK IN 1 HOUR (EXPERIMENTAL)"
+                text="RISK IN 1 HOUR"
                 if forecast_on and radar is not None
                 else "RISK CLASSIFICATION",
                 font=dict(family="Inter, sans-serif", size=10, color=tokens["text_muted"]),
@@ -1535,11 +1548,7 @@ with map_col, st.container(border=True):
             f'<div style="flex:1; background:{TIER_COLORS[t]};"></div>'
             for t in ("Low", "Moderate", "High")
         )
-        title = (
-            "Risk in 1 hour (experimental)"
-            if forecast_on and radar is not None
-            else "Risk of flood"
-        )
+        title = "Risk in 1 hour" if forecast_on and radar is not None else "Risk of flood"
         ticks = (
             '<span style="left:16.7%;">Low</span>'
             f'<span style="left:33.3%;">{tier_thresholds["moderate"]:.2%}</span>'
@@ -1553,26 +1562,9 @@ with map_col, st.container(border=True):
             f'<div class="fs-legend-ticks">{ticks}</div></div>',
             unsafe_allow_html=True,
         )
-    with st.expander("About this map"):
-        lines = [
-            "**Risk of flood:** each circle is a URA planning area. Its colour is the chance of a "
-            "reported flash flood in the next hour; its size, the last 30 minutes of rain. Rain per "
-            "zone is interpolated from NEA rain gauges (inverse-distance weighting); grey dots are "
-            "the gauges, grey lines the URA Master Plan 2019 boundaries.",
-            f"{model_caption} {history_note}",
-            "**In 1 hour (experimental):** radar predicts each zone's rain over the next hour, and the "
-            "same model gives the risk that rain would bring, so it can warn before the rain "
-            "arrives. Radar history starts 16 Jul 2026, so this isn't yet checked against real "
-            "floods.",
-            "**Rain radar:** NEA rain areas via data.gov.sg, colours calibrated against NEA gauges. "
-            "+30 and +60 min are a nowcast: today's rain moved along its estimated track (it doesn't "
-            "grow or decay).",
-        ]
-        if radar is not None:
-            lines.append(f"Radar frame shown: {radar.timestamp:%d %b %Y %H:%M} SGT.")
-        st.markdown("\n\n".join(lines))
 
-with detail_col, st.container(border=True):
+
+with detail_col, st.container(border=True, key="zone_card"):
     st.markdown(
         f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">'
         f'  <div style="display: flex; align-items: center; gap: 8px;">'
@@ -1613,23 +1605,19 @@ with detail_col, st.container(border=True):
         unsafe_allow_html=True,
     )
 
-    st.caption(
-        f"Chance a flood is reported here in the next 60 min: "
-        f"**{zone_data['flood_probability']:.2%}**. Flood reports are rare, so the alert levels are "
-        f"low: Moderate from {tier_thresholds['moderate']:.2%}, "
-        f"High from {tier_thresholds['high']:.2%}."
-    )
-    if radar is not None:
+    if radar_mode and radar is not None:
         zr = radar.zones.set_index("ura_planning_area").loc[selected_zone]
-        fc_tier = (
-            map_df.loc[map_df["zone"] == selected_zone, "risk_tier"].iloc[0]
-            if forecast_on
-            else None
-        )
         st.caption(
-            f":material/radar: **Radar (experimental):** {zr['radar_now_mm_h']:.1f} mm/h now · "
-            f"{zr['nowcast_30_mm']:.1f} mm in the next 30 min · {zr['nowcast_60_mm']:.1f} mm in the "
-            "next hour" + (f" → risk in 1 hour **{fc_tier}**" if fc_tier else "") + "."
+            f"**Radar:** {zr['radar_now_mm_h']:.1f} mm/h falling here now.  \n"
+            f"Forecast: **{zr['nowcast_30_mm']:.1f} mm** in the next 30 min, "
+            f"**{zr['nowcast_60_mm']:.1f} mm** in the next hour."
+        )
+    else:
+        st.caption(
+            f"Chance a flood is reported here in the next 60 min: "
+            f"**{zone_data['flood_probability']:.2%}**. Flood reports are rare, so the alert levels "
+            f"are low: Moderate from {tier_thresholds['moderate']:.2%}, "
+            f"High from {tier_thresholds['high']:.2%}."
         )
 
     # Rolling rainfall and wet-ground tiles
@@ -1741,11 +1729,6 @@ with detail_col, st.container(border=True):
         "No rain here in the last 30 minutes, so there is no storm to rank."
         if zone_data["rain_30m"] <= 0
         else f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
-    )
-    st.button(
-        "⟳ Replay the 17 Apr 2021 storm",
-        on_click=_replay_pinned_storm,
-        width="stretch",
     )
 
 

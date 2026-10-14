@@ -252,7 +252,9 @@ def test_replay_button_jumps_from_live_to_17_april(offline):
     at.session_state["mode"] = "Replay Storm"
     at.session_state["replay_date"] = date(2024, 11, 22)
     at.run(timeout=60)
-    next(b for b in at.button if b.label.startswith("⟳ Replay the 17 Apr 2021")).click()
+    at.session_state["mode"] = "Live Feed"  # offline: the error page offers the jump
+    at.run(timeout=60)
+    next(b for b in at.button if "Switch to Replay Storm" in b.label).click()
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["mode"] == "Replay Storm"
