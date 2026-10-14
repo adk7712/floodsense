@@ -1,0 +1,24 @@
+{
+  "name": "floodsense-radar-archiver",
+  "description": "Daily: archives the last 3 days of NEA rain-area radar frames (data.gov.sg keeps only ~3 months) into the workspace.floodsense.radar volume. Days already archived are skipped.",
+  "max_concurrent_runs": 1,
+  "schedule": {
+    "quartz_cron_expression": "0 0 3 * * ?",
+    "timezone_id": "Asia/Singapore",
+    "pause_status": "UNPAUSED"
+  },
+  "environments": [
+    {"environment_key": "radar", "spec": {"client": "2", "dependencies": ["requests", "pandas", "pyarrow"]}}
+  ],
+  "tasks": [
+    {
+      "task_key": "archive_radar",
+      "environment_key": "radar",
+      "spark_python_task": {
+        "python_file": "/Workspace/Users/<your-login>/floodsense/archive_radar.py",
+        "parameters": ["--out-dir", "/Volumes/workspace/floodsense/radar", "--days-back", "3"]
+      },
+      "timeout_seconds": 1800
+    }
+  ]
+}

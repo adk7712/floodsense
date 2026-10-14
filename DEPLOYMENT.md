@@ -271,3 +271,29 @@ reads gold and the pipeline tables, with times in SGT. The definition is in
 - Tags: `project`, `track` and `data_classification` on the schema; `source` and `layer` on every
   table.
 
+
+## 13. Radar archive (NEA rain-area radar), as run on 15 Oct 2026
+
+data.gov.sg's `weather-radar-images` API (`/70km` and `/240km`) returns one rain-intensity PNG every
+5 minutes, with a bounding box in EPSG:4326 and an azimuthal-equidistant projection centred on the
+radar. It accepts `?date=`, but keeps only about **3 months** (on 15 Oct, 15 Jul returned 404). It is
+not Doppler data: motion has to be estimated from consecutive frames.
+
+`databricks/jobs/archive_radar.py` (self-contained: requests, pandas, pyarrow) writes one Parquet per
+day and size, `<out-dir>/<size>/date=YYYY-MM-DD/frames.parquet`, holding every frame's PNG bytes and
+georeference. Days already archived are skipped.
+
+- **Backfill:** run locally (no Databricks compute) for 16 Jul to 14 Oct 2026, then uploaded to the
+  volume `workspace.floodsense.radar`. That is 91 days per size, 51,665 frames and about 250 MB.
+  89 days have 270 or more of 288 frames; 23 and 24 Jul are short on NEA's side.
+- **Daily job** `floodsense-radar-archiver` (id `486214899373176`, `databricks/jobs/radar_archive_job.json`):
+  03:00 SGT, archives the last 3 days, **schedule on**. The first run (`727559731420638`) succeeded
+  and wrote 12–14 Oct.
+
+```bash
+databricks volumes create workspace floodsense radar MANAGED
+databricks workspace import /Workspace/Users/<login>/floodsense/archive_radar.py \
+    --file databricks/jobs/archive_radar.py --format AUTO --overwrite
+databricks jobs create --json @databricks/jobs/radar_archive_job.json   # after filling in <login>
+python databricks/jobs/archive_radar.py --out-dir data/raw/radar --start <first available day>  # backfill
+```
