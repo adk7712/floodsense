@@ -26,6 +26,9 @@ dependencies = [
 
 [project.optional-dependencies]
 train = ["mlflow>=2.10"]
+radar = [
+    "opencv-python-headless>=4.8",
+]
 
 [dependency-groups]
 dev = [
