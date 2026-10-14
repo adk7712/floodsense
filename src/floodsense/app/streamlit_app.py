@@ -35,6 +35,7 @@ from floodsense.ingestion.flood_alerts import FloodAlert, active_alerts, fetch_f
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 from floodsense.models.artifact import load_model, rarity_scores
 from floodsense.models.scoring import default_thresholds, score_zone_features
+from floodsense.radar.decode import COLOUR_SCALE
 from floodsense.radar.live import RadarView, forecast_features, radar_view
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, load_station_snapshot
 
@@ -301,6 +302,73 @@ div[data-testid="stSidebarCollapsedControl"],
 /* Toggle switches: the off-state track came from the light theme and vanished in dark mode. */
 [data-testid="stCheckbox"] label:not([data-selected]) > span:has(input[role="switch"]) + div {{
     background-color: var(--text-dim) !important;
+}}
+
+/* Map view switch and its timing switch: same width, equal centred buttons, joined as one unit. */
+div.st-key-map_view,
+div.st-key-map_subview div[data-testid="stElementContainer"] {{
+    width: 250px !important;
+}}
+div.st-key-map_view div[data-testid="stButtonGroup"],
+div.st-key-map_subview div[data-testid="stButtonGroup"] {{
+    width: 250px !important;
+    box-sizing: border-box !important;
+}}
+div.st-key-map_view div[role="radiogroup"],
+div.st-key-map_subview div[role="radiogroup"] {{
+    display: flex !important;
+    width: 100% !important;
+    max-width: none !important;
+}}
+div.st-key-map_view div[role="radiogroup"] > button,
+div.st-key-map_subview div[role="radiogroup"] > button {{
+    flex: 1 1 0 !important;
+    justify-content: center !important;
+    text-align: center !important;
+}}
+div.st-key-map_view div[data-testid="stButtonGroup"] {{
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}}
+div.st-key-map_subview div[data-testid="stButtonGroup"] {{
+    border-top: none !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}}
+div.st-key-map_subview {{
+    margin-top: -1rem !important;  /* sit directly under the main switch (no block gap) */
+}}
+
+/* Map attribution: just the (i) button, the text shows on hover. */
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-inner,
+.mapboxgl-ctrl-attrib .mapboxgl-ctrl-attrib-inner {{
+    display: none !important;
+}}
+.maplibregl-ctrl-attrib:hover .maplibregl-ctrl-attrib-inner,
+.mapboxgl-ctrl-attrib:hover .mapboxgl-ctrl-attrib-inner {{
+    display: block !important;
+}}
+
+/* Slim legend bars under the map (radar colours and risk levels share the same dimensions). */
+.fs-legend {{ margin: 10px 0 2px 0; font-family: 'Inter', sans-serif; }}
+.fs-legend-title {{
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 4px;
+}}
+.fs-legend-bar {{ height: 10px; width: 100%; border-radius: 5px; display: flex; overflow: hidden; }}
+.fs-legend-ticks {{ position: relative; height: 16px; font-size: 0.68rem; color: var(--text-muted); }}
+.fs-legend-ticks span {{ position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }}
+
+/* The map's secondary switch (Now / In 1 hour, or Now / +30 / +60) is smaller than the main one. */
+div.st-key-map_subview div[data-testid="stButtonGroup"] button {{
+    padding: 2px 10px !important;
+    min-height: 0 !important;
+}}
+div.st-key-map_subview div[data-testid="stButtonGroup"] button p {{
+    font-size: 0.74rem !important;
+}}
+.st-key-map_subview {{
+    margin-top: -6px !important;
 }}
 
 /* Page container */
@@ -778,14 +846,9 @@ TIER_COLORS = {
     "Low": "#0EA5E9",  # Sky Blue
 }
 NUM_ZONES = len(URA_PLANNING_AREAS)
-WET_GROUND_HELP = (
-    "Recent rain, with each millimetre counting half as much after every "
-    f"{settings.decay_half_life_hours:g} hours. An index of how wet the ground is, not a rain total."
-)
-LIVE_WET_GROUND_NOTE = (
-    f" In Live mode it is built from only the last {settings.live_history_hours:g} hours of "
-    "readings, so it reads low."
-)
+RADAR_COLOURS = COLOUR_SCALE  # light → heavy, as on MSS's legend
+# Where 1, 5, 20, 50 and 100 mm/h fall on the 33-colour bar (from the gauge calibration).
+RADAR_TICKS = [(16.7, "1"), (40.9, "5"), (68.2, "20"), (83.3, "50"), (98.5, "100+")]
 REPLAY_DEFAULT_TIME = "12:15"  # where the 17 Apr 2021 demo opens; other days open at their peak
 ZONE_META = (
     pd.DataFrame.from_dict(URA_PLANNING_AREAS, orient="index")[["lat", "lon", "region"]]
@@ -951,7 +1014,6 @@ mode = st.sidebar.segmented_control(
     "Mode",
     options=["Live Feed", "Replay Storm"],
     key="mode",
-    help="Live readings from data.gov.sg, or a replay of any past day's real readings.",
 )
 
 st.sidebar.markdown("---")
@@ -1036,7 +1098,6 @@ elif replay_days.store_available():
             min_value=first_day,
             max_value=last_day,
             format="DD/MM/YYYY",
-            help=f"Any day with NEA gauge readings, {first_day:%d %b %Y} to {last_day:%d %b %Y}.",
         )
     else:
         replay_day = st.session_state["replay_date"]
@@ -1051,7 +1112,6 @@ elif replay_days.store_available():
             type="primary",
             width="stretch",
             disabled=True,
-            help="NEA has no readings for this day.",
         )
         st.warning(
             f"NEA has no rain-gauge readings for {replay_day:%d %b %Y}. It is one of the gaps in "
@@ -1078,7 +1138,6 @@ elif replay_days.store_available():
             width="stretch",
             on_click=_set_replay_stage,
             args=("simulate",),
-            help="Step through the day's real readings, zone by zone.",
         )
         chosen = st.session_state[time_key]
     else:
@@ -1088,7 +1147,6 @@ elif replay_days.store_available():
             f"Replay time (SGT, {replay_day:%d %b %Y})",
             options=list(times),
             key=time_key,
-            help="Opens at the day's heaviest island-wide 30-minute rain.",
         )
         st.sidebar.markdown("---")
         st.sidebar.button(
@@ -1127,8 +1185,6 @@ else:
         "Replay time (SGT, 17 Apr 2021)",
         options=list(times),
         value=REPLAY_DEFAULT_TIME if REPLAY_DEFAULT_TIME in times else next(iter(times)),
-        help="Real NEA readings. The rainfall store is not available here, so only this storm "
-        "can be replayed.",
     )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
@@ -1241,7 +1297,6 @@ with kpi_cols[0]:
         "High Risk",
         f"{high_risk_count} / {NUM_ZONES}",
         ("High from", f"{tier_thresholds['high']:.2%}"),
-        help="Zones whose chance of a reported flood in the next hour is at or above this.",
     )
 with kpi_cols[1]:
     kpi_card(
@@ -1249,7 +1304,6 @@ with kpi_cols[1]:
         "Moderate Risk",
         f"{mod_risk_count} / {NUM_ZONES}",
         ("Moderate from", f"{tier_thresholds['moderate']:.2%}"),
-        help="Zones whose chance of a reported flood in the next hour is at or above this.",
     )
 with kpi_cols[2]:
     kpi_card(
@@ -1266,7 +1320,6 @@ with kpi_cols[3]:
         ("Wettest", wettest["zone"].title())
         if wettest["rain_decay_72h"] > 0
         else ("Wettest", "All dry"),
-        help=WET_GROUND_HELP + (LIVE_WET_GROUND_NOTE if mode == "Live Feed" else ""),
     )
 with kpi_cols[4]:
     kpi_card(
@@ -1274,7 +1327,6 @@ with kpi_cols[4]:
         "Gauges Live",
         f"{reporting_stations} / {total_stations}",
         ("Reporting now", f"{share:.0%}"),
-        help="Zone rainfall weights re-balance automatically over the gauges that reported.",
     )
 
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
@@ -1287,41 +1339,40 @@ with map_col, st.container(border=True):
         f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Singapore Urban Risk Map</span>"
         f"    <span style=\"background: {tokens['bg_subtle']}; border: 1px solid {tokens['border_main']}; color: {tokens['text_muted']}; font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;\">55 URA ZONES</span>"
         f"  </div>"
-        f"</div>"
-        f"<div style=\"font-size: 0.78rem; color: {tokens['text_muted']}; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
-        f"Rainfall at each zone interpolated from NEA rain gauges (inverse-distance weighting)."
-        f"</div>"
-        f"<div style=\"display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-family: 'Inter', sans-serif;\">"
-        f'  <span style="background: {tokens["bg_subtle"]}; border: 1px solid {tokens["border_main"]}; color: {tokens["text_muted"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#0EA5E9;">●</span> Low ({NUM_ZONES - high_risk_count - mod_risk_count})</span>'
-        f'  <span style="background: {tokens["bg_subtle"]}; border: 1px solid {tokens["border_main"]}; color: {tokens["text_muted"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#F59E0B;">●</span> Moderate ({mod_risk_count})</span>'
-        f'  <span style="background: {tokens["bg_subtle"]}; border: 1px solid {tokens["border_main"]}; color: {tokens["text_muted"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;"><span style="color:#EF4444;">●</span> High ({high_risk_count})</span>'
-        f'  <span style="background: {tokens["accent_muted"]}; border: 1px solid {tokens["accent"]}; color: {tokens["accent"]}; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">{reporting_stations} of {total_stations} gauges reporting</span>'
         f"</div>",
         unsafe_allow_html=True,
     )
-    radar_cols = st.columns([1.4, 1])
-    with radar_cols[0]:
-        radar_layer = st.segmented_control(
-            "Radar",
-            ["Off", "Now", "+30 min", "+60 min"],
-            default="Off",
-            key="radar_layer",
-            help="NEA rain-area radar. +30 and +60 min are a nowcast: today's rain moved along "
-            "its estimated track (it doesn't grow or decay).",
-        )
-    with radar_cols[1]:
-        risk_view = st.segmented_control(
-            "Risk",
-            ["Now", "In 1 hour (radar)"],
-            default="Now",
-            key="risk_view",
-            help="Now: from the rain that has already fallen (NEA gauges). In 1 hour: radar predicts "
-            "each zone's rain over the next hour, and the same model says what risk that rain would "
-            "bring, so it can warn before the rain arrives. Experimental: radar history starts "
-            "16 Jul 2026, so it isn't yet checked against real floods.",
-        )
-        forecast_on = risk_view == "In 1 hour (radar)"
-    need_radar = (radar_layer not in (None, "Off")) or forecast_on
+    map_view = st.segmented_control(
+        "Map view",
+        ["Risk of flood", "Rain radar"],
+        default="Risk of flood",
+        key="map_view",
+        label_visibility="collapsed",
+    )
+    radar_mode = map_view == "Rain radar"
+    with st.container(key="map_subview"):
+        if radar_mode:
+            radar_layer = st.segmented_control(
+                "Radar time",
+                ["Now", "+30 min", "+60 min"],
+                default="Now",
+                key="radar_when",
+                label_visibility="collapsed",
+            )
+            forecast_on = False
+        else:
+            radar_layer = None
+            forecast_on = (
+                st.segmented_control(
+                    "Risk time",
+                    ["Now", "In 1 hour"],
+                    default="Now",
+                    key="risk_when",
+                    label_visibility="collapsed",
+                )
+                == "In 1 hour"
+            )
+    need_radar = radar_mode or forecast_on
     radar = radar_for(view_time.isoformat()) if need_radar else None
     if need_radar and radar is None:
         st.caption(
@@ -1380,29 +1431,14 @@ with map_col, st.container(border=True):
         if trace.name in TIER_COLORS:
             trace.update(marker=dict(sizemode="area", sizeref=2 * 40 / 28**2, sizemin=6))
 
-    # Always list all three tiers in the legend (plotly only lists tiers present on the map).
-    marker_cls = getattr(go, "Scattermap", getattr(go, "Scattermapbox", None))
-    present = {t.name for t in fig_map.data}
-    for rank, tier in enumerate(TIER_COLORS):
+    # Radar view shows only the radar; risk view shows zones, gauges and outlines (never both).
+    if radar_mode:
         for trace in fig_map.data:
-            if trace.name == tier:
-                trace.update(legendrank=rank)
-        if tier not in present and marker_cls:
-            fig_map.add_trace(
-                marker_cls(
-                    lat=[None],
-                    lon=[None],
-                    mode="markers",
-                    marker=dict(size=10, color=TIER_COLORS[tier]),
-                    name=tier,
-                    legendrank=rank,
-                    hoverinfo="skip",
-                )
-            )
+            trace.visible = False
 
     # Weather station / sensor dots layer: cool cyan dots
     stns = load_station_snapshot()
-    if stns:
+    if stns and not radar_mode:
         stn_lats = [s["lat"] for s in stns.values()]
         stn_lons = [s["lon"] for s in stns.values()]
         stn_names = [
@@ -1427,7 +1463,7 @@ with map_col, st.container(border=True):
     # 55 URA planning area polygon boundaries: thin outlines
     ura_geojson = load_ura_boundaries()
     map_layers: list[dict[str, Any]] = []
-    if ura_geojson:
+    if ura_geojson and not radar_mode:
         map_layers.append(
             {
                 "sourcetype": "geojson",
@@ -1445,7 +1481,7 @@ with map_col, st.container(border=True):
                 "sourcetype": "image",
                 "source": radar.data_uri(radar_layer),
                 "coordinates": radar.corners(),
-                "opacity": 0.6,
+                "opacity": 0.75,
                 "below": "traces",
             },
         )
@@ -1474,30 +1510,67 @@ with map_col, st.container(border=True):
             borderwidth=1,
             font=dict(family="Inter, sans-serif", size=11, color=tokens["text_main"]),
             title=dict(
-                text="RISK IN 1 HOUR (RADAR, EXPERIMENTAL)"
+                text="RISK IN 1 HOUR (EXPERIMENTAL)"
                 if forecast_on and radar is not None
                 else "RISK CLASSIFICATION",
                 font=dict(family="Inter, sans-serif", size=10, color=tokens["text_muted"]),
             ),
         ),
+        showlegend=False,  # the slim legend bar under the map replaces it
         **{map_layout_key: {"style": tokens["map_style"], "layers": map_layers}},
     )
     st.plotly_chart(fig_map)
-    st.caption(
-        f"{model_caption} {history_note} Each risk marker sits inside its URA planning area; "
-        "grey outlines are the URA Master Plan 2019 boundaries, small grey dots NEA gauge locations."
-    )
-    if radar is not None:
-        st.caption(
-            f"Radar: NEA rain areas via data.gov.sg, frame {radar.timestamp:%H:%M} SGT, colours "
-            "calibrated against NEA gauges. +30/+60 min are an optical-flow nowcast. "
-            + (
-                "Markers show the **risk in 1 hour**: the model's risk level for the rain radar "
-                "predicts over the next hour. Experimental: not yet checked against real floods."
-                if forecast_on
-                else ""
-            )
+    if radar_mode:
+        stops = ", ".join(f"rgb{c}" for c in RADAR_COLOURS)
+        ticks = "".join(f'<span style="left:{pos}%;">{label}</span>' for pos, label in RADAR_TICKS)
+        st.markdown(
+            '<div class="fs-legend"><div class="fs-legend-title">Rain rate (mm/h), radar'
+            + (f" · {radar_layer}" if radar_layer and radar_layer != "Now" else "")
+            + f'</div><div class="fs-legend-bar" style="background: linear-gradient(90deg, {stops});">'
+            f'</div><div class="fs-legend-ticks">{ticks}</div></div>',
+            unsafe_allow_html=True,
         )
+    else:
+        segs = "".join(
+            f'<div style="flex:1; background:{TIER_COLORS[t]};"></div>'
+            for t in ("Low", "Moderate", "High")
+        )
+        title = (
+            "Risk in 1 hour (experimental)"
+            if forecast_on and radar is not None
+            else "Risk of flood"
+        )
+        ticks = (
+            '<span style="left:16.7%;">Low</span>'
+            f'<span style="left:33.3%;">{tier_thresholds["moderate"]:.2%}</span>'
+            '<span style="left:50%;">Moderate</span>'
+            f'<span style="left:66.7%;">{tier_thresholds["high"]:.2%}</span>'
+            '<span style="left:83.3%;">High</span>'
+        )
+        st.markdown(
+            f'<div class="fs-legend"><div class="fs-legend-title">{title} · chance of a reported '
+            f'flood in the next hour</div><div class="fs-legend-bar">{segs}</div>'
+            f'<div class="fs-legend-ticks">{ticks}</div></div>',
+            unsafe_allow_html=True,
+        )
+    with st.expander("About this map"):
+        lines = [
+            "**Risk of flood:** each circle is a URA planning area. Its colour is the chance of a "
+            "reported flash flood in the next hour; its size, the last 30 minutes of rain. Rain per "
+            "zone is interpolated from NEA rain gauges (inverse-distance weighting); grey dots are "
+            "the gauges, grey lines the URA Master Plan 2019 boundaries.",
+            f"{model_caption} {history_note}",
+            "**In 1 hour (experimental):** radar predicts each zone's rain over the next hour, and the "
+            "same model gives the risk that rain would bring, so it can warn before the rain "
+            "arrives. Radar history starts 16 Jul 2026, so this isn't yet checked against real "
+            "floods.",
+            "**Rain radar:** NEA rain areas via data.gov.sg, colours calibrated against NEA gauges. "
+            "+30 and +60 min are a nowcast: today's rain moved along its estimated track (it doesn't "
+            "grow or decay).",
+        ]
+        if radar is not None:
+            lines.append(f"Radar frame shown: {radar.timestamp:%d %b %Y %H:%M} SGT.")
+        st.markdown("\n\n".join(lines))
 
 with detail_col, st.container(border=True):
     st.markdown(
@@ -1673,7 +1746,6 @@ with detail_col, st.container(border=True):
         "⟳ Replay the 17 Apr 2021 storm",
         on_click=_replay_pinned_storm,
         width="stretch",
-        help="Real NEA readings from the day Dunearn Road flooded.",
     )
 
 
