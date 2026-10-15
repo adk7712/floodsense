@@ -123,6 +123,7 @@
 4. **Investigate** why the "In 1 hour" line did not show at 15:00 and 15:30 on 30 Sep 2026 (probably no radar nowcast for those times; not confirmed).
 5. Re-run `python -m floodsense.models.select_candidates` once Akul has verified the 14 labels.
 6. More label drafting, if the team wants it (leads above).
+7. **Optional — stakeholder feedback (B5):** if time allows, show the resident view to one real user (town council, residents' committee or volunteer) for 10–15 minutes by 22 Oct and record their answers word for word with consent. Not required; nothing depends on it.
 
 ---
 
@@ -212,7 +213,7 @@ The poller is paused, so two jobs keep the data growing (DEPLOYMENT.md §14):
 
 ## 4. Round 2 plan and ownership
 
-The plan is `docs/ROUND2_WORK_PLAN.md` (local; v3.1). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). On adk's branch (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4, A5 (replay and Telegram bot), A7.2 (first pass) and A9.
+The plan is `docs/ROUND2_WORK_PLAN.md` (in git since 16 Oct; v3.2). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). On adk's branch (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4, A5 (replay and Telegram bot), A7.2 (first pass) and A9.
 
 **Ownership swap: proposed 15 Oct, accepted by adk 16 Oct** (the plan's owners are updated):
 - **Akul takes everything Databricks:** A2 (app reads gold; done), A3 (poller ops), A4 (serve from UC),
