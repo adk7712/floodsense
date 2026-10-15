@@ -373,3 +373,41 @@ API itself) as the fallback.
 - **Checked on 16 Oct:** 55 zones read from the workspace, last scored 6 Oct 17:35 SGT (the poller
   is paused), so the page showed "9 days old" with the warning. The switch and the button were
   checked in light and dark mode.
+
+## 16. Databricks App (A6, 16 Oct 2026)
+
+The Streamlit app runs as the Databricks App **`floodsense`**. Only people signed in to the
+workspace can open it; anyone else gets the Databricks sign-in page.
+
+- **Config:** `app.yaml` (repo root) starts Streamlit on `$DATABRICKS_APP_PORT`. Its env comes from
+  the app's resources, defined in `databricks/app/app.json`:
+  - `sql-warehouse` (CAN_USE) → `DATABRICKS_WAREHOUSE_ID`, which `floodsense.serving.gold` reads
+  - `data-gov-key`: secret `floodsense/data_gov_api_key` (READ) → `FLOODSENSE_DATA_GOV_API_KEY`
+  - `gold`: table `workspace.floodsense.flood_risk_predictions_gold` (SELECT)
+- **Identity:** the app runs as its own service principal (Databricks injects `DATABRICKS_HOST`,
+  `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`); the resources grant it what it needs, so no
+  token or profile is involved.
+- **Dependencies:** `requirements.txt`, exported with the `radar` extra so OpenCV is installed
+  (`uv export --no-hashes --no-dev --extra radar --format requirements-txt -o requirements.txt`). It
+  installs the `floodsense` package from the uploaded source (`-e .`). Runtime: Python 3.11.
+- **What is uploaded:** the repo minus `databricks/app/sync_exclude.txt` (tests, docs, submission,
+  local notes). `databricks sync` doesn't follow `.gitignore`'s re-include lines, so the rainfall
+  store is named with `--include`. Every file must be under 10 MB (the largest is 3.9 MB).
+- **Free Edition:** at most 3 apps; an app stops itself up to 24 h after it is started or
+  deployed, and uses the daily compute quota while it runs. **Stop it when it isn't needed; start it
+  before office hours, rehearsals and the demo.**
+
+Steps, as run (fill in `<login>` and the warehouse ID in `app.json` first):
+
+1. Create the app (once): `databricks apps create --json @databricks/app/app.json`
+2. Upload the source:
+   ```bash
+   databricks sync . /Workspace/Users/<login>/floodsense-app \
+       --exclude-from databricks/app/sync_exclude.txt \
+       --include "data/raw/rainfall/readings/**" --include "data/raw/rainfall/stations.parquet"
+   ```
+3. Deploy: `databricks apps deploy floodsense --source-code-path /Workspace/Users/<login>/floodsense-app`
+4. Check the logs: `databricks apps logs floodsense`
+5. Stop it: `databricks apps stop floodsense`. Start it later: `databricks apps start floodsense`
+
+First deployment `01f1c8c47306131f8da3bded252d3b6f` (16 Oct) installed and started cleanly.
