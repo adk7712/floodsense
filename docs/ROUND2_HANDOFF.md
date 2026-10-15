@@ -220,7 +220,6 @@ The plan is `docs/ROUND2_WORK_PLAN.md` (local; v3.1). Status: A1.1–A1.6 are do
 - **adk takes:** A9 (resident / town-council view), A5 (Telegram bot plus replay mode), A7 (all the
   label drafting).
 - **adk keeps:** B1–B4 and B6 (labels, static features, kriging, retrain, deck).
-- **B5 (stakeholder session) is dropped** by adk. The work plan (not in git) still lists it, so treat it as removed; A9.2 no longer waits on it.
 - **Verification:** Akul's side verifies everything adk pushes.
 - **Label second check:** adk drafts, so Akul verifies (`verified_by` = Akul's initials).
 
