@@ -286,7 +286,7 @@ georeference. Days already archived are skipped.
 - **Backfill:** run locally (no Databricks compute) for 16 Jul to 14 Oct 2026, then uploaded to the
   volume `workspace.floodsense.radar`. That is 91 days per size, 51,665 frames and about 250 MB.
   89 days have 270 or more of 288 frames; 23 and 24 Jul are short on NEA's side.
-- **Daily job** `floodsense-radar-archiver` (id `486214899373176`, `databricks/jobs/radar_archive_job.json`):
+- **Daily job** `floodsense-radar-archiver` (id `486214899373176`, `databricks/jobs/radar_archive_job.json`; renamed `floodsense-daily-archiver` on 16 Oct, when it also took on gauges, §14):
   03:00 SGT, archives the last 3 days, **schedule on**. The first run (`727559731420638`) succeeded
   and wrote 12–14 Oct.
 
@@ -296,4 +296,53 @@ databricks workspace import /Workspace/Users/<login>/floodsense/archive_radar.py
     --file databricks/jobs/archive_radar.py --format AUTO --overwrite
 databricks jobs create --json @databricks/jobs/radar_archive_job.json   # after filling in <login>
 python databricks/jobs/archive_radar.py --out-dir data/raw/radar --start <first available day>  # backfill
+```
+
+## 14. Ongoing data collection: one daily job and an alerts job (16 Oct 2026)
+
+The rainfall poller is paused to save compute, which also stopped gauge readings and PUB alerts
+reaching the workspace after 6 Oct. Two jobs now keep the data growing without it:
+
+| Job | Schedule | What it saves |
+|---|---|---|
+| `floodsense-daily-archiver` (id `486214899373176`, was `floodsense-radar-archiver`; `databricks/jobs/radar_archive_job.json`) | 03:00 SGT daily | Task `archive_radar` (§13), and task `archive_rainfall`: the last 3 complete days of NEA gauge readings |
+| `floodsense-flood-alerts` (id `477250824276803`, `databricks/jobs/flood_alerts_job.json`) | every 15 min | PUB flash-flood alerts from the last 20 min |
+
+**Gauges** (`databricks/jobs/archive_rainfall.py`, self-contained):
+- Each API page for a day is written unchanged to
+  `/Volumes/workspace/floodsense/landing/rainfall/daily/YYYY-MM-DD/pNN.json`. That is under the
+  pipeline's rainfall landing path, so Auto Loader takes the readings in on the next pipeline update;
+  silver deduplicates any overlap with the poller. The job doesn't run the pipeline.
+- Folders are `YYYY-MM-DD`, not `date=YYYY-MM-DD`, so Auto Loader can't read them as a partition
+  column.
+- Pages are written in `landing/archive_state/rainfall/` first and moved in whole; a finished day's
+  marker (`YYYY-MM-DD.complete`, with its page and step counts) stays there. Marked days are skipped,
+  so a missed night is caught up on the next run.
+- Backfill: 1–12 Oct was fetched locally and uploaded (12 days, 288 of 288 steps each); the job's
+  first run (`475904207880746`, 16 Oct) fetched 13–15 Oct, 288 of 288 steps each. Unlike radar, gauge history stays on data.gov.sg, so any gap can be
+  refetched with `--start`.
+
+**PUB alerts** (`databricks/jobs/archive_flood_alerts.py`, self-contained):
+- The API keeps no history (past dates return empty records), so a once-a-day job would miss nearly
+  every alert. It publishes a record about every 2 minutes, 25 to a page; the job reads 20 minutes
+  back, so runs overlap.
+- Only pages that hold an alert are landed, in `landing/flood_alerts/` (the folder
+  `pub_flood_alerts_bronze` reads), named like the poller's. `pub_flood_alerts_silver` deduplicates.
+  Quiet checks write nothing; the run history and log record them.
+- First run `507862846912031` (16 Oct) succeeded; no alert was active.
+- **Pause it while the poller runs** (from 24 Oct, A3): the poller lands alerts too.
+- Compute: 96 short serverless runs a day. Free Edition doesn't publish its cap; check the run
+  history after the first day, and move to every 30 min if it looks heavy.
+
+```bash
+databricks workspace import /Workspace/Users/<login>/floodsense/archive_rainfall.py \
+    --file databricks/jobs/archive_rainfall.py --format AUTO --overwrite
+databricks workspace import /Workspace/Users/<login>/floodsense/archive_flood_alerts.py \
+    --file databricks/jobs/archive_flood_alerts.py --format AUTO --overwrite
+databricks jobs reset --json '{"job_id": 486214899373176, "new_settings": <radar_archive_job.json, login filled in>}'
+databricks jobs create --json @databricks/jobs/flood_alerts_job.json   # after filling in <login>
+# backfill locally, then upload pages and markers
+python databricks/jobs/archive_rainfall.py --out-dir <dir>/daily --state-dir <dir>/state --start 2026-10-01
+databricks fs cp -r <dir>/daily dbfs:/Volumes/workspace/floodsense/landing/rainfall/daily
+databricks fs cp -r <dir>/state dbfs:/Volumes/workspace/floodsense/landing/archive_state/rainfall
 ```

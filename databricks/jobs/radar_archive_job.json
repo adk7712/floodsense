@@ -1,6 +1,6 @@
 {
-  "name": "floodsense-radar-archiver",
-  "description": "Daily: archives the last 3 days of NEA rain-area radar frames (data.gov.sg keeps only ~3 months) into the workspace.floodsense.radar volume. Days already archived are skipped.",
+  "name": "floodsense-daily-archiver",
+  "description": "Daily: archives the last 3 days of NEA rain-area radar frames (data.gov.sg keeps only ~3 months) into the workspace.floodsense.radar volume, and the last 3 complete days of NEA rain-gauge readings into the pipeline's rainfall landing folder (landing/rainfall/daily). Days already archived are skipped.",
   "max_concurrent_runs": 1,
   "schedule": {
     "quartz_cron_expression": "0 0 3 * * ?",
@@ -17,6 +17,15 @@
       "spark_python_task": {
         "python_file": "/Workspace/Users/<your-login>/floodsense/archive_radar.py",
         "parameters": ["--out-dir", "/Volumes/workspace/floodsense/radar", "--days-back", "3"]
+      },
+      "timeout_seconds": 1800
+    },
+    {
+      "task_key": "archive_rainfall",
+      "environment_key": "radar",
+      "spark_python_task": {
+        "python_file": "/Workspace/Users/<your-login>/floodsense/archive_rainfall.py",
+        "parameters": ["--days-back", "3"]
       },
       "timeout_seconds": 1800
     }
