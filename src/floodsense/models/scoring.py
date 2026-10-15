@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from floodsense.common.config import settings
+from floodsense.common.config import active_rain_mask, settings
 
 # Placeholder used only when no trained model is available: 45 mm in 30 minutes maps to 1.0.
 HEURISTIC_FULL_SCALE_MM_30M = 45.0
@@ -44,7 +44,7 @@ def predict_probabilities(features: pd.DataFrame, model: Any | None) -> np.ndarr
         probs = np.clip(
             features["rain_30m"].to_numpy(dtype=float) / HEURISTIC_FULL_SCALE_MM_30M, 0, 1
         )
-    active = features["rain_120m"].to_numpy(dtype=float) >= settings.active_rain_min_mm_120m
+    active = active_rain_mask(features["rain_120m"])
     return np.where(active, probs, 0.0)
 
 

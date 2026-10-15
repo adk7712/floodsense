@@ -185,3 +185,13 @@ def test_rows_without_active_rain_score_zero():
 
     features = pd.DataFrame({"rain_30m": [0.0, 0.0, 5.0], "rain_120m": [0.0, 0.19, 5.0]})
     assert predict_probabilities(features, AlwaysHigh()).tolist() == [0.0, 0.0, 1.0]
+
+
+def test_active_rain_gate_tolerates_float_error():
+    """One 0.2 mm tip that IDW turns into 0.19999999 must still pass the gate (both sites)."""
+    from floodsense.features.build_features import prune_dry_rows
+
+    just_under = 0.2 - 1e-9
+    features = pd.DataFrame({"rain_30m": [3.0, 3.0, 3.0], "rain_120m": [just_under, 0.2, 0.1]})
+    assert predict_probabilities(features, None).astype(bool).tolist() == [True, True, False]
+    assert len(prune_dry_rows(features)) == 2
