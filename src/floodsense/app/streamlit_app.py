@@ -223,6 +223,44 @@ div[data-testid="stSidebarCollapsedControl"],
     transition: all 0.15s ease !important;
 }}
 
+/* Live mode's "Advanced" button sits at the bottom of the sidebar; its toggle opens to the right,
+   as one piece with the button and the same height. */
+.st-key-advanced_menu {{
+    position: absolute !important;
+    bottom: 1.25rem !important;
+    left: 1.5rem !important;
+    width: max-content !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+}}
+.st-key-advanced_menu button {{
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 12px !important;
+    font-size: 0.8rem !important;
+}}
+.st-key-advanced_btn_open button {{
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}}
+.st-key-advanced_ext {{
+    height: 36px !important;
+    width: max-content !important;
+    display: flex !important;
+    justify-content: center !important;
+    padding: 0 12px !important;
+    background-color: var(--bg-subtle) !important;
+    border: 1px solid var(--border-main) !important;
+    border-left: none !important;
+    border-radius: 0 8px 8px 0 !important;
+}}
+.st-key-advanced_ext label, .st-key-advanced_ext p {{
+    color: var(--text-main) !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+}}
+
 /* The close button mirrors the open button: same box, always visible, 14px from the corner */
 [data-testid="stSidebarContent"] {{
     position: relative !important;  /* anchor for the close button: the panel's own edges */
@@ -996,8 +1034,8 @@ def gold_latest() -> tuple[pd.DataFrame | None, str | None]:
         return None, str(exc)
 
 
-def _use_data_gov() -> None:
-    st.session_state["live_source"] = DATA_GOV
+def _toggle_advanced() -> None:
+    st.session_state["advanced_open"] = not st.session_state.get("advanced_open", False)
 
 
 def age_text(age: timedelta) -> str:
@@ -1074,20 +1112,29 @@ st.sidebar.markdown("---")
 st.session_state.setdefault("zone", "BUKIT TIMAH")
 st.session_state.setdefault("replay_stage", "choose")
 for _key in list(st.session_state):
-    if _key in ("zone", "replay_date") or str(_key).startswith("replay-time-"):
+    if _key in ("zone", "replay_date", "use_data_gov") or str(_key).startswith("replay-time-"):
         st.session_state[_key] = st.session_state[_key]
 selected_zone = str(st.session_state["zone"])
 live_source = DATA_GOV
 if mode == "Live Feed":
     selected_zone = zone_picker()
     # Databricks by default; a copy with no warehouse set up (e.g. CI) starts on data.gov.sg.
-    st.session_state.setdefault("live_source", DATABRICKS if warehouse_id() else DATA_GOV)
-    live_source = (
-        st.sidebar.segmented_control(
-            "Data source", options=[DATABRICKS, DATA_GOV], key="live_source"
+    st.session_state.setdefault("use_data_gov", not warehouse_id())
+    # The fallback stays out of the way: an "Advanced" button pinned to the bottom of the sidebar
+    # that slides its one toggle out to the right (CSS).
+    st.session_state.setdefault("advanced_open", False)
+    advanced_open = st.session_state["advanced_open"]
+    with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=None):
+        st.button(
+            "Advanced",
+            key="advanced_btn_open" if advanced_open else "advanced_btn",
+            icon=":material/chevron_left:" if advanced_open else ":material/chevron_right:",
+            on_click=_toggle_advanced,
         )
-        or DATA_GOV
-    )
+        if advanced_open:
+            with st.container(key="advanced_ext"):
+                st.toggle("data.gov.sg", key="use_data_gov")
+    live_source = DATA_GOV if st.session_state["use_data_gov"] else DATABRICKS
 
 
 # --- TOP HEADER & APPEARANCE SWITCH --------------------------------------------------------
@@ -1105,7 +1152,6 @@ render_app_header()
 
 # --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
 replay_warning: str | None = None
-stale_warning: str | None = None  # Live mode on gold that is older than settings.gold_stale_minutes
 from_gold = False  # Live risk read from the Databricks gold table (scored there, not here)
 day_events: list[FloodEvent] | None = None  # reported floods for the replayed day
 if mode == "Live Feed":
@@ -1157,18 +1203,16 @@ if mode == "Live Feed":
             "reporting (data.gov.sg)</span>"
         )
     )
+    # Gold older than settings.gold_stale_minutes: the age turns amber (the only stale signal).
+    stale = from_gold and age > timedelta(minutes=settings.gold_stale_minutes)
+    age_color = ("#FBBF24" if IS_DARK else "#D97706") if stale else c_muted
     status_line = (
         f"{live_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Latest Reading:</span> "
         f"`{view_time:%d %b %Y %H:%M} SGT` "
-        f"<span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; white-space: nowrap;'>· {age_text(age)} old</span>"
+        f"<span style='color: {age_color}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: {600 if stale else 400}; white-space: nowrap;'>· {age_text(age)} old</span>"
     )
     if from_gold:
         history_note = "Scored on Databricks with the 72 hours of readings before it."
-        if age > timedelta(minutes=settings.gold_stale_minutes):
-            stale_warning = (
-                f"The Databricks data is {age_text(age)} old (last scored "
-                f"{view_time:%d %b, %H:%M} SGT). The poller job that refreshes it may be paused."
-            )
     else:
         history_note = (
             f"Rolling features use the last {settings.live_history_hours:g} h of live readings, so "
@@ -1312,9 +1356,6 @@ st.markdown(
 )
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
-if stale_warning:
-    st.warning(stale_warning, icon=":material/schedule:")
-    st.button("Use data.gov.sg readings", type="primary", on_click=_use_data_gov)
 
 active_pub_alerts: list[FloodAlert] = []  # live PUB alerts (none in Replay: no history)
 if mode == "Live Feed":
