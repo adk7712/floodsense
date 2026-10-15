@@ -277,3 +277,81 @@ def test_no_hard_coded_figures_on_the_page():
         "P(Flash)",
     ]:
         assert banned not in page, banned
+
+
+# --- Live mode on the Databricks gold table (A2) ------------------------------------------------
+
+
+@pytest.fixture
+def gold_table(monkeypatch):
+    """A configured warehouse whose gold answer each test sets; data.gov.sg stays offline.
+
+    Not the ``offline`` fixture: it also stubs ``time.sleep``, which starves AppTest's own wait
+    loop once a full Live page renders."""
+    import streamlit as st
+
+    from floodsense.common.config import settings
+    from floodsense.serving import gold
+
+    def boom(*args, **kwargs):
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr(requests, "get", boom)
+    monkeypatch.setattr(settings, "api_backoff_sec", 0.0)
+    monkeypatch.setattr(settings, "databricks_warehouse_id", "test-warehouse")
+    st.cache_data.clear()  # gold_latest() is cached across AppTest runs in this process
+
+    def answer(minutes_old: float | None):
+        import time as _time
+
+        from tests.test_gold import gold_rows
+
+        def latest_zone_risk():
+            if minutes_old is None:
+                raise gold.GoldUnavailable("warehouse unreachable")
+            epoch = int(_time.time() - minutes_old * 60)
+            return gold.to_frame(gold.PREDICTION_COLUMNS, gold_rows(epoch))
+
+        monkeypatch.setattr(gold, "latest_zone_risk", latest_zone_risk)
+
+    yield answer
+    st.cache_data.clear()
+
+
+def _page_text(at: AppTest) -> str:
+    return " ".join(str(e.value) for e in [*at.markdown, *at.caption, *at.warning, *at.metric])
+
+
+def test_live_reads_fresh_gold_as_scored_on_databricks(gold_table):
+    gold_table(minutes_old=12)
+    at = _app(mode="Live Feed")
+    text = _page_text(at)
+    assert "scored on Databricks" in text
+    assert "12 min old" in text
+    assert not any("old (last scored" in str(w.value) for w in at.warning)
+    assert at.metric[0].value == "1 / 55"  # gold's own tiers: Bukit Timah is High
+    assert at.sidebar.button_group[1].value == "Databricks"
+
+
+def test_stale_gold_warns_and_switches_to_data_gov_in_one_click(gold_table):
+    gold_table(minutes_old=9 * 24 * 60)
+    at = _app(mode="Live Feed")
+    assert any("9 days old" in str(w.value) for w in at.warning)
+    next(b for b in at.button if b.label == "Use data.gov.sg readings").click()
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["live_source"] == "data.gov.sg"
+    assert any("Live feed unavailable" in str(e.value) for e in at.error)  # offline here
+
+
+def test_unreachable_gold_falls_back_to_data_gov(gold_table):
+    gold_table(minutes_old=None)
+    at = _app(mode="Live Feed")
+    assert any("warehouse unreachable" in str(w.value) for w in at.warning)
+    assert any("Live feed unavailable" in str(e.value) for e in at.error)
+
+
+def test_without_a_warehouse_live_starts_on_data_gov_quietly(offline):
+    at = _app(mode="Live Feed")
+    assert at.session_state["live_source"] == "data.gov.sg"
+    assert not any("Databricks" in str(w.value) for w in at.warning)

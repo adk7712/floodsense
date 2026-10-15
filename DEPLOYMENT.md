@@ -21,7 +21,7 @@ ONE Lakeflow declarative pipeline (databricks/pipelines/lakeflow_pipeline.py)
   flood_risk_predictions_gold  zone features, calibrated probability, tier (pipeline_core.gold_from_silver)
         │
         ▼
-app / dashboard reading the gold table  (not done: see section 6)
+app (Live mode, section 15) and AI/BI dashboard reading the gold table
 ```
 
 **Rule:** every step that turns readings into risk is the pandas code in
@@ -132,8 +132,7 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 
 - **Poller on a live schedule**: the job exists and has run (section 11), but its schedule is paused
   to protect the daily compute cap.
-- **Databricks App / dashboard** reading the gold table has not been deployed. The app still
-  computes risk itself from the API, with the same feature and scoring functions.
+- **Databricks App**: not deployed yet. The Streamlit app reads gold when run locally (section 15).
 - **Serving from the registry**: gold still loads the committed `models/flood_model.joblib`, not the
   registered model (section 10).
 
@@ -346,3 +345,31 @@ python databricks/jobs/archive_rainfall.py --out-dir <dir>/daily --state-dir <di
 databricks fs cp -r <dir>/daily dbfs:/Volumes/workspace/floodsense/landing/rainfall/daily
 databricks fs cp -r <dir>/state dbfs:/Volumes/workspace/floodsense/landing/archive_state/rainfall
 ```
+
+## 15. The app reads the gold table (A2, 16 Oct 2026)
+
+Live mode shows the risk the pipeline scored, from `flood_risk_predictions_gold`, by default. A
+sidebar switch, **Data source: Databricks | data.gov.sg**, keeps the old path (the app scoring the
+API itself) as the fallback.
+
+- **Reader:** `floodsense.serving.gold`. One SQL statement through the Databricks SDK's statement
+  API takes the newest row per zone (`QUALIFY row_number() … = 1`, times as `unix_timestamp`, shown
+  in SGT). The result is checked: the columns are `PREDICTION_COLUMNS`, every zone is a URA planning
+  area, and the tiers are Low/Moderate/High. `latest_zone_risk()` is the same call for other code,
+  e.g. a Telegram bot.
+- **Settings** (in the gitignored `.env`; never commit values):
+  - `FLOODSENSE_DATABRICKS_WAREHOUSE_ID`: the SQL warehouse. A Databricks App can supply
+    `DATABRICKS_WAREHOUSE_ID` instead.
+  - `FLOODSENSE_DATABRICKS_PROFILE`: the CLI profile used locally (`databricks auth login`). No
+    token is stored in the repo.
+  - `FLOODSENSE_GOLD_TABLE` (default `workspace.floodsense.flood_risk_predictions_gold`) and
+    `FLOODSENSE_GOLD_STALE_MINUTES` (default 60).
+  - With no warehouse set (CI, a fresh clone), Live mode starts on data.gov.sg without a warning.
+- **Freshness:** the page shows the data's age next to the latest reading. If gold is older than
+  60 minutes, an orange warning names its age, with a **Use data.gov.sg readings** button. If gold
+  can't be read, a warning gives the reason and the app falls back to data.gov.sg.
+- **Cost:** results are cached for 15 minutes (half the poller's interval), so each viewer queries
+  the warehouse at most 4 times an hour. A cold warehouse takes about 25 s to answer.
+- **Checked on 16 Oct:** 55 zones read from the workspace, last scored 6 Oct 17:35 SGT (the poller
+  is paused), so the page showed "9 days old" with the warning. The switch and the button were
+  checked in light and dark mode.

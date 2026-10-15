@@ -37,6 +37,7 @@ from floodsense.models.artifact import load_model, rarity_scores
 from floodsense.models.scoring import default_thresholds, score_zone_features
 from floodsense.radar.decode import COLOUR_SCALE
 from floodsense.radar.live import RadarView, forecast_features, radar_view
+from floodsense.serving.gold import GoldUnavailable, latest_zone_risk, warehouse_id
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, load_station_snapshot
 
 st.set_page_config(
@@ -973,6 +974,36 @@ def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     return latest, len(stations), None
 
 
+# Live mode's two sources: the gold table the Databricks pipeline scores (default), or the
+# data.gov.sg API scored here (fallback).
+DATABRICKS, DATA_GOV = "Databricks", "data.gov.sg"
+
+
+# 15 min: half the poller's 30-min interval, so gold stays under the stale warning while each
+# viewer queries the SQL warehouse (daily compute cap) at most 4 times an hour.
+@st.cache_data(ttl=900, show_spinner="Reading risk from Databricks…")
+def gold_latest() -> tuple[pd.DataFrame | None, str | None]:
+    """The latest gold row per zone, or (None, error message)."""
+    try:
+        return latest_zone_risk(), None
+    except GoldUnavailable as exc:
+        return None, str(exc)
+
+
+def _use_data_gov() -> None:
+    st.session_state["live_source"] = DATA_GOV
+
+
+def age_text(age: timedelta) -> str:
+    """'4 min', '3 h 5 min' or '9 days'."""
+    minutes = max(int(age.total_seconds() // 60), 0)
+    if minutes < 60:
+        return f"{minutes} min"
+    if minutes < 48 * 60:
+        return f"{minutes // 60} h {minutes % 60} min"
+    return f"{minutes // (24 * 60)} days"
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def live_flood_alerts() -> tuple[list[FloodAlert] | None, str | None]:
     """PUB flash-flood alerts still active from the last 3 hours, or (None, error message)."""
@@ -1040,8 +1071,17 @@ for _key in list(st.session_state):
     if _key in ("zone", "replay_date") or str(_key).startswith("replay-time-"):
         st.session_state[_key] = st.session_state[_key]
 selected_zone = str(st.session_state["zone"])
+live_source = DATA_GOV
 if mode == "Live Feed":
     selected_zone = zone_picker()
+    # Databricks by default; a copy with no warehouse set up (e.g. CI) starts on data.gov.sg.
+    st.session_state.setdefault("live_source", DATABRICKS if warehouse_id() else DATA_GOV)
+    live_source = (
+        st.sidebar.segmented_control(
+            "Data source", options=[DATABRICKS, DATA_GOV], key="live_source"
+        )
+        or DATA_GOV
+    )
 
 
 # --- TOP HEADER & APPEARANCE SWITCH --------------------------------------------------------
@@ -1059,9 +1099,23 @@ render_app_header()
 
 # --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
 replay_warning: str | None = None
+stale_warning: str | None = None  # Live mode on gold that is older than settings.gold_stale_minutes
+from_gold = False  # Live risk read from the Databricks gold table (scored there, not here)
 day_events: list[FloodEvent] | None = None  # reported floods for the replayed day
 if mode == "Live Feed":
-    features, total_stations, live_error = live_features()
+    features: pd.DataFrame | None = None
+    if live_source == DATABRICKS:
+        features, gold_error = gold_latest()
+        if features is None:
+            st.warning(
+                f"Couldn't read the Databricks gold table ({gold_error}). Showing data.gov.sg "
+                "readings instead.",
+                icon=":material/cloud_off:",
+            )
+        else:
+            from_gold, total_stations = True, 0
+    if features is None:
+        features, total_stations, live_error = live_features()
     if features is None:
         st.error(f"Live feed unavailable: {live_error}", icon=":material/cloud_off:")
         st.info(
@@ -1081,7 +1135,8 @@ if mode == "Live Feed":
                 live_features.clear()
                 st.rerun()
         st.stop()
-    view_time = features["timestamp"].iloc[0]
+    view_time = features["timestamp"].max()
+    age = datetime.now(settings.tzinfo) - view_time
     live_bg = "rgba(16, 185, 129, 0.15)" if IS_DARK else "#ECFDF5"
     live_border = "rgba(16, 185, 129, 0.35)" if IS_DARK else "#A7F3D0"
     live_color = "#34D399" if IS_DARK else "#059669"
@@ -1089,17 +1144,30 @@ if mode == "Live Feed":
         f'<span style="background: {live_bg}; border: 1px solid {live_border}; '
         f"color: {live_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
         f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
-        f"● Live: {int(features['reporting_stations'].iloc[0])} of {total_stations} gauges "
-        "reporting (data.gov.sg)</span>"
+        + (
+            "● Live: scored on Databricks (gold table)</span>"
+            if from_gold
+            else f"● Live: {int(features['reporting_stations'].iloc[0])} of {total_stations} gauges "
+            "reporting (data.gov.sg)</span>"
+        )
     )
     status_line = (
         f"{live_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Latest Reading:</span> "
-        f"`{view_time:%d %b %Y %H:%M} SGT`"
+        f"`{view_time:%d %b %Y %H:%M} SGT` "
+        f"<span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; white-space: nowrap;'>· {age_text(age)} old</span>"
     )
-    history_note = (
-        f"Rolling features use the last {settings.live_history_hours:g} h of live readings, so the "
-        "72-hour wet-ground index is understated."
-    )
+    if from_gold:
+        history_note = "Scored on Databricks with the 72 hours of readings before it."
+        if age > timedelta(minutes=settings.gold_stale_minutes):
+            stale_warning = (
+                f"The Databricks data is {age_text(age)} old (last scored "
+                f"{view_time:%d %b, %H:%M} SGT). The poller job that refreshes it may be paused."
+            )
+    else:
+        history_note = (
+            f"Rolling features use the last {settings.live_history_hours:g} h of live readings, so "
+            "the 72-hour wet-ground index is understated."
+        )
 elif replay_days.store_available():
     first_day, last_day = store_range()
     st.session_state.setdefault("replay_date", replay_days.PINNED_STORM)
@@ -1217,7 +1285,10 @@ else:
     history_note = "Features include the 72 hours of real readings before the replay window."
     day_events = replay_days.events_on(replay_days.PINNED_STORM, flood_events())
 
-df_results = score_zone_features(features, model).merge(ZONE_META, on="ura_planning_area")
+# Gold arrives scored by the pipeline: show its probabilities and tiers as they are.
+df_results = (features if from_gold else score_zone_features(features, model)).merge(
+    ZONE_META, on="ura_planning_area"
+)
 df_results["zone"] = df_results["ura_planning_area"]
 reporting_stations = int(features["reporting_stations"].iloc[0])
 
@@ -1235,6 +1306,9 @@ st.markdown(
 )
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
+if stale_warning:
+    st.warning(stale_warning, icon=":material/schedule:")
+    st.button("Use data.gov.sg readings", type="primary", on_click=_use_data_gov)
 
 active_pub_alerts: list[FloodAlert] = []  # live PUB alerts (none in Replay: no history)
 if mode == "Live Feed":
@@ -1338,8 +1412,8 @@ with kpi_cols[4]:
     kpi_card(
         "Gauges reporting",
         "Gauges Live",
-        f"{reporting_stations} / {total_stations}",
-        ("Reporting now", f"{share:.0%}"),
+        f"{reporting_stations} / {total_stations}" if total_stations else f"{reporting_stations}",
+        ("Reporting now", f"{share:.0%}") if total_stations else ("Source", "Databricks"),
     )
 
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
@@ -1661,7 +1735,7 @@ with detail_col, st.container(border=True, key="zone_card"):
         rarity_title = "Storm Rarity Percentile"
         rarity_basis = "of rainy half-hours in this zone, 2017–2023"
     else:
-        rarity = float(zone_data["storm_rarity_score"])
+        rarity = float(zone_data.get("storm_rarity_score", 0.0))
         rarity_title = "Storm Rarity Percentile (uncalibrated)"
         rarity_basis = "against hand-set cut-offs: no trained model loaded"
     if zone_data["rain_30m"] <= 0:

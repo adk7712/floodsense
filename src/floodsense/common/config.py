@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     # pipeline's stored history; live mode approximates it from this window).
     live_history_hours: float = 6.0
 
+    # Databricks gold table, which Live mode reads by default (floodsense.serving.gold). Set the
+    # warehouse in the gitignored .env, or through DATABRICKS_WAREHOUSE_ID (a Databricks App's
+    # resource). Locally, auth comes from the Databricks CLI profile; in an App, from its env.
+    databricks_warehouse_id: str | None = None
+    databricks_profile: str | None = None
+    gold_table: str = "workspace.floodsense.flood_risk_predictions_gold"
+    gold_stale_minutes: float = 60.0  # older gold gets a visible warning
+
     # Paths
     root_dir: Path = _DEFAULT_ROOT_DIR
 

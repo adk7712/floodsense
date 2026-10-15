@@ -23,6 +23,13 @@ def unset_false_alarm_budgets():
     settings.false_alarm_budget_high, settings.false_alarm_budget_moderate = saved
 
 
+@pytest.fixture(autouse=True)
+def no_databricks_warehouse(monkeypatch):
+    """Keep tests off the real workspace: the developer's .env may name a SQL warehouse."""
+    monkeypatch.setattr(settings, "databricks_warehouse_id", None)
+    monkeypatch.delenv("DATABRICKS_WAREHOUSE_ID", raising=False)
+
+
 @pytest.fixture(scope="module")
 def data() -> LabelledData:
     """SYNTHETIC labelled data: storms in three zones over 2018-2025 where a flood starts 20
