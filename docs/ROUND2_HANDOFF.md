@@ -2,7 +2,7 @@
 
 **Last updated:** 16 Oct 2026, evening, by adk's session.
 - master: `82f1cb6` (Akul: data.gov.sg fallback behind an Advanced button; no stale-data banner).
-- adk's branch `adk/labels-kriging-zone-features`: 5 commits plus a merge of master twice locally (`9424984`, `32ca4fd`). **Waiting for Akul's review.** The A9, B4.2/B2.4 and README and handoff changes are **uncommitted** until adk says "commit".
+- adk's branch `adk/labels-kriging-zone-features` (pushed): B4.1, B3, A5, A7.2, B2, A9, B4.2/B2.4 and this file, with master merged in up to `82f1cb6`. **Waiting for Akul's review before it goes to master.**
 
 **Read first in a new session:** this file, then `docs/ROUND2_WORK_PLAN.md` (the Round 2 plan).
 - Details live in `README.md` (data, training, evaluation honesty), `DEPLOYMENT.md` (Databricks, §1–14)
@@ -48,7 +48,7 @@
 - **Kriging.** Keep IDW (recommended) or add kriging as an option before the freeze.
 - **Forecast-risk caption.** A1.6 says to label it "experimental", which breaks the UI rule. Proposed caption: "Forecast from radar; flood accuracy not yet tested."
 
-**Done later on 16 Oct (adk), uncommitted until adk says "commit":**
+**Done later on 16 Oct (adk), pushed in `1bfd0be` (A9) and `6ce0431` (B4.2/B2.4):**
 - **B4.2 / B4.2b / B2.4** (`docs/candidate_selection_2026-10.md`, `models/candidates/`):
   - Feature store rebuilt with the gate fix: 7,587,282 rows (+10,153, all one-tip rows).
   - `rule_rain60` reproduces the model card: High 12/23 (90% CI 35–70%), Moderate 17/23 (57–87%), on 2020–23 cross-validation.
@@ -83,7 +83,7 @@
 - **Drafts:** the forecast-risk caption and the A9 Low-advice wording are drafts, pending a team decision.
 
 **Before handing off to Akul (adk's checklist):**
-1. Say "commit", so the A9, B4.2/B2.4 and handoff changes are committed and branch `adk/labels-kriging-zone-features` is pushed. (It also carries a local merge of master, `9424984`.)
+1. ~~Commit and push the branch~~: done 16 Oct (`c4339ce` and earlier).
 2. Sign off on the model decision: keep `rule_rain60` as champion. Tell Akul nothing new needs registering on 21 Oct.
 3. Decide the A9 wording:
    - the Low advice text ("No action needed. Carry on as normal, and check PUB's channels if the weather changes.")
