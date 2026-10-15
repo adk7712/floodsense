@@ -29,6 +29,7 @@ train = ["mlflow>=2.10"]
 radar = [
     "opencv-python-headless>=4.8",
 ]
+static = ["rasterio>=1.3"]
 
 [dependency-groups]
 dev = [
