@@ -328,20 +328,29 @@ def test_live_reads_fresh_gold_as_scored_on_databricks(gold_table):
     text = _page_text(at)
     assert "scored on Databricks" in text
     assert "12 min old" in text
-    assert not any("old (last scored" in str(w.value) for w in at.warning)
+    assert not at.warning
     assert at.metric[0].value == "1 / 55"  # gold's own tiers: Bukit Timah is High
-    assert at.sidebar.button_group[1].value == "Databricks"
+    assert at.session_state["use_data_gov"] is False
 
 
-def test_stale_gold_warns_and_switches_to_data_gov_in_one_click(gold_table):
+def test_stale_gold_shows_its_age_and_data_gov_is_one_switch_away(gold_table):
     gold_table(minutes_old=9 * 24 * 60)
     at = _app(mode="Live Feed")
-    assert any("9 days old" in str(w.value) for w in at.warning)
-    next(b for b in at.button if b.label == "Use data.gov.sg readings").click()
+    assert "9 days old" in _page_text(at)
+    assert not at.warning  # the age next to the latest reading is the only stale signal
+    assert not any(b.label == "Use data.gov.sg readings" for b in at.button)
+
+    at.button(key="advanced_btn").click()  # Advanced opens its toggle to the right
+    at.run(timeout=60)
+    at.toggle(key="use_data_gov").set_value(True)
     at.run(timeout=60)
     assert not at.exception
-    assert at.session_state["live_source"] == "data.gov.sg"
+    assert at.session_state["use_data_gov"] is True
     assert any("Live feed unavailable" in str(e.value) for e in at.error)  # offline here
+
+    at.button(key="advanced_btn_open").click()  # closing Advanced keeps the choice
+    at.run(timeout=60)
+    assert at.session_state["use_data_gov"] is True
 
 
 def test_unreachable_gold_falls_back_to_data_gov(gold_table):
@@ -353,7 +362,7 @@ def test_unreachable_gold_falls_back_to_data_gov(gold_table):
 
 def test_without_a_warehouse_live_starts_on_data_gov_quietly(offline):
     at = _app(mode="Live Feed")
-    assert at.session_state["live_source"] == "data.gov.sg"
+    assert at.session_state["use_data_gov"] is True
     assert not any("Databricks" in str(w.value) for w in at.warning)
 
 

@@ -347,9 +347,10 @@ databricks fs cp -r <dir>/state dbfs:/Volumes/workspace/floodsense/landing/archi
 
 ## 15. The app reads the gold table (A2, 16 Oct 2026)
 
-Live mode shows the risk the pipeline scored, from `flood_risk_predictions_gold`, by default. A
-sidebar switch, **Data source: Databricks | data.gov.sg**, keeps the old path (the app scoring the
-API itself) as the fallback.
+Live mode shows the risk the pipeline scored, from `flood_risk_predictions_gold`, by default. The
+old path (the app scoring the API itself) stays as a fallback, behind the **Advanced** button at the bottom of
+the sidebar: it opens a single toggle,
+**data.gov.sg**, to its right.
 
 - **Reader:** `floodsense.serving.gold`. One SQL statement through the Databricks SDK's statement
   API takes the newest row per zone (`QUALIFY row_number() … = 1`, times as `unix_timestamp`, shown
@@ -364,14 +365,13 @@ API itself) as the fallback.
   - `FLOODSENSE_GOLD_TABLE` (default `workspace.floodsense.flood_risk_predictions_gold`) and
     `FLOODSENSE_GOLD_STALE_MINUTES` (default 60).
   - With no warehouse set (CI, a fresh clone), Live mode starts on data.gov.sg without a warning.
-- **Freshness:** the page shows the data's age next to the latest reading. If gold is older than
-  60 minutes, an orange warning names its age, with a **Use data.gov.sg readings** button. If gold
-  can't be read, a warning gives the reason and the app falls back to data.gov.sg.
+- **Freshness:** the page shows the data's age next to the latest reading; when gold is older than
+  60 minutes that age turns amber (no separate banner). If gold can't be read, a warning gives the
+  reason and the app falls back to data.gov.sg.
 - **Cost:** results are cached for 15 minutes (half the poller's interval), so each viewer queries
   the warehouse at most 4 times an hour. A cold warehouse takes about 25 s to answer.
 - **Checked on 16 Oct:** 55 zones read from the workspace, last scored 6 Oct 17:35 SGT (the poller
-  is paused), so the page showed "9 days old" with the warning. The switch and the button were
-  checked in light and dark mode.
+  is paused), so the page showed "9 days old". Checked in light and dark mode.
 
 ## 16. Databricks App (A6, 16 Oct 2026)
 
