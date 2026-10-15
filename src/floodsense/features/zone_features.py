@@ -89,3 +89,38 @@ def compute_zone_feature_table(
     )
     reporting = zone_rain[["timestamp", "reporting_stations"]].drop_duplicates("timestamp")
     return features.merge(reporting, on="timestamp", how="left")
+
+
+# Steps behind the newest-step candidates whose median sets the usual gauge count (2 hours).
+USUAL_COUNT_STEPS = 24
+
+
+def newest_complete_step(reporting: pd.Series) -> pd.Timestamp:
+    """
+    The newest step whose gauge count isn't still filling in.
+
+    ``reporting`` is the number of stations reporting at each step, indexed by timestamp. NEA
+    publishes a step with only a few gauges and adds the rest a few minutes later, so the newest
+    step can be short. Scoring it would read rain from those few gauges alone, unlike the complete
+    steps the model was trained on. Returns the newest of the last ``max_incomplete_steps + 1``
+    steps with at least ``complete_step_share`` of the usual count (median of the
+    ``USUAL_COUNT_STEPS`` before them), or the newest step when none has: that is an outage, not a
+    late step, and is scored as it is. Nothing is filled in either way.
+    """
+    if reporting.empty:
+        raise ValueError("No steps to choose from")
+    counts = reporting.sort_index()
+    skip = settings.max_incomplete_steps
+    usual = counts.iloc[: len(counts) - skip].iloc[-USUAL_COUNT_STEPS:]
+    if skip <= 0 or usual.empty:
+        return pd.Timestamp(counts.index[-1])
+    floor = settings.complete_step_share * float(usual.median())
+    for ts, n in counts.iloc[-(skip + 1) :].iloc[::-1].items():
+        if n >= floor:
+            return pd.Timestamp(ts)
+    return pd.Timestamp(counts.index[-1])
+
+
+def step_counts(table: pd.DataFrame) -> pd.Series:
+    """Stations reporting at each step of a zone feature table, indexed by timestamp."""
+    return table.drop_duplicates("timestamp").set_index("timestamp")["reporting_stations"]

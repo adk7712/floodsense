@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     # Hours of live history fetched for rolling features (the 72 h wet-ground feature needs the
     # pipeline's stored history; live mode approximates it from this window).
     live_history_hours: float = 6.0
+    # NEA publishes each 5-minute step with a handful of gauges (4 of 90 on 16 Oct 2026) and adds
+    # the rest a few minutes later. Live risk uses the newest step that has at least this share of
+    # the usual gauge count (median of the previous 2 h of steps), skipping at most this many newer,
+    # short steps. Shorter steps beyond that are an outage, scored as they are.
+    complete_step_share: float = 0.5
+    max_incomplete_steps: int = 2
 
     # Databricks gold table, which Live mode reads by default (floodsense.serving.gold). Set the
     # warehouse in the gitignored .env, or through DATABRICKS_WAREHOUSE_ID (a Databricks App's

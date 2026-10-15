@@ -355,3 +355,37 @@ def test_without_a_warehouse_live_starts_on_data_gov_quietly(offline):
     at = _app(mode="Live Feed")
     assert at.session_state["live_source"] == "data.gov.sg"
     assert not any("Databricks" in str(w.value) for w in at.warning)
+
+
+def test_live_data_gov_scores_the_newest_filled_in_step(monkeypatch):
+    """NEA publishes a step with a few gauges first; the badge and the risk use the step before."""
+    from datetime import timedelta
+
+    import streamlit as st
+
+    from floodsense.common.config import settings
+    from floodsense.common.schemas import RainfallSnapshot
+    from floodsense.data.replay import load_replay
+    from floodsense.ingestion.poller import NEAPoller
+
+    snaps = load_replay(settings.replay_file).snapshots
+    last = snaps[-1]
+    stub = RainfallSnapshot.model_construct(
+        timestamp=last.timestamp + timedelta(minutes=5),
+        readings={sid: 0.0 for sid in list(last.readings)[:4]},
+        stations=last.stations,
+    )
+
+    def boom(*args, **kwargs):
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr(requests, "get", boom)  # radar and alerts stay offline
+    monkeypatch.setattr(NEAPoller, "fetch_history", lambda self, hours: [*snaps, stub])
+    st.cache_data.clear()
+    try:
+        at = _app(mode="Live Feed")
+        text = _page_text(at)
+        assert f"● Live: {len(last.readings)} of " in text
+        assert "● Live: 4 of " not in text
+    finally:
+        st.cache_data.clear()

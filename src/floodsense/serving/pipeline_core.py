@@ -31,7 +31,7 @@ import pandas as pd
 from floodsense.common.config import settings
 from floodsense.common.schemas import RainfallSnapshot, StationMetadata
 from floodsense.data.replay import load_replay
-from floodsense.features.zone_features import compute_zone_feature_table
+from floodsense.features.zone_features import compute_zone_feature_table, newest_complete_step
 from floodsense.ingestion.poller import parse_rainfall_payload
 from floodsense.models.artifact import load_model
 from floodsense.models.scoring import score_zone_features
@@ -204,18 +204,33 @@ def gold_from_silver(
     """
     The gold table's computation, given silver rows straight from Spark's ``toPandas()``.
 
-    Scores the last ``emit_hours`` before the newest reading, using ``WARMUP`` of history before
+    Scores the last ``emit_hours`` up to the newest complete step (``newest_complete_step``: NEA
+    adds most gauges to a step a few minutes after publishing it, so a still-filling newest step
+    is left for the next run, which lands its late readings), using ``WARMUP`` of history before
     that. Callers should pass only readings from ``newest - (emit_hours + WARMUP)`` onward
     (``silver_window_start``) so the work stays bounded however long the pipeline runs.
     """
     if readings.empty:
         return pd.DataFrame(columns=PREDICTION_COLUMNS)
     readings = spark_to_sgt(readings, session_tz)
-    newest = readings["timestamp"].max()
+    newest = newest_complete_step(reporting_counts(readings))
     emit_from = (
         newest - pd.Timedelta(hours=emit_hours) + pd.Timedelta(minutes=settings.step_minutes)
     )
     return score_window(readings, stations, model, emit_from=emit_from, emit_to=newest)
+
+
+def reporting_counts(readings: pd.DataFrame) -> pd.Series:
+    """
+    Stations reporting at each 5-minute step, indexed by SGT timestamp.
+
+    Steps with no reading count 0, matching ``reporting_stations`` in the zone feature table.
+    """
+    counts = readings.groupby("timestamp")["station_id"].nunique()
+    step = pd.Timedelta(minutes=settings.step_minutes)
+    return counts.reindex(
+        pd.date_range(counts.index.min(), counts.index.max(), freq=step), fill_value=0
+    )
 
 
 def silver_window_start(newest: pd.Timestamp, emit_hours: float = 24.0) -> pd.Timestamp:

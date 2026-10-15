@@ -30,7 +30,11 @@ from floodsense.data.flood_events import load_flood_events
 from floodsense.data.replay import load_replay
 from floodsense.data.transport import SOURCE_NAME as MRT_SOURCE
 from floodsense.data.transport import stations_at_risk
-from floodsense.features.zone_features import compute_zone_feature_table
+from floodsense.features.zone_features import (
+    compute_zone_feature_table,
+    newest_complete_step,
+    step_counts,
+)
 from floodsense.ingestion.flood_alerts import FloodAlert, active_alerts, fetch_flood_alerts
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 from floodsense.models.artifact import load_model, rarity_scores
@@ -970,7 +974,9 @@ def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     for snap in snapshots:
         stations.update(snap.stations)
     table = compute_zone_feature_table(snapshots, stations)
-    latest = table[table["timestamp"] == table["timestamp"].max()].reset_index(drop=True)
+    # The newest step NEA has finished filling in, not one with only a few gauges so far.
+    latest = table[table["timestamp"] == newest_complete_step(step_counts(table))]
+    latest = latest.reset_index(drop=True)
     return latest, len(stations), None
 
 
