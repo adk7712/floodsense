@@ -238,4 +238,4 @@ uv run pre-commit install    # run ruff and file hygiene hooks on commit
 
 CI (`.github/workflows/ci.yml`) runs lint, format check, mypy and both pytest selections on every push and pull request.
 
-Running on Databricks is described in `DEPLOYMENT.md`. `requirements.txt` is generated from `uv.lock` for Databricks Apps; do not edit it by hand (`uv export --no-hashes --no-dev --format requirements-txt -o requirements.txt`).
+Running on Databricks is described in `DEPLOYMENT.md`. `requirements.txt` is generated from `uv.lock` for Databricks Apps; do not edit it by hand. Regenerate it with the exact command in its header, which includes the required `radar` extra (it keeps OpenCV for the Databricks App's radar view): `uv export --no-hashes --no-dev --extra radar --format requirements-txt -o requirements.txt`.
