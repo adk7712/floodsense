@@ -21,7 +21,7 @@ ONE Lakeflow declarative pipeline (databricks/pipelines/lakeflow_pipeline.py)
   flood_risk_predictions_gold  zone features, calibrated probability, tier (pipeline_core.gold_from_silver)
         │
         ▼
-app / dashboard reading the gold table  (not done: see section 6)
+app (Live mode, section 15) and AI/BI dashboard reading the gold table
 ```
 
 **Rule:** every step that turns readings into risk is the pandas code in
@@ -132,8 +132,7 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 
 - **Poller on a live schedule**: the job exists and has run (section 11), but its schedule is paused
   to protect the daily compute cap.
-- **Databricks App / dashboard** reading the gold table has not been deployed. The app still
-  computes risk itself from the API, with the same feature and scoring functions.
+- **Databricks App**: not deployed yet. The Streamlit app reads gold when run locally (section 15).
 - **Serving from the registry**: gold still loads the committed `models/flood_model.joblib`, not the
   registered model (section 10).
 
@@ -345,3 +344,69 @@ python databricks/jobs/archive_rainfall.py --out-dir <dir>/daily --state-dir <di
 databricks fs cp -r <dir>/daily dbfs:/Volumes/workspace/floodsense/landing/rainfall/daily
 databricks fs cp -r <dir>/state dbfs:/Volumes/workspace/floodsense/landing/archive_state/rainfall
 ```
+
+## 15. The app reads the gold table (A2, 16 Oct 2026)
+
+Live mode shows the risk the pipeline scored, from `flood_risk_predictions_gold`, by default. A
+sidebar switch, **Data source: Databricks | data.gov.sg**, keeps the old path (the app scoring the
+API itself) as the fallback.
+
+- **Reader:** `floodsense.serving.gold`. One SQL statement through the Databricks SDK's statement
+  API takes the newest row per zone (`QUALIFY row_number() … = 1`, times as `unix_timestamp`, shown
+  in SGT). The result is checked: the columns are `PREDICTION_COLUMNS`, every zone is a URA planning
+  area, and the tiers are Low/Moderate/High. `latest_zone_risk()` is the same call for other code,
+  e.g. a Telegram bot.
+- **Settings** (in the gitignored `.env`; never commit values):
+  - `FLOODSENSE_DATABRICKS_WAREHOUSE_ID`: the SQL warehouse. A Databricks App can supply
+    `DATABRICKS_WAREHOUSE_ID` instead.
+  - `FLOODSENSE_DATABRICKS_PROFILE`: the CLI profile used locally (`databricks auth login`). No
+    token is stored in the repo.
+  - `FLOODSENSE_GOLD_TABLE` (default `workspace.floodsense.flood_risk_predictions_gold`) and
+    `FLOODSENSE_GOLD_STALE_MINUTES` (default 60).
+  - With no warehouse set (CI, a fresh clone), Live mode starts on data.gov.sg without a warning.
+- **Freshness:** the page shows the data's age next to the latest reading. If gold is older than
+  60 minutes, an orange warning names its age, with a **Use data.gov.sg readings** button. If gold
+  can't be read, a warning gives the reason and the app falls back to data.gov.sg.
+- **Cost:** results are cached for 15 minutes (half the poller's interval), so each viewer queries
+  the warehouse at most 4 times an hour. A cold warehouse takes about 25 s to answer.
+- **Checked on 16 Oct:** 55 zones read from the workspace, last scored 6 Oct 17:35 SGT (the poller
+  is paused), so the page showed "9 days old" with the warning. The switch and the button were
+  checked in light and dark mode.
+
+## 16. Databricks App (A6, 16 Oct 2026)
+
+The Streamlit app runs as the Databricks App **`floodsense`**. Only people signed in to the
+workspace can open it; anyone else gets the Databricks sign-in page.
+
+- **Config:** `app.yaml` (repo root) starts Streamlit on `$DATABRICKS_APP_PORT`. Its env comes from
+  the app's resources, defined in `databricks/app/app.json`:
+  - `sql-warehouse` (CAN_USE) → `DATABRICKS_WAREHOUSE_ID`, which `floodsense.serving.gold` reads
+  - `data-gov-key`: secret `floodsense/data_gov_api_key` (READ) → `FLOODSENSE_DATA_GOV_API_KEY`
+  - `gold`: table `workspace.floodsense.flood_risk_predictions_gold` (SELECT)
+- **Identity:** the app runs as its own service principal (Databricks injects `DATABRICKS_HOST`,
+  `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET`); the resources grant it what it needs, so no
+  token or profile is involved.
+- **Dependencies:** `requirements.txt`, exported with the `radar` extra so OpenCV is installed
+  (`uv export --no-hashes --no-dev --extra radar --format requirements-txt -o requirements.txt`). It
+  installs the `floodsense` package from the uploaded source (`-e .`). Runtime: Python 3.11.
+- **What is uploaded:** the repo minus `databricks/app/sync_exclude.txt` (tests, docs, submission,
+  local notes). `databricks sync` doesn't follow `.gitignore`'s re-include lines, so the rainfall
+  store is named with `--include`. Every file must be under 10 MB (the largest is 3.9 MB).
+- **Free Edition:** at most 3 apps; an app stops itself up to 24 h after it is started or
+  deployed, and uses the daily compute quota while it runs. **Stop it when it isn't needed; start it
+  before office hours, rehearsals and the demo.**
+
+Steps, as run (fill in `<login>` and the warehouse ID in `app.json` first):
+
+1. Create the app (once): `databricks apps create --json @databricks/app/app.json`
+2. Upload the source:
+   ```bash
+   databricks sync . /Workspace/Users/<login>/floodsense-app \
+       --exclude-from databricks/app/sync_exclude.txt \
+       --include "data/raw/rainfall/readings/**" --include "data/raw/rainfall/stations.parquet"
+   ```
+3. Deploy: `databricks apps deploy floodsense --source-code-path /Workspace/Users/<login>/floodsense-app`
+4. Check the logs: `databricks apps logs floodsense`
+5. Stop it: `databricks apps stop floodsense`. Start it later: `databricks apps start floodsense`
+
+First deployment `01f1c8c47306131f8da3bded252d3b6f` (16 Oct) installed and started cleanly.

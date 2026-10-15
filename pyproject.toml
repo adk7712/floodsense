@@ -22,6 +22,7 @@ dependencies = [
     "plotly>=5.18",
     "requests>=2.31",
     "shapely>=2.0",
+    "databricks-sdk>=0.40",
 ]
 
 [project.optional-dependencies]

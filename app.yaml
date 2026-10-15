@@ -1,0 +1,23 @@
+# Databricks App: the FloodSense Streamlit app (DEPLOYMENT.md section 16).
+# Databricks doesn't run this command in a shell; it substitutes only DATABRICKS_APP_PORT.
+command:
+  - streamlit
+  - run
+  - src/floodsense/app/streamlit_app.py
+  - --server.port
+  - $DATABRICKS_APP_PORT
+  - --server.address
+  - 0.0.0.0
+  - --server.headless
+  - "true"
+
+env:
+  # App resources (databricks/app/app.json). The warehouse ID lets Live mode read the gold table
+  # as the app's service principal; the data.gov.sg key serves the live fallback, radar and PUB
+  # alerts without the anonymous rate limit.
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: FLOODSENSE_DATA_GOV_API_KEY
+    valueFrom: data-gov-key
+  - name: STREAMLIT_GATHER_USAGE_STATS
+    value: "false"
