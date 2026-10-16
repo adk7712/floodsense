@@ -1,0 +1,35 @@
+{
+  "name": "floodsense-telegram-alerts",
+  "description": "Every 5 min (gold has 5-minute steps): reads the newest zone risk from the gold table and posts a Telegram message when a zone rises to Moderate or High. One cycle per run (--once); the per-zone state lives in a JSON file on the volume so a new run does not re-send. Reads TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from the secrets scope 'floodsense' (keys telegram_bot_token, telegram_chat_id; create them by hand, never in the repo). Alerts only appear while the rainfall poller and the gold pipeline run. Each run starts compute: mind the quota.",
+  "max_concurrent_runs": 1,
+  "schedule": {
+    "quartz_cron_expression": "0 0/5 * * * ?",
+    "timezone_id": "Asia/Singapore",
+    "pause_status": "PAUSED"
+  },
+  "environments": [
+    {
+      "environment_key": "alerts",
+      "spec": {
+        "client": "2",
+        "dependencies": ["/Volumes/workspace/floodsense/artifacts/wheels/floodsense-0.1.0-py3-none-any.whl"]
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "telegram_alerts",
+      "environment_key": "alerts",
+      "spark_python_task": {
+        "python_file": "/Workspace/Users/<your-login>/floodsense/telegram_bot.py",
+        "parameters": [
+          "live",
+          "--once",
+          "--state-file",
+          "/Volumes/workspace/floodsense/artifacts/telegram_state.json"
+        ]
+      },
+      "timeout_seconds": 240
+    }
+  ]
+}

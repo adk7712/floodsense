@@ -45,7 +45,7 @@ HEAVY_MMH = 10.0
 VERY_HEAVY_MMH = 30.0
 TO_MMH = 12.0  # 5-minute total -> mm/h-equivalent
 FIRST_YEAR = 2017
-DEFAULT_OUT = Path("data/processed/kriging_vs_idw.json")
+DEFAULT_OUT = Path("docs/results/kriging_vs_idw.json")
 
 
 def assert_training_window(start_year: int, end_year: int) -> None:

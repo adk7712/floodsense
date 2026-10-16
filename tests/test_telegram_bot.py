@@ -1,11 +1,16 @@
 """Offline tests for the Telegram alert bot: no network, no token needed."""
 
+import json
+import logging
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from unittest import mock
 
+import pandas as pd
 import pytest
 
 from floodsense.alerts import telegram_bot as tb
+from floodsense.serving.gold import GoldUnavailable
 
 SGT = timezone(timedelta(hours=8))
 T0 = datetime(2021, 4, 17, 12, 0, tzinfo=SGT)
@@ -136,18 +141,159 @@ def test_sender_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
         tb.TelegramSender()
 
 
-def test_live_stub_raises_clearly_and_main_reports_it(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(NotImplementedError):
-        tb.databricks_latest_risk()
-    assert tb.main(["live", "--dry-run"]) == 1
-    assert "No live risk provider" in capsys.readouterr().err
-
-
 def test_run_live_with_fake_provider_ignores_repeat_polls() -> None:
     feed = iter([(at(0), {"A": "Low"}), (at(5), {"A": "High"}), (at(5), {"A": "High"})])
     got: list[tb.Alert] = []
     tb.run_live(lambda: next(feed), got.append, max_polls=3, sleep=lambda _s: None)
     assert [a.tier for a in got] == ["High"]
+
+
+def _gold_frame(rows: list[tuple[str, datetime, str]]) -> pd.DataFrame:
+    return pd.DataFrame(rows, columns=["ura_planning_area", "timestamp", "risk_tier"])
+
+
+def test_gold_provider_uses_newest_step_and_skips_older_zones(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    df = _gold_frame(
+        [("BEDOK", at(5), "High"), ("TANGLIN", at(5), "Low"), ("CLEMENTI", at(0), "High")]
+    )
+    monkeypatch.setattr(tb, "latest_zone_risk", lambda: df)
+    with caplog.at_level(logging.WARNING, logger="FloodSense.TelegramBot"):
+        ts, tiers = tb.gold_latest_risk()
+    assert ts == at(5)
+    assert dict(tiers) == {"BEDOK": "High", "TANGLIN": "Low"}  # CLEMENTI never invented
+    assert "skipped" in caplog.text
+
+
+def _raise_gold() -> pd.DataFrame:
+    raise GoldUnavailable("no warehouse")
+
+
+def test_gold_unavailable_skips_cycle_and_loop_survives(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    calls = iter([None, (at(5), {"A": "High"})])
+
+    def provider() -> tuple[datetime, dict[str, str]]:
+        item = next(calls)
+        if item is None:
+            raise GoldUnavailable("down")
+        return item
+
+    got: list[tb.Alert] = []
+    with caplog.at_level(logging.ERROR, logger="FloodSense.TelegramBot"):
+        problems = tb.run_live(provider, got.append, max_polls=2, sleep=lambda _s: None)
+    assert problems == 1 and [a.tier for a in got] == ["High"]
+    assert "skipping this cycle" in caplog.text
+
+
+def test_once_returns_1_when_gold_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tb, "latest_zone_risk", _raise_gold)
+    assert tb.main(["live", "--once", "--dry-run"]) == 1
+
+
+def test_send_failure_is_logged_not_marked_sent_and_retried(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    sender = tb.TelegramSender(token="SECRET:TOKEN", chat_id="1")
+    state = tmp_path / "s.json"
+    boom = tb.requests.ConnectionError("https://api.telegram.org/botSECRET:TOKEN/x")
+    feed = iter([(at(0), {"A": "Moderate"}), (at(5), {"A": "Moderate"})])
+    sent: list[str] = []
+
+    def emit(alert: tb.Alert) -> None:
+        sender.send(alert.text)
+        sent.append(alert.zone)
+
+    with caplog.at_level(logging.INFO, logger="FloodSense.TelegramBot"):
+        with mock.patch.object(tb.requests, "post", side_effect=boom):
+            p1 = tb.run_live(lambda: next(feed), emit, max_polls=1, state_path=state)
+        assert p1 == 1 and not sent
+        saved = json.loads(state.read_text())
+        assert saved["last_sent"] == {} and saved["last_tier"] == {}  # not marked sent
+        with mock.patch.object(tb.requests, "post", return_value=mock.Mock(status_code=200)):
+            p2 = tb.run_live(lambda: next(feed), emit, max_polls=1, state_path=state)
+    assert p2 == 0 and sent == ["A"]  # retried on the next cycle
+    assert "SECRET" not in caplog.text and "ConnectionError" in caplog.text
+    assert "Send failed" in caplog.text
+
+
+def test_http_failure_logs_status_only(caplog: pytest.LogCaptureFixture) -> None:
+    sender = tb.TelegramSender(token="SECRET:TOKEN", chat_id="1")
+    with (
+        caplog.at_level(logging.ERROR, logger="FloodSense.TelegramBot"),
+        mock.patch.object(tb.requests, "post", return_value=mock.Mock(status_code=429)),
+    ):
+        tb.run_live(
+            lambda: (at(0), {"A": "High"}),
+            lambda a: sender.send(a.text),
+            max_polls=1,
+        )
+    assert "429" in caplog.text and "SECRET" not in caplog.text
+
+
+def test_state_round_trip(tmp_path: Path) -> None:
+    det = tb.AlertDetector(include_all_clear=True)
+    det.feed(at(0), {"A": "Moderate", "B": "High"})
+    path = tmp_path / "sub" / "state.json"
+    tb.save_detector_state(det, path)
+    assert not list(path.parent.glob("*.tmp"))
+    fresh = tb.AlertDetector(include_all_clear=True)
+    tb.load_detector_state(fresh, path)
+    assert fresh.to_state() == det.to_state()
+
+
+def test_restart_with_saved_state_does_not_resend(tmp_path: Path) -> None:
+    path = tmp_path / "state.json"
+    snap = (at(0), {"A": "High", "B": "Moderate"})
+    first: list[tb.Alert] = []
+    tb.run_live(lambda: snap, first.append, max_polls=1, state_path=path)
+    assert len(first) == 2
+    again: list[tb.Alert] = []  # "restart": new detector, same file, 10 minutes later
+    tb.run_live(lambda: (at(10), snap[1]), again.append, max_polls=1, state_path=path)
+    assert again == []
+    # escalation after restart is still allowed
+    esc: list[tb.Alert] = []
+    tb.run_live(lambda: (at(15), {"B": "High"}), esc.append, max_polls=1, state_path=path)
+    assert [(a.zone, a.tier) for a in esc] == [("B", "High")]
+
+
+def test_corrupt_or_missing_state_starts_fresh(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = tmp_path / "state.json"
+    path.write_text("{not json")
+    got: list[tb.Alert] = []
+    with caplog.at_level(logging.WARNING, logger="FloodSense.TelegramBot"):
+        tb.run_live(lambda: (at(0), {"A": "High"}), got.append, max_polls=1, state_path=path)
+    assert "starting fresh" in caplog.text and len(got) == 1
+    assert json.loads(path.read_text())["last_tier"] == {"A": "High"}  # rewritten, valid
+    path.write_text(json.dumps({"last_tier": {"A": "Severe"}}))  # wrong shape
+    det = tb.AlertDetector()
+    tb.load_detector_state(det, path)
+    assert det.to_state()["last_tier"] == {}
+    tb.load_detector_state(det, tmp_path / "missing.json")  # no file: no error
+
+
+def test_stale_gold_step_sends_nothing() -> None:
+    got: list[tb.Alert] = []
+    tb.run_live(
+        lambda: (at(0), {"A": "High"}),
+        got.append,
+        max_polls=1,
+        max_age=timedelta(minutes=30),
+        now=lambda: at(45),
+    )
+    assert got == []
+
+
+def test_databricks_secrets_fill_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    tb.load_databricks_secrets()  # not on Databricks: nothing happens
+    assert "TELEGRAM_BOT_TOKEN" not in tb.os.environ
 
 
 def test_replay_dry_run_17_apr_2021_has_high_messages(
