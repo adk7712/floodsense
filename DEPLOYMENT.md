@@ -436,6 +436,9 @@ pipeline doesn't change. With the key empty, gold falls back to `models/flood_mo
   committed Databricks export (`data/reference/phase5/databricks_replay_predictions.csv`): 4,675
   rows, the largest probability difference off the rain gate 1e-16, tiers identical (4,113 Low,
   367 Moderate, 195 High), and identical to the local joblib.
+- **Gate tolerance (B4.1, merged 16 Oct):** once the wheel is next rebuilt, rows whose 120-minute rain is
+  within 1e-6 mm of the 0.2 mm gate count as active, so about 0.13% of rows score slightly differently
+  from the champion's original behaviour. Rebuild the wheel and redeploy when promoting a new model.
 - The original full-refresh parity run (section 2) wasn't repeated: the landing folder now holds
   live and daily data as well as the replay, so it would need a full rebuild that discards gold's
   history. Same file plus same scores is the same model.
