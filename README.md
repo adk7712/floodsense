@@ -145,6 +145,35 @@ Past dates come back empty: 30 Sep 2026, a day with a PUB-reported flood, return
 records. So the alerts can't be training labels yet. The Databricks poller archives them from 6 Oct
 2026 on.
 
+### Static zone features (`data/reference/zone_static.csv`)
+
+One row per planning area (55 rows): `built_up_pct`, `elevation_m_mean` and `low_lying_pct`, each row
+carrying `source_name`, `source_url` and `retrieved_at`. Built by
+`uv run --extra static python -m floodsense.spatial.build_zone_static --retrieved-at <date>` from two
+rasters downloaded by hand into `data/raw/static/` (gitignored). A pixel counts for a zone when its
+centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops the build.
+
+- **Elevation:** Copernicus GLO-30 DEM (30 m). It is a **surface model (DSM)**, so buildings and
+  trees are included; read it as a relative terrain index, not ground level. Heights are metres
+  above the EGM2008 geoid. `low_lying_pct` is the share of pixels under 5 m (a descriptive cut, not
+  tuned on flood labels).
+  - Licence: Copernicus WorldDEM-30 licence (free and open; attribution and no-liability notice required).
+  - Attribution (from the licence, Article 6): "produced using Copernicus WorldDEM-30 © DLR e.V.
+    2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the
+    European Union and ESA; all rights reserved."
+  - "The organisations in charge of the Copernicus programme by law or by delegation do not incur
+    any liability for any use of the Copernicus WorldDEM-30."
+  - Also listed on the AWS Registry of Open Data: "Copernicus Digital Elevation Model (DEM) ...
+    accessed on 2026-10-16 from https://registry.opendata.aws/copernicus-dem". The exact wording of
+    the registry's own citation line is UNVERIFIED (not re-read at download time).
+  - Tiles: `Copernicus_DSM_COG_10_N01_00_E103_00_DEM` and `..._E104_00_DEM`.
+- **Built-up share:** ESA WorldCover 2021 v200 (10 m), class 50 (Built-up) as a share of valid pixels.
+  - Licence: CC BY 4.0.
+  - Attribution: "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021)
+    processed by ESA WorldCover consortium".
+  - Citation: Zanaga, D. et al. (2022). ESA WorldCover 10 m 2021 v200. https://doi.org/10.5281/zenodo.7254221
+  - Tile: `ESA_WorldCover_10m_2021_v200_N00E102_Map`.
+
 ### Flood events (`data/reference/flood_events.csv`)
 
 66 events, 2017 to Sep 2026, across 27 planning areas. Each row has:
@@ -209,4 +238,4 @@ uv run pre-commit install    # run ruff and file hygiene hooks on commit
 
 CI (`.github/workflows/ci.yml`) runs lint, format check, mypy and both pytest selections on every push and pull request.
 
-Running on Databricks is described in `DEPLOYMENT.md`. `requirements.txt` is generated from `uv.lock` for Databricks Apps; do not edit it by hand (`uv export --no-hashes --no-dev --format requirements-txt -o requirements.txt`).
+Running on Databricks is described in `DEPLOYMENT.md`. `requirements.txt` is generated from `uv.lock` for Databricks Apps; do not edit it by hand. Regenerate it with the exact command in its header, which includes the required `radar` extra (it keeps OpenCV for the Databricks App's radar view): `uv export --no-hashes --no-dev --extra radar --format requirements-txt -o requirements.txt`.

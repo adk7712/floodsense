@@ -28,6 +28,9 @@ data/processed/
 dist/
 build/
 
+# Candidate models are rebuilt by select_candidates; only the champion (models/flood_model.joblib) is committed
+models/candidates/*.joblib
+
 # Secrets (e.g. FLOODSENSE_DATA_GOV_API_KEY) - never commit
 .env
 .env.*

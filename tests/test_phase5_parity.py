@@ -72,9 +72,9 @@ def test_same_rows(exported, expected):
 
 # Rows whose 120-minute rain sits on the active-rain gate (0.2 mm, one gauge tip). Floating-point
 # sums of the same readings land a hair either side of it depending on the library build, so the
-# gate (``>=``) can zero the probability on one platform and not the other. Known issue, to be
-# fixed after submission by giving the gate a tolerance in both training and scoring (that changes
-# the training rows, so it needs a retrain): see DEPLOYMENT.md, "Known issues".
+# strict gate could zero the probability on one platform and not the other. The gate now has a
+# tolerance (``active_rain_mask``), but the exported Databricks predictions in data/reference/phase5
+# predate that fix, so gate rows stay excluded here until the export is regenerated.
 GATE_EPS = 1e-9
 
 

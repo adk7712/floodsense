@@ -143,10 +143,6 @@ class ZoneFeatureVector(BaseModel):
     storm_rarity_score: float = Field(
         ..., ge=0.0, le=1.0, description="Empirical quantile score [0, 1]"
     )
-    return_period_years: float = Field(..., ge=0.0, description="Estimated return period in years")
-    pub_monitored: int = Field(
-        ..., ge=0, le=1, description="Binary flag indicating PUB sensor/CCTV presence"
-    )
 
 
 class PredictionResult(BaseModel):

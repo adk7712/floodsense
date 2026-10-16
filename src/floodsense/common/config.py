@@ -8,16 +8,18 @@ environment variables prefixed with ``FLOODSENSE_`` (e.g. ``FLOODSENSE_ROOT_DIR`
 
 from functools import cached_property
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
+import numpy as np
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repo root, computed once: src/floodsense/common/config.py -> parents[3].
 _DEFAULT_ROOT_DIR = Path(__file__).resolve().parents[3]
 
-# Features the trained model uses. Excludes ``return_period_years`` (the percentile ->
-# years mapping is not valid) and ``pub_monitored`` (hand-assigned, unsourced). The rarity score
-# is recomputed from ``rain_30m`` with quantiles fitted on each model's training years.
+# Features the trained model uses. The old ``return_period_years`` (the percentile -> years
+# mapping is not valid) and ``pub_monitored`` (hand-assigned, unsourced) columns were dropped.
+# The rarity score is recomputed from ``rain_30m`` with quantiles fitted on each model's training years.
 MODEL_FEATURE_COLUMNS: list[str] = [
     "rain_5m",
     "rain_15m",
@@ -50,6 +52,8 @@ class Settings(BaseSettings):
     # never scored above zero, and such rows are left out of the feature store. Training and
     # serving share this rule, so dropping the rows changes no alert.
     active_rain_min_mm_120m: float = 0.2
+    # Slack for float error: IDW-interpolating one 0.2 mm tip can give 0.19999999, which must pass.
+    active_rain_tolerance_mm: float = 1e-6
     timezone: str = "Asia/Singapore"
 
     # Training / evaluation (Phase 4). Years are calendar years in SGT.
@@ -156,3 +160,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def active_rain_mask(rain_120m: Any) -> Any:
+    """Boolean mask of rows that pass the active-rain gate (one shared rule for training and serving)."""
+    return np.asarray(rain_120m, dtype=float) >= (
+        settings.active_rain_min_mm_120m - settings.active_rain_tolerance_mm
+    )

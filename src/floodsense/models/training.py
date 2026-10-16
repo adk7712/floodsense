@@ -228,14 +228,23 @@ def validation_years(data: LabelledData) -> list[int]:
     return [v for v in years if first <= v <= settings.last_training_year and min(years) < v]
 
 
+FitFn = Callable[[str, LabelledData, list[str]], FloodModel]
+
+
 def cross_validate(
-    name: str, dev: LabelledData, feature_columns: list[str] | None = None
+    name: str,
+    dev: LabelledData,
+    feature_columns: list[str] | None = None,
+    fit: FitFn | None = None,
 ) -> CandidateResult:
+    """Forward-chaining CV of one candidate. ``fit`` defaults to ``fit_candidate``; candidates
+    defined elsewhere (e.g. ``static_candidates``) pass their own, fitted inside each fold."""
     cols = feature_columns or MODEL_FEATURE_COLUMNS
+    fit = fit or fit_candidate
     parts, folds = [], []
     for v in validation_years(dev):
         train, val = dev.subset(dev.year < v), dev.subset(dev.year == v)
-        model = fit_candidate(name, train, cols)
+        model = fit(name, train, cols)
         parts.append(
             pd.DataFrame(
                 {

@@ -31,7 +31,6 @@ def _reference_process_batch(
     df = df.sort_values(by=["ura_planning_area", "timestamp"]).reset_index(drop=True)
     records = []
     for zone, group in df.groupby("ura_planning_area"):
-        pub_mon = URA_PLANNING_AREAS.get(zone, {}).get("pub_monitored", 0)
         rain = group["rainfall_mm"].to_numpy()
         ts = group["timestamp"].tolist()
         n = len(rain)
@@ -46,7 +45,7 @@ def _reference_process_batch(
             if prune_zero_rain and r120 == 0.0 and dec < 1.0:
                 continue
             r30 = round(w[6][k], 2)
-            score, rp = rarity.compute_rarity_and_return_period(zone, r30)
+            score, _ = rarity.compute_rarity_and_return_period(zone, r30)
             records.append(
                 {
                     "ura_planning_area": zone,
@@ -58,8 +57,6 @@ def _reference_process_batch(
                     "rain_120m": r120,
                     "rain_decay_72h": dec,
                     "storm_rarity_score": score,
-                    "return_period_years": rp,
-                    "pub_monitored": pub_mon,
                 }
             )
     return pd.DataFrame(records)
@@ -111,10 +108,6 @@ def test_vectorised_matches_reference(prune, seed):
     np.testing.assert_allclose(
         actual["storm_rarity_score"], expected["storm_rarity_score"], atol=1e-3
     )
-    np.testing.assert_allclose(
-        actual["return_period_years"], expected["return_period_years"], atol=0.02
-    )
-    assert (actual["pub_monitored"] == expected["pub_monitored"]).all()
 
 
 def test_rainfall_features_are_never_negative():

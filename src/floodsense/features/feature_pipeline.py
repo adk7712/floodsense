@@ -48,8 +48,6 @@ FEATURE_COLUMNS = [
     "rain_120m",
     "rain_decay_72h",
     "storm_rarity_score",
-    "return_period_years",
-    "pub_monitored",
 ]
 
 
@@ -176,11 +174,6 @@ class FeaturePipeline:
                 zone, out["rain_30m"][lo:hi]
             )
 
-        pub_by_zone = np.array(
-            [URA_PLANNING_AREAS.get(z, {}).get("pub_monitored", 0) for z in zone_names],
-            dtype=np.int64,
-        )
-
         features = pd.DataFrame(
             {
                 "ura_planning_area": df["ura_planning_area"],
@@ -192,8 +185,6 @@ class FeaturePipeline:
                 "rain_120m": out["rain_120m"],
                 "rain_decay_72h": decay,
                 "storm_rarity_score": score,
-                "return_period_years": rp,
-                "pub_monitored": pub_by_zone[zone_codes],
             }
         )
 

@@ -159,14 +159,13 @@ The pipeline had passed the local Spark run (section 9) before any of these:
   allows a probability difference only on rows within 1e-9 mm of the gate, requires identical
   tiers on every row, and checks gate rows stay far below the Moderate threshold.
   The same effect reaches training: rebuilding the feature store with the gate at
-  `0.2 - 1e-9` adds 9,982 rows (7,574,472 instead of 7,564,490; 0.13%). **Fix after submission:**
-  give the gate a tolerance in both `build_features` and `scoring`, rebuild features, retrain and
-  re-evaluate (the selected model's margin over `rule_rain30` is small, so check the selection).
+  `0.2 - 1e-9` adds 9,982 rows (7,574,472 instead of 7,564,490; 0.13%). **Fixed 16 Oct 2026:**
+  tolerance added in training and scoring; feature store rebuild and retrain still pending.
 - The pandas/numpy versions on the serverless runtime were not recorded; local runs use pandas 3.
 - **Unused legacy feature columns.** `pub_monitored` (hand-assigned per zone, unsourced) and
   `return_period_years` are still computed by `FeaturePipeline` and stored in the feature store,
-  but the trained model doesn't use them (`MODEL_FEATURE_COLUMNS`). Removing them needs a feature
-  store rebuild; after submission.
+  but the trained model doesn't use them (`MODEL_FEATURE_COLUMNS`). **Fixed 16 Oct 2026:** removed
+  from the feature pipeline and schema.
 
 ## 9. Running the pipeline locally first
 

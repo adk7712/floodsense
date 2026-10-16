@@ -32,6 +32,7 @@ radar = [
 ]
 # The Databricks pipeline loads the model registered in Unity Catalog (models.artifact).
 serving = ["mlflow-skinny>=2.10"]
+static = ["rasterio>=1.3"]
 
 [dependency-groups]
 dev = [

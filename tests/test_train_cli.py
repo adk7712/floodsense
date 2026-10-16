@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from floodsense.common.config import settings
+from floodsense.common.config import active_rain_mask, settings
 from floodsense.data import flood_events, rainfall_store
 from floodsense.data.replay import load_replay
 from floodsense.features import build_features
@@ -54,7 +54,7 @@ def _serve(monkeypatch: pytest.MonkeyPatch, snapshots: list[Any]) -> None:
 
 
 def _quiet(frame: pd.DataFrame) -> pd.Series:
-    return frame["rain_120m"] < settings.active_rain_min_mm_120m
+    return ~active_rain_mask(frame["rain_120m"])
 
 
 @pytest.fixture(scope="module")

@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from floodsense.common.config import settings
+from floodsense.common.config import active_rain_mask, settings
 from floodsense.common.schemas import RainfallSnapshot, StationMetadata
 from floodsense.data import rainfall_store
 from floodsense.features.zone_features import compute_zone_feature_table
@@ -51,7 +51,7 @@ def prune_dry_rows(features: pd.DataFrame) -> pd.DataFrame:
     data this keeps roughly a fifth of rows; the earlier "dry and decay < 1" rule kept nearly all
     of them, because Singapore's 72-hour wetness rarely falls that low.
     """
-    active = features["rain_120m"].to_numpy(dtype=float) >= settings.active_rain_min_mm_120m
+    active = active_rain_mask(features["rain_120m"])
     return features[active].reset_index(drop=True)
 
 

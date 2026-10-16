@@ -10,7 +10,9 @@ import pytest
 import requests
 from streamlit.testing.v1 import AppTest
 
+from floodsense.app import replay_days
 from floodsense.app.replay_days import store_available
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 pytestmark = pytest.mark.integration
 
@@ -398,3 +400,107 @@ def test_live_data_gov_scores_the_newest_filled_in_step(monkeypatch):
         assert "● Live: 4 of " not in text
     finally:
         st.cache_data.clear()
+
+
+# --- Resident view -------------------------------------------------------------------------
+def _resident(zone: str | None = None, time_label: str = "12:15") -> AppTest:
+    at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Replay Storm"
+    at.session_state["replay_stage"] = "simulate"
+    at.session_state["view"] = "Resident view"
+    if zone:
+        at.session_state["zone"] = zone
+    at.session_state[f"replay-time-{replay_days.PINNED_STORM}"] = time_label
+    at.run(timeout=60)
+    assert not at.exception
+    return at
+
+
+def _resident_text(at: AppTest) -> str:
+    return " ".join(md.value for md in at.markdown) + " ".join(c.value for c in at.caption)
+
+
+def _tiers_at(time_label: str) -> dict[str, str]:
+    """Each zone's tier at a time on 17 Apr 2021, scored independently of the app."""
+    from floodsense.models.artifact import load_model
+    from floodsense.models.scoring import score_zone_features
+
+    table = replay_days.day_view(replay_days.PINNED_STORM).features
+    step = table[table["timestamp"].dt.strftime("%H:%M") == time_label]
+    scored = score_zone_features(step.reset_index(drop=True), load_model())
+    return dict(zip(scored["ura_planning_area"], scored["risk_tier"], strict=True))
+
+
+def test_resident_view_renders_plain_language_and_hides_the_analyst_page():
+    at = _resident()
+    text = _resident_text(at)
+    assert "Your area" in text and "What to do" in text
+    assert "flash flood" in text and "(Singapore time)" in text
+    assert "complements, and does not replace, PUB's flood alerts" in text
+    assert "Replay of past data: showing 12:15, 17 Apr 2021" in text
+    for jargon in ("probability", "calibrated", "IDW", "(experimental)"):
+        assert jargon.lower() not in text.lower()
+    assert len(at.metric) == 0  # no KPI cards, charts or map: the analyst page is not drawn
+    assert at.selectbox[0].value == "BUKIT TIMAH"
+
+
+def test_resident_view_switch_returns_to_the_analyst_view():
+    at = _resident()
+    at.button_group[0].set_value("Analyst view")
+    at.run(timeout=60)
+    assert not at.exception
+    assert "/ 55" in at.metric[0].value
+    assert "Zone Diagnostic" in " ".join(md.value for md in at.markdown)
+
+
+def test_resident_area_selection_changes_the_shown_area():
+    at = _resident(zone="BEDOK")
+    assert "Bedok, right now" in _resident_text(at)
+    at.selectbox[0].set_value("BUKIT TIMAH")
+    at.run(timeout=60)
+    assert not at.exception
+    text = _resident_text(at)
+    assert "Bukit Timah, right now" in text and "Bedok, right now" not in text
+
+
+@needs_store
+def test_resident_advice_matches_the_tier():
+    from floodsense.app.resident_view import ADVICE_FOR_TIER, RISK_NOW
+
+    # 12:50 on 17 Apr 2021 has High zones. Check each tier that occurs.
+    at = _resident(time_label="12:50")
+    tiers = _tiers_at("12:50")
+    seen = set()
+    for zone in sorted(URA_PLANNING_AREAS):
+        tier = tiers[zone]
+        if tier in seen and tier != "High":
+            continue
+        at.selectbox[0].set_value(zone)
+        at.run(timeout=60)
+        assert not at.exception
+        text = _resident_text(at)
+        assert RISK_NOW[tier] in text, (zone, tier)
+        assert ADVICE_FOR_TIER[tier] in text
+        for other in set(ADVICE_FOR_TIER) - {tier}:
+            assert ADVICE_FOR_TIER[other] not in text
+        seen.add(tier)
+    assert "High" in seen, "expected some zone to be High at 12:50 on 17 Apr 2021"
+
+
+def test_resident_view_in_live_reads_the_same_gold_and_shows_no_stale_caption(gold_table):
+    gold_table(minutes_old=9 * 24 * 60)
+    at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Live Feed"
+    at.session_state["view"] = "Resident view"
+    at.session_state["zone"] = "BUKIT TIMAH"
+    at.run(timeout=60)
+    assert not at.exception
+    text = _resident_text(at)
+    assert "Bukit Timah, right now" in text
+    assert "High risk of a flash flood" in text  # gold's own tier, as in the analyst view
+    assert not at.warning
+    assert "poller" not in text and "old" not in text.lower().replace("older", "")
+    assert not any(m.label == "Use data.gov.sg readings" for m in at.button)
+    at.button(key="advanced_btn").click()  # the sidebar control still works from this view
+    at.run(timeout=60)
+    assert not at.exception
