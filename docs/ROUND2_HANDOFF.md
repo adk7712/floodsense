@@ -2,7 +2,7 @@
 
 **Last updated:** 17 Oct 2026, by adk's session.
 - master: `f5d0a31`.
-- adk's branch `rerun-80-labels`, cut from master `f5d0a31`, has two commits, not yet pushed:
+- adk's branch `rerun-88-labels`, cut from master `f5d0a31`, has two commits, not yet pushed:
   `33e9484` (second check of 11 label candidates, refit script) and the doc commit that updates
   this file and `docs/candidate_selection_2026-10.md`. It waits for Akul's review.
 - The 16 Oct branches (`adk/labels-kriging-zone-features`, `adk/review-followups`) are merged into
@@ -50,7 +50,7 @@
 | Second check of the 11 new candidates | **Done** (8 verified, 3 rejected) |
 | Create the Telegram bot and chat, send the token and chat ID | **Open** (adk) |
 
-**Waiting on Akul:** review and merge `rerun-80-labels`; the refit decision (with adk); Telegram deployment once the token and chat ID arrive (16 Oct block, "Waiting on Akul", item 5).
+**Waiting on Akul:** review and merge `rerun-88-labels`; the refit decision (with adk); Telegram deployment once the token and chat ID arrive (16 Oct block, "Waiting on Akul", item 5).
 
 **Next for adk:** the Telegram bot and chat; B6 deck and metrics write-up (use the 88-label numbers and the "mixed, not adopted" static-feature line); J2.3 Q&A answers; sign-off on the model decision once the team has chosen.
 
@@ -226,7 +226,7 @@ Streamlit app, live or as a replay of any day since 2017.
 
 | Area | State |
 |---|---|
-| Data | 60.8M NEA 5-min readings, 2017 to Sep 2026 (Parquet store). 88 verified flood events (58 in 2017–23 for training and cross-validation; 30 in 2024–26 as the test set), none unverified (on adk's branch `rerun-80-labels`; master has 80 verified until the branch is merged). PUB Flood Prone Areas, URA MP2019 zones, LTA MRT station exits. |
+| Data | 60.8M NEA 5-min readings, 2017 to Sep 2026 (Parquet store). 88 verified flood events (58 in 2017–23 for training and cross-validation; 30 in 2024–26 as the test set), none unverified (on adk's branch `rerun-88-labels`; master has 80 verified until the branch is merged). PUB Flood Prone Areas, URA MP2019 zones, LTA MRT station exits. |
 | Model | A Platt-calibrated **60-min rainfall rule** (`models/flood_model.joblib`). Moderate from 0.30% (≈29.5 mm in 60 min), High from 0.71% (≈44 mm). Test (2024 to Sep 2026, 30 floods, scored once): High 12/30 (40%, CI 27–53%), Moderate 21/30 (70%, CI 57–83%), median warning 10 / 15 min. |
 | Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and 15-min PUB alert job** (§3b). See DEPLOYMENT.md. |
 | Radar | **Done, all of A1** (§3). |
@@ -322,7 +322,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 9. Slides and architecture visuals, then two rehearsals, fallback recordings and the final workspace check.
 10. Demo Day: Tue 27 Oct.
 
-**Tasks.** Status as of 17 Oct, from §0 and the repo. "Branch" means adk's branch `rerun-80-labels`, not yet on master.
+**Tasks.** Status as of 17 Oct, from §0 and the repo. "Branch" means adk's branch `rerun-88-labels`, not yet on master.
 
 | ID | Task | Owner | Status | Notes / links |
 |---|---|---|---|---|
