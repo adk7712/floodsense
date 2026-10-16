@@ -40,7 +40,7 @@
 - If the refit is chosen: Akul registers `models/candidates/rule_rain60_refit_2026-10-17.joblib` as `candidate` (`register_model.py` needs a path option and `--alias candidate`). The `.joblib` is gitignored, so regenerate it on `33e9484` with `python -m floodsense.models.refit_champion --date 2026-10-17`, or share the file. adk signs off before promotion to `champion`, before the freeze (23 Oct, 18:00 SGT).
 - If not: nothing to register (B4.4).
 
-**Telegram: not done yet.** adk creates the bot (BotFather) and the chat, and sends the token and chat ID to Akul privately (never in the repo or in this file). Akul stores them as the secrets `telegram_bot_token` and `telegram_chat_id` and adds the bot as a third task in the poller job.
+**Telegram: bot and channel ready.** the bot **@fs_tele_alert_bot** and the private channel **"floodsense test"** are created (17 Oct); the bot is an admin with permission to post; one test message was sent through `TelegramSender` and accepted. The token and chat ID are in adk's local `.env` only. Next: adk sends the token and chat ID to Akul privately (never in the repo or in this file); Akul stores them as the secrets `floodsense/telegram_bot_token` and `floodsense/telegram_chat_id` and adds the bot as a third task in the poller job.
 
 **Akul's three asks from 16 Oct evening:**
 
@@ -48,11 +48,11 @@
 |---|---|
 | Re-run `select_candidates` and the prior-sensitivity script on the new labels | **Done** (88 labels; results above) |
 | Second check of the 11 new candidates | **Done** (8 verified, 3 rejected) |
-| Create the Telegram bot and chat, send the token and chat ID | **Open** (adk) |
+| Create the Telegram bot and chat, send the token and chat ID | **Bot and channel done, test message sent**; token and chat ID still to be sent to Akul privately (adk) |
 
-**Waiting on Akul:** review and merge `rerun-88-labels`; the refit decision (with adk); Telegram deployment once the token and chat ID arrive (16 Oct block, "Waiting on Akul", item 5).
+**Waiting on Akul:** review and merge `rerun-88-labels`; the refit decision (with adk); Telegram deployment (secrets plus the poller task) once adk sends the token and chat ID (16 Oct block, "Waiting on Akul", item 5).
 
-**Next for adk:** the Telegram bot and chat; B6 deck and metrics write-up (use the 88-label numbers and the "mixed, not adopted" static-feature line); J2.3 Q&A answers; sign-off on the model decision once the team has chosen.
+**Next for adk:** send Akul the Telegram token and chat ID privately; B6 deck and metrics write-up (use the 88-label numbers and the "mixed, not adopted" static-feature line); J2.3 Q&A answers; sign-off on the model decision once the team has chosen.
 
 ---
 
@@ -151,7 +151,7 @@
   - Radar gap seen on 30 Sep 2026: a radar nowcast was available at 14:30 but not at 15:00 or 15:30 (cause not investigated). The map's "In 1 hour" layer will be missing at such times.
   - The 17 Apr 2021 demo replay has no radar, so "In 1 hour" never shows there.
   - Re-checked after merging Akul's `82f1cb6` (no stale-data banner, fallback behind Advanced): the A9 panel follows the same data source and has no data-age banner.
-- **Telegram bot:** it has never sent a real message (dry-run only). Live mode reads gold (`2ec4bfb`) but is not deployed: the job is a draft, paused. The bot and the demo channel are not created yet.
+- **Telegram bot:** created 17 Oct (@fs_tele_alert_bot, channel "floodsense test"); one test message sent, no real alert yet. Live mode reads gold (`2ec4bfb`) but is not deployed: it waits on Akul's secrets and the poller task.
 - **Candidate selection:** `select_candidates.py` doesn't itself check for a dirty tree. Run `git status --porcelain` first, and it must print nothing. The sensitivity script (`prior_sensitivity.py`) does record a dirty flag.
 - **uv:** checked on 16 Oct. uv 0.13.1 (Homebrew, already the newest) passes `uv lock --check`, `uv sync --locked --all-extras --group dev` (what CI runs) and `uv pip check`; no pip-installed packages in `.venv`; `requirements.txt` matches a fresh export. `uv.lock` is lockfile revision 5; which older uv versions can read it is UNVERIFIED, so **Akul should run `brew upgrade uv` (0.13.1 or newer) before `uv sync --locked --all-extras --group dev`.** Regenerate `requirements.txt` only with the exact command in its header (it includes `--extra radar`, which keeps OpenCV for the Databricks App).
 - **Rejected candidate model not uploaded:** `models/candidates/rule_rain60_static.joblib` is the saved copy of the zone-feature candidate. It is **not committed** (now in `.gitignore`) because it did worse than `rule_rain60` in cross-validation (High 6/23 vs 12/23). Its results are in `models/candidates/selection_2026-10-16.json`, `selection_2026-10-17.json` and `docs/candidate_selection_2026-10.md`, and `python -m floodsense.models.select_candidates` rebuilds it. The champion `models/flood_model.joblib` is unchanged.
@@ -165,7 +165,7 @@
    - (done) the 14 label rows were verified on 16 Oct
    - this file
 5. Agree with Akul a realistic label target, and whether to keep drafting.
-6. Create the Telegram bot and demo channel if the bot is in the demo. Use BotFather. Put the token in `.env` as `TELEGRAM_BOT_TOKEN` and the chat id as `TELEGRAM_CHAT_ID`.
+6. ~~Create the Telegram bot and demo channel~~: done 17 Oct (token and chat ID in `.env`). Send them to Akul privately.
 7. Tell Akul to upgrade uv to 0.13.1 or newer (`brew upgrade uv`) before syncing (see the uv note).
 
 **Next for adk (16 Oct list, history; see the 17 Oct block for what is current):**
@@ -276,7 +276,7 @@ The poller is paused, so two jobs keep the data growing (DEPLOYMENT.md §14):
 
 ## 4. Round 2 plan and ownership
 
-The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). Done by adk (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4 (re-run on 88 labels, 17 Oct), A5 (replay and Telegram bot; the bot itself is not created), A7.2 (first pass) and A9.
+The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). Done by adk (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4 (re-run on 88 labels, 17 Oct), A5 (replay and Telegram bot; bot and channel created 17 Oct, not yet deployed), A7.2 (first pass) and A9.
 
 **Ownership swap: proposed 15 Oct, accepted by adk 16 Oct** (the owners in §4b are updated):
 - **Akul takes everything Databricks:** A2 (app reads gold; done), A3 (poller ops), A4 (serve from UC),
@@ -337,7 +337,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | A2 | App reads gold | Akul | Done | `d484942`. Spec asked for a data-age line, and a warning above 60 min. **`82f1cb6` removed the stale-data banner** (team decision, see Definition of Done). Credentials stay in secrets; cache queries to save warehouse compute |
 | A3 | Poller operations | Akul | Open | A3.0 secret exists (§7). A3.1 48 h of clean runs before the demo. A3.2 job-failure email alert. A3.3 unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; log daily usage and re-pause if the cap gets close; pause `floodsense-flood-alerts` at the same time |
 | A4 | Serve from Unity Catalog | Akul | Done (A4.1–A4.3, `772ad07`); A4.4 open | A4.1 load `models:/workspace.floodsense.flood_model@champion` in `databricks/pipelines/lakeflow_pipeline.py` (v1 already loads back with identical tiers: code change only). A4.2 read `zone_static.csv` only if the model uses it (it does not). A4.3 re-run the parity test (`test_phase5_parity.py`); it must pass or the difference be documented. A4.4 promote before the freeze, after adk signs off |
-| A5 | Telegram bot (A5.1–A5.4) | adk | Partly | Branch (`b240b41`): tier-change logic, A5.3 one message per zone per hour (rise above last tier gets through), A5.4 replay mode (17 Apr 2021). Live mode reads gold (`2ec4bfb`, persistent state, error handling). **A5.1 bot and demo channel not created (adk to create and send the token and chat ID to Akul privately); draft job paused, not deployed** (§0) |
+| A5 | Telegram bot (A5.1–A5.4) | adk | Partly | Branch (`b240b41`): tier-change logic, A5.3 one message per zone per hour (rise above last tier gets through), A5.4 replay mode (17 Apr 2021). Live mode reads gold (`2ec4bfb`, persistent state, error handling). **A5.1 done 17 Oct: bot @fs_tele_alert_bot and channel "floodsense test" created, test message sent; token and chat ID to go to Akul privately; deployment as a poller task is Akul's** (§0) |
 | A6 | Databricks App | Akul | Done | `f02fc15`. A6.2 fresh-browser test: open. A6.3 Apps auto-stop after 24 h (§5): restart before rehearsals and the demo. Fallback if it fails: run Streamlit locally, show the App as roadmap |
 | A7 | LLM-drafted flood candidates | adk | Partly | A7.1 `ai_query` works but invents facts (§5). A7.2 **2017–2023 only**, never 2024–2026 before the freeze: first pass done (14 candidates, all verified 16 Oct; 122 rejections, `fef4165`). A7.3 post batches with an ID, hand to Akul. A7.4 rejections in `docs/flood_events_rejected.md`. The "6 batches" target is not met (§0 label target) |
 | A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | A8.1 done 16 Oct (DEPLOYMENT.md §18); A8.2 stretch | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only once the freeze work is done |
