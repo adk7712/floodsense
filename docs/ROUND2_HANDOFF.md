@@ -257,7 +257,8 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 3. **Done:** A4.1–A4.3 (`772ad07`). Parity: the champion file is byte-identical to `models/flood_model.joblib` and scores the 17 Apr 2021 replay like the Databricks export. Left: A4.4, promote adk's candidate before the freeze if there is one.
 4. A3 (unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; pause `floodsense-flood-alerts` at the same time) and A8.
 5. **Done:** reviewed and merged adk's branch (`0e315b3`). **14 labels checked against sources and signed off by Akul 16 Oct (`docs/label_review_2026-10-16.md`): 80 verified events now. adk can re-run `select_candidates`.** 11 new candidates added unverified for adk to check.
-6. **Done:** A8 (descriptions and tags; DEPLOYMENT.md §18). Gold column comments go live on the next pipeline update. The Telegram provider is done (`2ec4bfb`, §0); the Telegram job deployment is on Akul's list (§0, "Waiting on Akul", item 5).
+6. **Done:** A8 (descriptions and tags; DEPLOYMENT.md §18), with gold column comments live since the 16 Oct refresh.
+7. **16 Oct evening refresh** (DEPLOYMENT.md §19): wheel rebuilt, gold refreshed to 18:20 SGT, Databricks App redeployed with the day's app and checked by Akul, then stopped. Telegram job proposed as a poller task, waiting on adk's bot token and chat id. The Telegram provider is done (`2ec4bfb`, §0); the Telegram job deployment is on Akul's list (§0, "Waiting on Akul", item 5).
 6. Run `brew upgrade uv` before `uv sync --locked` (see the uv note in §0).
 
 **Also:**

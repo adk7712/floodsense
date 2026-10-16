@@ -468,7 +468,7 @@ Audited every object in `workspace.floodsense`, then filled the gaps:
 |---|---|---|
 | Schema `floodsense` | yes (6 Oct) | `project`, `track`, `data_classification` (6 Oct) |
 | 8 pipeline tables (bronze, silver, quarantine, gold, PUB alerts) | yes (from the pipeline code) | `source`, `layer` (6 Oct); **added** `project`, `data_classification` |
-| Gold columns | **added** in the pipeline code (`GOLD_SCHEMA` column comments); they reach Unity Catalog on the next pipeline update | |
+| Gold columns | **added** in the pipeline code (`GOLD_SCHEMA` column comments); live since the 16 Oct 18:20 refresh (11 of 11) | |
 | Volumes `landing`, `radar`, `artifacts` | yes | **added** `project`, `data_classification`, `purpose`, and `source` on `landing` and `radar` |
 | Volume `autoloader` | **added** (pipeline state, not data) | **added** as above |
 | Model `flood_model` | yes | **added** `project`, `track`, `data_classification`, `model_type` |
@@ -478,3 +478,23 @@ Audited every object in `workspace.floodsense`, then filled the gaps:
 
 The pipeline's own event-log table (`event_log_…`) is created by Databricks and left as is. Asset
 Bundles (A8.2) are a stretch goal for after the freeze.
+
+## 19. Refresh and redeploy, 16 Oct 2026 evening
+
+- **Wheel** rebuilt and uploaded with everything merged that day (B4.1 gate tolerance, the
+  newest-filled-step rule, the Telegram bot module), plus the pipeline source with gold's column
+  comments.
+- **Poller run** `171572439054136`, run by hand with `--lookback-minutes 1200` to cover the day since
+  the daily archive's last day. Both tasks succeeded, and the update had no warnings. Gold's newest
+  step was 18:20 SGT, 55 zones, 90 of 90 gauges. All 11 gold columns now carry comments.
+  To pass parameters to the poller task, use
+  `databricks jobs run-now --json '{"job_id": <id>, "python_params": ["--lookback-minutes", "1200"]}'`.
+- **Databricks App** redeployed (`01f1c94bf50f16b7a08f06a9438d1378`) with that day's app: the
+  Resident view switch top right, the data.gov.sg fallback behind Advanced. Akul checked it in a
+  browser, then it was stopped again.
+- **Telegram alerts (proposed, not deployed):** run the bot as a third task in the poller job, after
+  `refresh_pipeline` (`live --once --state-file /Volumes/workspace/floodsense/artifacts/telegram_state.json`),
+  rather than its own 5-minute schedule. It needs the secrets `floodsense/telegram_bot_token` and
+  `floodsense/telegram_chat_id` from adk's bot.
+- **Note:** the project's `.venv` no longer contains `uv` (a `uv sync` removed it); use the Homebrew
+  `uv` (`/opt/homebrew/bin/uv`).
