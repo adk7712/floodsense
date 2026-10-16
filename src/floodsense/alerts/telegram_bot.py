@@ -20,15 +20,46 @@ Rules (documented choices):
   * Missing zones in a snapshot keep their last known tier; nothing is treated as dry.
   * The token is read from ``TELEGRAM_BOT_TOKEN`` and is never printed or logged.
 
+Live mode (reads the Databricks gold table):
+  * Provider: ``gold_latest_risk`` wraps ``serving.gold.latest_zone_risk()`` (newest gold row per
+    zone). If zones carry different timestamps it uses the NEWEST step and only the zones present
+    at that step; zones missing at that step are skipped, never given an invented tier (they keep
+    their last known tier in the detector).
+  * State: each zone's last tier, last send time and last sent tier are saved to a small JSON file
+    (``--state-file``, default ``data/processed/telegram_state.json``, gitignored) after every
+    change, written to a temp file then renamed. A restart reloads it, so a zone already alerted at
+    the same tier inside the rate-limit window is not re-sent. A missing or corrupt file means a
+    fresh start with a logged warning (a fresh start can re-send: the first snapshot counts as a
+    rise from Low). ``--dry-run`` neither reads nor writes the state file.
+  * Errors: a failed gold read is logged and the cycle skipped; the loop keeps running. A failed
+    send is logged (error class or HTTP status only, never the token) and the alert is NOT marked
+    as sent: the zone's state is rolled back so the same rise is detected again next cycle and
+    retried, and the hourly limit only starts once a send succeeds. Retries stop when the newest
+    gold step is older than ``--max-age-minutes`` (default 30), so a stalled pipeline never
+    produces stale alerts. ``live --once`` runs one cycle and exits with status 1 if the gold read
+    or any send failed (so a scheduled job shows as failed), else 0.
+  * Where and how often: as a Databricks job, ``databricks/jobs/telegram_alerts_job.json`` runs
+    ``python -m floodsense.alerts.telegram_bot live --once --state-file <volume path>`` every 5
+    minutes (gold has 5-minute steps). The token and chat id come from the secrets scope
+    ``floodsense``, keys ``telegram_bot_token`` and ``telegram_chat_id``, exposed as
+    ``TELEGRAM_BOT_TOKEN`` / ``TELEGRAM_CHAT_ID``. The job ships PAUSED. Alerts appear only while
+    the rainfall poller and the gold pipeline are running; with them off, gold goes stale and the
+    bot sends nothing. A 5-minute schedule means a compute start every 5 minutes: use serverless
+    or a small job cluster and mind the quota, or run ``live`` in a loop on one always-on machine
+    (``--interval-seconds 300``) instead.
+
 Usage:
     python -m floodsense.alerts.telegram_bot replay --date 2021-04-17 [--dry-run] [--speed N]
     python -m floodsense.alerts.telegram_bot live [--dry-run] [--interval-seconds 300]
+        [--once] [--state-file PATH] [--max-age-minutes 30]
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
+import tempfile
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -38,11 +69,13 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from floodsense.alerts.messages import ADVICE, DISCLAIMER
 from floodsense.common.config import settings
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.models.artifact import load_model
 from floodsense.models.scoring import score_zone_features
+from floodsense.serving.gold import GoldUnavailable, latest_zone_risk
 
 logger = logging.getLogger("FloodSense.TelegramBot")
 
@@ -51,15 +84,6 @@ RATE_LIMIT = timedelta(hours=1)
 TELEGRAM_API = "https://api.telegram.org"
 
 Snapshot = tuple[datetime, Mapping[str, str]]
-
-ADVICE = {
-    "High": (
-        "Avoid underpasses and low-lying roads. Do not drive or walk through floodwater. "
-        "Check PUB's alerts for what is happening near you."
-    ),
-    "Moderate": "Be ready: keep an eye on the weather and check PUB's channels for updates.",
-}
-DISCLAIMER = "FloodSense complements, and does not replace, PUB's flood alerts."
 
 
 @dataclass(frozen=True)
@@ -110,6 +134,51 @@ class AlertDetector:
         self._last_sent: dict[str, datetime] = {}
         self._last_sent_tier: dict[str, str] = {}
         self._alerted: set[str] = set()
+        self._undo: dict[str, tuple[str | None, datetime | None, str | None, bool]] = {}
+
+    def to_state(self) -> dict[str, object]:
+        """JSON-able copy of the per-zone state (tiers, send times)."""
+        return {
+            "version": 1,
+            "last_tier": dict(self._last_tier),
+            "last_sent": {z: t.isoformat() for z, t in self._last_sent.items()},
+            "last_sent_tier": dict(self._last_sent_tier),
+            "alerted": sorted(self._alerted),
+        }
+
+    def load_state(self, state: Mapping[str, object]) -> None:
+        """Restore ``to_state()`` output. Raises ValueError/TypeError/KeyError if malformed."""
+        last_tier = dict(state["last_tier"])  # type: ignore[call-overload]
+        sent_tier = dict(state["last_sent_tier"])  # type: ignore[call-overload]
+        last_sent = {
+            str(z): datetime.fromisoformat(str(t))
+            for z, t in dict(state["last_sent"]).items()  # type: ignore[call-overload]
+        }
+        alerted = {str(z) for z in state["alerted"]}  # type: ignore[attr-defined]
+        for tier in [*last_tier.values(), *sent_tier.values()]:
+            if tier not in TIER_RANK:
+                raise ValueError(f"unknown tier {tier!r} in saved state")
+        self._last_tier = {str(z): str(t) for z, t in last_tier.items()}
+        self._last_sent_tier = {str(z): str(t) for z, t in sent_tier.items()}
+        self._last_sent = last_sent
+        self._alerted = alerted
+
+    def retract(self, alert: Alert) -> None:
+        """Undo the state change that produced ``alert`` (its send failed), so it can retry."""
+        undo = self._undo.get(alert.zone)
+        if undo is None:
+            return
+        tier, sent, sent_tier, alerted = undo
+        for table, value in (
+            (self._last_tier, tier),
+            (self._last_sent, sent),
+            (self._last_sent_tier, sent_tier),
+        ):
+            if value is None:
+                table.pop(alert.zone, None)  # type: ignore[attr-defined]
+            else:
+                table[alert.zone] = value  # type: ignore[assignment]
+        (self._alerted.add if alerted else self._alerted.discard)(alert.zone)
 
     def feed(self, ts: datetime, tiers: Mapping[str, str]) -> list[Alert]:
         out: list[Alert] = []
@@ -118,6 +187,12 @@ class AlertDetector:
             if tier not in TIER_RANK:
                 raise ValueError(f"unknown tier {tier!r} for {zone}")
             prev = self._last_tier.get(zone, "Low")
+            self._undo[zone] = (
+                self._last_tier.get(zone),
+                self._last_sent.get(zone),
+                self._last_sent_tier.get(zone),
+                zone in self._alerted,
+            )
             self._last_tier[zone] = tier
             if tier != "Low" and TIER_RANK[tier] > TIER_RANK[prev]:
                 sent = self._last_sent.get(zone)
@@ -183,6 +258,29 @@ class TelegramSender:
             raise RuntimeError(f"Telegram rejected the message (HTTP {resp.status_code})")
 
 
+SECRET_SCOPE = "floodsense"
+SECRET_KEYS = {"TELEGRAM_BOT_TOKEN": "telegram_bot_token", "TELEGRAM_CHAT_ID": "telegram_chat_id"}
+
+
+def load_databricks_secrets() -> None:
+    """On Databricks, fill missing TELEGRAM_* env vars from the secrets scope ``floodsense``.
+
+    Serverless job tasks cannot map secrets to env vars, so the bot reads them itself. Values go
+    straight into ``os.environ``; nothing is printed or logged. Quietly does nothing elsewhere.
+    """
+    missing = {k: v for k, v in SECRET_KEYS.items() if not os.environ.get(k)}
+    if not missing or "DATABRICKS_RUNTIME_VERSION" not in os.environ:
+        return
+    try:
+        from databricks.sdk import WorkspaceClient
+
+        secrets = WorkspaceClient().dbutils.secrets
+        for env_name, key in missing.items():
+            os.environ[env_name] = secrets.get(SECRET_SCOPE, key)
+    except Exception as exc:
+        logger.error("Could not read Databricks secrets (%s)", type(exc).__name__)
+
+
 def load_dotenv_file(path: Path | None = None) -> None:
     """Load KEY=VALUE lines from the gitignored .env into os.environ (existing vars win)."""
     env = path or settings.root_dir / ".env"
@@ -232,20 +330,101 @@ def replay_snapshots(day: date, model: object | None = None) -> list[Snapshot]:
 
 LatestRiskProvider = Callable[[], tuple[datetime, Mapping[str, str]]]
 
+DEFAULT_STATE_FILE = settings.root_dir / "data" / "processed" / "telegram_state.json"
+DEFAULT_MAX_AGE = timedelta(minutes=30)
 
-def databricks_latest_risk() -> tuple[datetime, Mapping[str, str]]:
-    """
-    STUB. Return (timestamp, {zone: tier}) for the newest scored step.
 
-    A teammate must replace this with a function that reads the latest rows of the Databricks gold
-    table (``PREDICTION_COLUMNS`` in ``serving.pipeline_core``: ``ura_planning_area``, ``timestamp``,
-    ``risk_tier``). Pass it to ``run_live(provider=...)``. It deliberately raises rather than
-    returning made-up data.
+def gold_latest_risk() -> tuple[datetime, Mapping[str, str]]:
+    """(timestamp, {zone: tier}) for the newest scored step in the gold table.
+
+    Wraps ``latest_zone_risk()``. Zones whose newest row is older than the newest step in the frame
+    are left out (never given an invented tier). Raises ``GoldUnavailable``.
     """
-    raise NotImplementedError(
-        "No live risk provider is wired up yet. Supply a function returning "
-        "(timestamp, {zone: tier}) from the Databricks gold table and pass it to run_live()."
-    )
+    df = latest_zone_risk()
+    if df.empty:
+        raise GoldUnavailable("the gold table returned no rows")
+    newest = df["timestamp"].max()
+    step = df[df["timestamp"] == newest]
+    skipped = len(df) - len(step)
+    if skipped:
+        logger.warning("%d zone(s) have no row at the newest step %s; skipped", skipped, newest)
+    tiers = dict(zip(step["ura_planning_area"], step["risk_tier"], strict=True))
+    return pd.Timestamp(newest).to_pydatetime(), tiers
+
+
+def load_detector_state(det: AlertDetector, path: Path | None) -> None:
+    """Load saved state into ``det``. Missing file: quiet fresh start. Corrupt: warn, fresh."""
+    if path is None or not path.exists():
+        if path is not None:
+            logger.info("No state file at %s; starting fresh", path)
+        return
+    try:
+        det.load_state(json.loads(path.read_text()))
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        logger.warning("State file %s is unreadable (%s); starting fresh", path, type(exc).__name__)
+        det.load_state(AlertDetector().to_state())
+
+
+def save_detector_state(det: AlertDetector, path: Path | None) -> None:
+    """Write state atomically (temp file in the same folder, then rename). Never raises."""
+    if path is None:
+        return
+    tmp_name: str | None = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w", dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False
+        ) as tmp:
+            tmp_name = tmp.name
+            json.dump(det.to_state(), tmp)
+        os.replace(tmp_name, path)
+    except OSError as exc:
+        logger.error("Could not save state to %s (%s)", path, type(exc).__name__)
+        if tmp_name:
+            Path(tmp_name).unlink(missing_ok=True)
+
+
+def _error_text(exc: Exception) -> str:
+    # Our own sender raises RuntimeError with only the class / HTTP status. Anything else: class only.
+    return str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__
+
+
+def run_cycle(
+    det: AlertDetector,
+    provider: LatestRiskProvider,
+    emit: Callable[[Alert], None],
+    *,
+    state_path: Path | None = None,
+    max_age: timedelta | None = None,
+    now: Callable[[], datetime] | None = None,
+) -> int:
+    """One poll. Returns the number of problems (a failed gold read, or failed sends). Never raises."""
+    try:
+        ts, tiers = provider()
+    except GoldUnavailable as exc:
+        logger.error("Gold read failed, skipping this cycle: %s", exc)
+        return 1
+    except Exception as exc:
+        logger.error("Gold read failed (%s), skipping this cycle", type(exc).__name__)
+        return 1
+    if max_age is not None and now is not None and now() - ts > max_age:
+        logger.warning("Newest gold step %s is older than %s; nothing sent", ts, max_age)
+        return 0
+    problems = 0
+    for alert in det.feed(ts, tiers):
+        try:
+            emit(alert)
+        except Exception as exc:
+            problems += 1
+            det.retract(alert)  # not sent: roll back so the next cycle detects the rise again
+            logger.error(
+                "Send failed for %s %s (%s); will retry next cycle",
+                alert.zone,
+                alert.tier,
+                _error_text(exc),
+            )
+    save_detector_state(det, state_path)
+    return problems
 
 
 def run_live(
@@ -255,21 +434,26 @@ def run_live(
     interval_seconds: float = 300.0,
     max_polls: int | None = None,
     include_all_clear: bool = False,
+    state_path: Path | None = None,
+    max_age: timedelta | None = None,
+    now: Callable[[], datetime] | None = None,
     sleep: Callable[[float], None] = time.sleep,
-) -> None:
-    """Poll ``provider`` and emit alerts. State is kept across polls (fresh timestamps only)."""
+) -> int:
+    """Poll ``provider`` and emit alerts; survives bad cycles. Returns the total problem count.
+
+    ``max_polls=1`` is the ``--once`` mode. Re-feeding an unchanged step is harmless (no rise, no
+    alert), which is also what makes a failed send retry on the next poll.
+    """
     det = AlertDetector(include_all_clear=include_all_clear)
-    last_ts: datetime | None = None
+    load_detector_state(det, state_path)
+    problems = 0
     polls = 0
     while max_polls is None or polls < max_polls:
         polls += 1
-        ts, tiers = provider()
-        if last_ts is None or ts > last_ts:  # only fresh steps; a repeat poll changes nothing
-            last_ts = ts
-            for alert in det.feed(ts, tiers):
-                emit(alert)
+        problems += run_cycle(det, provider, emit, state_path=state_path, max_age=max_age, now=now)
         if max_polls is None or polls < max_polls:
             sleep(interval_seconds)
+    return problems
 
 
 # --- CLI ----------------------------------------------------------------------------------------
@@ -309,13 +493,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--speed", type=float, default=0.0, help="replayed minutes per real second (0 = instant)"
     )
     r.add_argument("--all-clear", action="store_true", help="also send back-to-Low messages")
-    li = sub.add_parser("live", help="poll the latest zone risk (provider is a stub)")
-    li.add_argument("--dry-run", action="store_true")
+    li = sub.add_parser("live", help="poll the latest zone risk from the Databricks gold table")
+    li.add_argument("--dry-run", action="store_true", help="print only; no state file is used")
+    li.add_argument("--once", action="store_true", help="run one cycle and exit (scheduled job)")
+    li.add_argument(
+        "--state-file",
+        type=Path,
+        default=DEFAULT_STATE_FILE,
+        help=f"JSON file with per-zone state (default {DEFAULT_STATE_FILE})",
+    )
+    li.add_argument(
+        "--max-age-minutes",
+        type=float,
+        default=DEFAULT_MAX_AGE.total_seconds() / 60,
+        help="ignore a newest gold step older than this",
+    )
     li.add_argument("--interval-seconds", type=float, default=300.0)
     li.add_argument("--all-clear", action="store_true")
     args = parser.parse_args(argv)
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     load_dotenv_file()
+    if not args.dry_run:
+        load_databricks_secrets()
     try:
         emit = _emitter(args.dry_run)
         if args.cmd == "replay":
@@ -331,13 +532,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 count += 1
             print(f"{count} alert(s) for {args.date}", file=sys.stderr)
         else:
-            run_live(
-                databricks_latest_risk,
+            problems = run_live(
+                gold_latest_risk,
                 emit,
                 interval_seconds=args.interval_seconds,
+                max_polls=1 if args.once else None,
                 include_all_clear=args.all_clear,
+                state_path=None if args.dry_run else args.state_file,
+                max_age=timedelta(minutes=args.max_age_minutes),
+                now=lambda: datetime.now(settings.tzinfo),
             )
-    except (RuntimeError, NotImplementedError, FileNotFoundError, ValueError) as exc:
+            if args.once and problems:
+                return 1
+    except (RuntimeError, FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     return 0
