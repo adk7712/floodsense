@@ -1,9 +1,12 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 16 Oct 2026, night, by Akul's session.
-- master: `0e315b3`, which merges adk's branch `adk/labels-kriging-zone-features` (B4.1, B3, A5,
-  A7.2, B2, A9, B4.2/B2.4) on top of A4 (`772ad07`). Reviewed by Akul's side before merging; the
-  follow-ups for adk are in §0 "Next for adk" and the review notes below.
+**Last updated:** 16 Oct 2026, night, by adk's session.
+- master: `e648495` (handoff after the merge). adk's earlier branch `adk/labels-kriging-zone-features`
+  is merged into master as `0e315b3` (B4.1, B3, A5, A7.2, B2, A9, B4.2/B2.4), on top of A4 (`772ad07`).
+- adk's branch `adk/review-followups` is cut from master `e648495`. It has four local commits, not
+  yet pushed: `2ec4bfb` (Telegram live mode), `1bd7ab6` (resident view folded into the Zone
+  Diagnostic panel), `dd82c50` (kriging write-up) and `60e2b19` (prior-sensitivity script). Waiting
+  for Akul's review once pushed. The follow-ups from Akul's review are marked done in §0.
 
 **Read first in a new session:** this file; the Round 2 task list is in §4b.
 - This is the only Round 2 status and plan file; `docs/ROUND2_WORK_PLAN.md` was merged into §4b on 16 Oct.
@@ -19,18 +22,18 @@
 
 ## 0. Latest session (16 Oct, adk): done, waiting, next
 
-**Done**, on branch `adk/labels-kriging-zone-features`, not yet on master:
+**Done**, on branch `adk/labels-kriging-zone-features`, merged into master by Akul (`0e315b3`):
 
 | Commit | Plan item | What |
 |---|---|---|
 | `48b86ea` | B4.1 | Active-rain gate tolerance (`active_rain_mask()` in `common/config.py`, 1e-6 mm), used in training and scoring. Dropped the unused `pub_monitored` and `return_period_years`. 8 more training rows pass the gate (13,250 vs 13,242 in the train-CLI test). Parity test passes. The feature store was rebuilt in B4.2 (`6ce0431`). **The champion has not been retrained since this fix** (see "B4 status" in §0). |
 | `1fc34b1` | B3 | Ordinary kriging (`spatial/kriging.py`) vs IDW, leave-one-gauge-out, on 4,000 storm steps from 2017–2023 (`docs/kriging_vs_idw.md`). Heavy rain: RMSE 26.40 vs 27.31 mm/h; difference −0.91 (90% CI −0.98 to −0.85), about 3%. Light rain: kriging is slightly worse. Both methods underestimate heavy cells by about 16 mm/h. **Recommendation: keep IDW, put the result on the mentor slide.** Team to confirm. |
-| `b240b41` | A5, A5.4 | Telegram bot (`floodsense.alerts.telegram_bot`). Replay of 17 Apr 2021 with `--dry-run` gives 67 messages, 24 of them High. At most one message per zone per hour, **except** that a rise above the last tier sent gets through (adk approved 16 Oct; otherwise no High is ever sent). The live provider is a stub until adk writes the gold wrapper (see "Next for adk", item 1). |
+| `b240b41` | A5, A5.4 | Telegram bot (`floodsense.alerts.telegram_bot`). Replay of 17 Apr 2021 with `--dry-run` gives 67 messages, 24 of them High. At most one message per zone per hour, **except** that a rise above the last tier sent gets through (adk approved 16 Oct; otherwise no High is ever sent). Live mode now reads gold (`2ec4bfb`; see "Review follow-ups" below). |
 | `fef4165` | A7.2 | 14 new **unverified** label candidates (11 from 2017–19, 3 from 2020–21, 0 from 2022–23) in `flood_events.csv`, plus 122 rejection entries in `docs/flood_events_rejected.md`. Training leaves them out until `verified_by` is filled. |
-| `3fdc66c` | B2 | `data/reference/zone_static.csv`: 55 rows, sourced, with `built_up_pct`, `elevation_m_mean` and `low_lying_pct` (under 5 m) from Copernicus GLO-30 and ESA WorldCover 2021. `rasterio` is an optional `static` extra. Licences are in the README. Downtown Core is only 60% built-up because of Marina Bay water and trees. Bukit Panjang has the highest mean elevation (48.8 m). |
+| `3fdc66c` | B2 | `data/reference/zone_static.csv`: 55 rows, sourced, with `built_up_pct`, `elevation_m_mean` and `low_lying_pct` (% of the zone's DEM pixels under 5 m) from Copernicus GLO-30 and ESA WorldCover 2021. `rasterio` is an optional `static` extra. Licences are in the README. Downtown Core is only 60% built-up because of Marina Bay water and trees. Bukit Panjang has the highest mean elevation (48.8 m). |
 
 **Waiting on Akul:**
-1. **Review and merge** `adk/labels-kriging-zone-features` into master.
+1. **Review and merge** `adk/review-followups` into master (the earlier branch `adk/labels-kriging-zone-features` is already merged, `0e315b3`).
    - `uv.lock` was bumped to revision 5 by uv 0.13.1. Update uv if `uv sync --locked` fails.
    - The gold pipeline uses the package, so the gate tolerance reaches gold on the next deploy.
 2. **Verify the 14 new label rows** (all 14 are unverified: `verified_by` is empty). adk drafted them, and the verifier must be a different person, so Akul checks. For each row, open the source and fill `verified_by` with your initials, or move the row to `docs/flood_events_rejected.md` with the reason. Training ignores any row with an empty `verified_by`.
@@ -49,13 +52,17 @@
    - **Not one of the 14, but worth a look:** the 2023-07-20 Dunearn Rd row is already verified (`Akul9`). Its severity "Minor" conflicts with a later Mothership article, which says only one of three lanes was passable. Recheck the severity.
 3. **Done by Akul:** A1 (radar archive and nowcast), A2 (`d484942`, Live mode reads gold), A6 (`f02fc15`, Databricks App deployed), the data.gov.sg fallback (`82f1cb6`) and A4.1–A4.3 (`772ad07`, gold scores with `flood_model@champion`; DEPLOYMENT.md §17). Nothing else is open on Akul's list for these.
 4. **B4.4:** nothing new to register. `rule_rain60` stays champion, pending adk's sign-off. If the 14 labels change the picture, see "B4 status" below.
+5. **Deploy the Telegram job when ready** (draft: `databricks/jobs/telegram_alerts_job.json`, every 5 min, **paused, not deployed**):
+   1. Create two secrets in scope `floodsense`: `telegram_bot_token` and `telegram_chat_id`. Neither exists yet.
+   2. Upload the job and unpause it.
+   3. Notes:
+      - Confirm the in-code secrets loader works with the workspace auth.
+      - The artifacts volume must be persistent. A lost state file (`/Volumes/workspace/floodsense/artifacts/telegram_state.json`) re-alerts zones that are already elevated.
+      - The 5-minute schedule costs compute quota. Check it after the first day, the same way as the poller (A3).
 
 **Open decisions:**
 - **Model sign-off (adk):** keep `rule_rain60` as champion (see B4.2 above).
-- **A9 wording (adk):**
-  - Low advice text: "No action needed. Carry on as normal, and check PUB's channels if the weather changes."
-  - Forecast caption: A1.6 says to label it "experimental", which breaks the UI rule. Proposed caption: "Forecast from radar; flood accuracy not yet tested."
-  - Whether Live mode shows active PUB alerts for the chosen area.
+- **Open idea (adk, not decided):** whether Live mode shows active PUB alerts for the chosen zone in the Zone Diagnostic panel.
 - **Label target (team).** Web sources are nearly used up: 14 new candidates against a target of 60 (the Definition of Done says 100). Agree a realistic number and document the shortfall.
   - Leads not tried: the ERL paper's supplement (`erlad975csupp1.docx`, https://iopscience.iop.org/article/10.1088/1748-9326/ad975c). Its download page has a CAPTCHA, so a person has to download it in a normal browser; use only the 2022–23 rows.
   - The channel `t.me/sgflood`.
@@ -79,11 +86,21 @@
   - **Recommendation: keep `rule_rain60`; nothing new to register** (adk to sign off).
   - A stronger shrinkage (prior SD 0.1) matched the rule post hoc. It is not adopted: it was chosen after seeing the folds. Re-check it after the 14 labels are verified.
   - If a candidate is ever registered, `databricks/register_model.py` needs a path option, and `--alias candidate`.
-- **A9 resident view** (`src/floodsense/app/resident_view.py`):
-  - An "Analyst view | Resident view" switch under the title. It shows your area, the risk now, the risk in 1 hour (when radar exists), what to do, the data time, and the PUB disclaimer.
+- **Review follow-ups from Akul's side, all done on `adk/review-followups`** (not yet pushed):
+- **Telegram live mode, `2ec4bfb`:** the provider is `gold_latest_risk()`, which wraps `latest_zone_risk()`.
+  - Where and how often: `live` runs the loop. `live --once` is for a scheduled job (the draft job above runs it every 5 min). State is saved to `--state-file`: `data/processed/telegram_state.json` locally (gitignored), `/Volumes/workspace/floodsense/artifacts/telegram_state.json` on Databricks. Restarts don't re-send.
+  - Gold read and send errors are logged (never the token), and the loop continues. A failed send is retried; it is not marked sent.
+  - `--max-age-minutes` (default 30) ignores stale gold.
+  - Not deployed. Deployment is Akul's (§0 "Waiting on Akul", item 5).
+- **Kriging write-up, `dd82c50`:** the result is written plainly: about 3% better on heavy rain, about 5% worse on light rain. IDW stays in serving. The comparison output is committed at `docs/results/kriging_vs_idw.json`.
+- **Candidate selection reproducibility, `60e2b19` plus a re-run:** `models/candidates/selection_2026-10-16.json` now records `git_sha` 60e2b19. The re-run on the clean commit reproduced every number. The sensitivity script is committed as `src/floodsense/models/prior_sensitivity.py`. Its output is `models/candidates/prior_sensitivity_2026-10-16.json`, with 90% CIs. Conclusions unchanged: keep `rule_rain60`.
+- **`zone_static.csv` contract (`low_lying_pct`):** documented in §4b task 0.2. Docs update on this branch, not yet committed.
+- **Resident view, `1bd7ab6`:** folded into the Zone Diagnostic panel as a "What to do" line, per Akul's suggestion. The separate view, the Analyst/Resident switch and `resident_view.py` are removed.
+  - Advice text lives in `src/floodsense/alerts/messages.py` (no longer imported from the bot module).
+  - No bare `except` on the forecast path. The "In 1 hour" line catches only the expected errors and logs the rest.
+  - Low advice is "No action suggested. Carry on as normal, and check PUB's channels if the weather changes." (settled; replaces "No action needed").
   - Same data as the map (gold in Live).
-  - Checked in light and dark, and with radar on 30 Sep 2026 at 14:30.
-  - Open: the Low advice wording ("No action needed. Carry on as normal, and check PUB's channels if the weather changes."); whether to show active PUB alerts in Live; the forecast caption.
+  - The folded panel was screenshotted in light and dark (Replay 17 Apr 2021, 12:50, Bukit Timah) and reads well. It has no forecast line of its own; the map's "In 1 hour" layer is unchanged.
 
 **Limitations and loose ends (be aware before relying on today's work):**
 - **Labels:** only 4 of the 14 new candidate rows had their source quote re-checked by adk's session (2021-07-12 Dunearn Rd, 2021-07-12 TPE slip road, 2018-09-19 Ang Mo Kio, 2018-06-26 Lorong Kismis/Toh Tuck). The other 10 rely on the drafting agent's own check that each quote appears on the fetched page. **None is verified yet.** That is Akul's job (fill `verified_by`).
@@ -94,22 +111,19 @@
 - **Feature store gap:** the rebuilt feature store has 46 more 2017–23 rows than the model card counted under the old gate. Probably the 2 Oct rainfall gap-fill files. **UNVERIFIED.**
 - **Static candidate:** the post-hoc "prior SD 0.1" static candidate matched the rule on the same folds. It is not adopted, because it was chosen after seeing the results.
 - **Kriging:** kriging vs IDW was measured on gauge interpolation only, not on flood detection.
-- **Resident view (A9):**
-  - The "In 1 hour" line was checked on 30 Sep 2026 at 14:30 and shows. At 15:00 and 15:30 it did not appear (radar nowcast not available for those times; cause not investigated).
-  - The 17 Apr 2021 demo replay has no radar, so the forecast line never shows there.
-  - Re-checked after merging Akul's `82f1cb6` (no stale-data banner, fallback behind Advanced): the resident view follows the same data source and has no data-age banner.
-- **Telegram bot:** it has never sent a real message (dry-run only). Live mode is a stub until a gold provider exists. The bot and the demo channel are not created yet.
+- **Resident view (A9, now the "What to do" line in the Zone Diagnostic panel):**
+  - Radar gap seen on 30 Sep 2026: a radar nowcast was available at 14:30 but not at 15:00 or 15:30 (cause not investigated). The map's "In 1 hour" layer will be missing at such times.
+  - The 17 Apr 2021 demo replay has no radar, so "In 1 hour" never shows there.
+  - Re-checked after merging Akul's `82f1cb6` (no stale-data banner, fallback behind Advanced): the A9 panel follows the same data source and has no data-age banner.
+- **Telegram bot:** it has never sent a real message (dry-run only). Live mode reads gold (`2ec4bfb`) but is not deployed: the job is a draft, paused. The bot and the demo channel are not created yet.
+- **Candidate selection:** `select_candidates.py` doesn't itself check for a dirty tree. Run `git status --porcelain` first, and it must print nothing. The sensitivity script (`prior_sensitivity.py`) does record a dirty flag.
 - **uv:** checked on 16 Oct. uv 0.13.1 (Homebrew, already the newest) passes `uv lock --check`, `uv sync --locked --all-extras --group dev` (what CI runs) and `uv pip check`; no pip-installed packages in `.venv`; `requirements.txt` matches a fresh export. `uv.lock` is lockfile revision 5; which older uv versions can read it is UNVERIFIED, so **Akul should run `brew upgrade uv` (0.13.1 or newer) before `uv sync --locked --all-extras --group dev`.** Regenerate `requirements.txt` only with the exact command in its header (it includes `--extra radar`, which keeps OpenCV for the Databricks App).
 - **Rejected candidate model not uploaded:** `models/candidates/rule_rain60_static.joblib` is the saved copy of the zone-feature candidate. It is **not committed** (now in `.gitignore`) because it did worse than `rule_rain60` in cross-validation (High 6/23 vs 12/23). Its results are in `models/candidates/selection_2026-10-16.json` and `docs/candidate_selection_2026-10.md`, and `python -m floodsense.models.select_candidates` rebuilds it. The champion `models/flood_model.joblib` is unchanged.
-- **Drafts:** the forecast-risk caption and the A9 Low-advice wording are drafts, pending a team decision.
 
 **Before handing off to Akul (adk's checklist):**
 1. ~~Commit and push the branch~~: done 16 Oct (`c4339ce` and earlier).
 2. Sign off on the model decision: keep `rule_rain60` as champion. Tell Akul nothing new needs registering.
-3. Decide the A9 wording:
-   - the Low advice text ("No action needed. Carry on as normal, and check PUB's channels if the weather changes.")
-   - the forecast caption ("Forecast from radar; flood accuracy not yet tested.")
-   - whether Live mode should show PUB alerts for the chosen area
+3. Optional idea, not decided: whether Live mode should show PUB alerts for the chosen zone in the Zone Diagnostic panel. (The A9 wording is settled, §0.)
 4. Send Akul:
    - the branch link for review
    - the list of 14 label rows to verify, with the 6 to look at closely (listed above)
@@ -119,20 +133,19 @@
 7. Tell Akul to upgrade uv to 0.13.1 or newer (`brew upgrade uv`) before syncing (see the uv note).
 
 **Next for adk (can start now):**
-1. **Telegram live mode:** write the `(timestamp, {zone: tier})` provider by wrapping `latest_zone_risk()` in `src/floodsense/serving/gold.py`, and pass it to `run_live()`. This removes the provider item from Akul's list.
+1. **Done, `2ec4bfb`: Telegram live mode.** The `(timestamp, {zone: tier})` provider wraps `latest_zone_risk()` and is passed to `run_live()`. Akul's deployment notes are in "Waiting on Akul", item 5.
 2. **B6 deck and metrics write-up** (start as soon as possible), with the kriging and static-feature results as the "mentor suggestions measured" slide.
 3. **J2.3 Q&A answers** for likely judge questions.
-4. **Investigate** why the "In 1 hour" line did not show at 15:00 and 15:30 on 30 Sep 2026 (probably no radar nowcast for those times; not confirmed).
+4. **Investigate** why no radar nowcast was available at 15:00 and 15:30 on 30 Sep 2026, the radar demo day (probably no radar nowcast for those times; not confirmed).
 5. Re-run `python -m floodsense.models.select_candidates` once Akul has verified the 14 labels.
 6. More label drafting, if the team wants it (leads above).
-7. **Review follow-ups from Akul's side (16 Oct merge):**
-   - Telegram bot: keep state (last tier and last send per zone) across restarts, or seed it from the first poll without sending, so a restart doesn't re-send every alert. Catch errors around the gold read and each send so one failure doesn't stop the bot or lose an alert. Say where and how often it runs. (Escalation within the hour is fine: Akul approved it.)
-   - `docs/kriging_vs_idw.md`: "clearly better" overstates it (about 3% better on heavy rain, about 5% worse on light rain); say IDW stays in serving, and commit the comparison output (it is written to the gitignored `data/processed/`).
-   - `docs/candidate_selection_2026-10.md`: tie `selection_2026-10-16.json` to a committed sha (it records `9424984` plus uncommitted changes), and commit the sensitivity scratch script or mark that table as not reproducible.
-   - `zone_static.csv` has a 7th column, `low_lying_pct` (5 m cut-off): add it to the contract in §4b 0.2.
-   - `resident_view.py` imports the whole bot module for `ADVICE` and `DISCLAIMER`; move those to a small `alerts/messages.py`. Its forecast block catches every exception and hides failures of the "In 1 hour" line; catch only what's expected, or log it.
-   - Low-tier advice "No action needed" is strong for a model whose accuracy is partly untested; consider "No action suggested".
-8. **Optional — stakeholder feedback (B5):** if time allows, show the resident view to one real user (town council, residents' committee or volunteer) for 10–15 minutes and record their answers word for word with consent. Not required; nothing depends on it.
+7. **Review follow-ups from Akul's side (16 Oct merge). All done on `adk/review-followups`, see "Review follow-ups" in the 16 Oct block above:**
+   - Telegram bot state and error handling, `2ec4bfb`: done.
+   - Kriging write-up, `dd82c50`: done.
+   - Candidate selection reproducibility, `60e2b19` plus a re-run: done.
+   - `zone_static.csv` `low_lying_pct` in the contract, §4b 0.2: done (docs on this branch, not yet committed).
+   - Resident view, `1bd7ab6`: folded into the Zone Diagnostic panel, `alerts/messages.py`, no bare `except` on the forecast path, "No action suggested" wording: done.
+8. **Optional — stakeholder feedback (B5):** if time allows, show the Zone Diagnostic panel's "What to do" line to one real user (town council, residents' committee or volunteer) for 10–15 minutes and record their answers word for word with consent. Not required; nothing depends on it.
 
 ---
 
@@ -176,7 +189,7 @@ Streamlit app, live or as a replay of any day since 2017.
 | Model | A Platt-calibrated **60-min rainfall rule** (`models/flood_model.joblib`). Moderate from 0.30% (≈29.5 mm in 60 min), High from 0.71% (≈44.5 mm). Test (2024 to Sep 2026, 30 floods, scored once): High 12/30 (40%, CI 27–53%), Moderate 21/30 (70%, CI 57–83%), median warning 10 / 15 min. |
 | Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and 15-min PUB alert job** (§3b). See DEPLOYMENT.md. |
 | Radar | **Done, all of A1** (§3). |
-| App | Live mode (PUB live alerts, 5-min refresh) and Replay (two-step sidebar: choose a date, then simulate). Map switch **Risk of flood \| Rain radar**, with a joined timing row (**Now \| In 1 hour**, or **Now \| +30 \| +60 min**); one layer at a time; slim legend bars. Zone panel shows risk, or a 2-line radar summary in radar view. MRT stations at risk. Light/dark toggle, orange buttons. |
+| App | Live mode (PUB live alerts, 5-min refresh) and Replay (two-step sidebar: choose a date, then simulate). Map switch **Risk of flood \| Rain radar**, with a joined timing row (**Now \| In 1 hour**, or **Now \| +30 \| +60 min**); one layer at a time; slim legend bars. Zone Diagnostic panel shows risk, a "What to do" line (A9, folded in on `1bd7ab6`), or a 2-line radar summary in radar view. MRT stations at risk. Light/dark toggle, orange buttons. |
 | Tests/CI | ruff, mypy, about 290 tests (260 non-integration, 30 integration; counted by `pytest --collect-only` on 16 Oct, not re-run for this update) on adk's branch. GitHub Actions on push. |
 
 ---
@@ -227,7 +240,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 **Ownership swap: proposed 15 Oct, accepted by adk 16 Oct** (the owners in §4b are updated):
 - **Akul takes everything Databricks:** A2 (app reads gold; done), A3 (poller ops), A4 (serve from UC),
   A6 (Databricks App; done), A8 (governance), B4.4 (registering adk's candidates), J3.1 (final workspace).
-- **adk takes:** A9 (resident / town-council view), A5 (Telegram bot plus replay mode), A7 (all the
+- **adk takes:** A9 (resident advice, folded into the Zone Diagnostic panel), A5 (Telegram bot plus replay mode), A7 (all the
   label drafting).
 - **adk keeps:** B1–B4 and B6 (labels, static features, kriging, retrain, deck).
 - **Verification:** Akul's side verifies everything adk pushes.
@@ -238,7 +251,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 2. **Done:** A2 (app reads gold, `d484942`) and A6 (Databricks App, `f02fc15`; OpenCV is in `requirements.txt` for radar). A1 is also done.
 3. **Done:** A4.1–A4.3 (`772ad07`). Parity: the champion file is byte-identical to `models/flood_model.joblib` and scores the 17 Apr 2021 replay like the Databricks export. Left: A4.4, promote adk's candidate before the freeze if there is one.
 4. A3 (unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; pause `floodsense-flood-alerts` at the same time) and A8.
-5. **Done:** reviewed and merged adk's branch (`0e315b3`). Still to do: verify the 14 label rows (§0). The Telegram provider is adk's (§0, "Next for adk").
+5. **Done:** reviewed and merged adk's branch (`0e315b3`). Still to do: verify the 14 label rows (§0). The Telegram provider is done (`2ec4bfb`, §0); the Telegram job deployment is on Akul's list (§0, "Waiting on Akul", item 5).
 6. Run `brew upgrade uv` before `uv sync --locked` (see the uv note in §0).
 
 **Also:**
@@ -261,7 +274,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 4. Labels verified, then re-run candidate selection, then adk signs off. Nothing new to register today (§0).
 5. Radar integration if go, and retrain if needed. Finish before the freeze (hard limit 23 Oct 18:00 SGT).
 6. Promote to `champion` after adk signs off and before the freeze.
-7. App and bot read gold, so the bot's live mode follows once the gold wrapper is written.
+7. App and bot read gold. Live mode reads gold (`2ec4bfb`); the bot is not deployed yet (§0, "Waiting on Akul", item 5).
 8. Poller unpause for the run-up to the demo (48 h of clean runs, then pause), with `floodsense-flood-alerts` paused at the same time.
 9. Slides and architecture visuals, then two rehearsals, fallback recordings and the final workspace check.
 10. Demo Day: Tue 27 Oct.
@@ -271,7 +284,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | ID | Task | Owner | Status | Notes / links |
 |---|---|---|---|---|
 | 0.1 | Agree freeze date and test-set rule; record in README "Evaluation protocol" | both | Partly | Rules are in `CLAUDE.md`; README has no "Evaluation protocol" heading: open |
-| 0.2 | `data/reference/zone_static.csv` contract (55 rows, sourced, no blanks) | adk | Done | B2, branch |
+| 0.2 | `data/reference/zone_static.csv` contract (55 rows, sourced, no blanks). Columns: `ura_planning_area, built_up_pct, elevation_m_mean, low_lying_pct, source_name, source_url, retrieved_at`. `low_lying_pct` = % of the zone's DEM pixels under 5 m | adk | Done | B2 (`3fdc66c`); `low_lying_pct` contract line added on `adk/review-followups`, not yet committed |
 | 0.3 | Label-file schema | both | Done | Existing `flood_events.csv`; `verified_by` = verifier's initials, not the drafter |
 | 0.4 | Registry rule | both | Done | Alias `candidate` for candidates; only `champion` serves; promote before the freeze, only after adk signs off |
 | 0.5 | Shared task board | both | Open | This section is the list |
@@ -281,11 +294,11 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | A2 | App reads gold | Akul | Done | `d484942`. Spec asked for a data-age line, and a warning above 60 min. **`82f1cb6` removed the stale-data banner** (team decision, see Definition of Done). Credentials stay in secrets; cache queries to save warehouse compute |
 | A3 | Poller operations | Akul | Open | A3.0 secret exists (§7). A3.1 48 h of clean runs before the demo. A3.2 job-failure email alert. A3.3 unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; log daily usage and re-pause if the cap gets close; pause `floodsense-flood-alerts` at the same time |
 | A4 | Serve from Unity Catalog | Akul | Done (A4.1–A4.3, `772ad07`); A4.4 open | A4.1 load `models:/workspace.floodsense.flood_model@champion` in `databricks/pipelines/lakeflow_pipeline.py` (v1 already loads back with identical tiers: code change only). A4.2 read `zone_static.csv` only if the model uses it (it does not). A4.3 re-run the parity test (`test_phase5_parity.py`); it must pass or the difference be documented. A4.4 promote before the freeze, after adk signs off |
-| A5 | Telegram bot (A5.1–A5.4) | adk | Partly | Branch (`b240b41`): tier-change logic, A5.3 one message per zone per hour (rise above last tier gets through), A5.4 replay mode (17 Apr 2021). **A5.1 bot and demo channel not created; live provider is a stub** (§0) |
+| A5 | Telegram bot (A5.1–A5.4) | adk | Partly | Branch (`b240b41`): tier-change logic, A5.3 one message per zone per hour (rise above last tier gets through), A5.4 replay mode (17 Apr 2021). Live mode reads gold (`2ec4bfb`, persistent state, error handling). **A5.1 bot and demo channel not created; draft job paused, not deployed** (§0, "Waiting on Akul", item 5) |
 | A6 | Databricks App | Akul | Done | `f02fc15`. A6.2 fresh-browser test: open. A6.3 Apps auto-stop after 24 h (§5): restart before rehearsals and the demo. Fallback if it fails: run Streamlit locally, show the App as roadmap |
 | A7 | LLM-drafted flood candidates | adk | Partly | A7.1 `ai_query` works but invents facts (§5). A7.2 **2017–2023 only**, never 2024–2026 before the freeze: first pass done (14 candidates, 122 rejections, `fef4165`). A7.3 post batches with an ID, hand to Akul. A7.4 rejections in `docs/flood_events_rejected.md`. The "6 batches" target is not met (§0 label target) |
 | A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | Open | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only once the freeze work is done |
-| A9 | Resident / town-council view | adk | Done (branch) | `1bfd0be`. Wording and forecast caption open (§0) |
+| A9 | Resident advice (town-council use) | adk | Done (branch) | `1bfd0be`, then folded into the Zone Diagnostic panel as a "What to do" line in `1bd7ab6`. The separate view and switch are removed. Low wording settled ("No action suggested…", §0) |
 | B1 | Label verification (B1.1–B1.4) | Akul verifies, adk drafts | Waiting | 14 unverified rows (§0). Target: **60 new verified**; not on track, document the shortfall. Set `time_precision` to match the source; run `load_flood_events()` after each batch |
 | B2 | Static zone features | adk | Done (branch) | `3fdc66c`. Sources: Copernicus GLO-30, ESA WorldCover; licences in README. PUB drainage capacity and catchments: not openly available, unverified |
 | B3 | Kriging vs IDW | adk | Done (branch) | `1fc34b1`, `docs/kriging_vs_idw.md`. Decision rule: add kriging only if clearly better. Recommendation: keep IDW; team to confirm |
@@ -296,9 +309,9 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | B4.4 | Register the candidate with alias `candidate` | Akul | Nothing to register | Needs `register_model.py` path option and `--alias candidate` if one is ever registered |
 | B4.5 | Freeze and set thresholds (before the freeze) | adk | Open | Thresholds come from the budget rule in `config.py` (2.5 false High, 11 false Moderate per zone-year; achieved 1.56 and 7.28). Do not change the budgets to improve a result |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
-| B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the resident view to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
+| B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the Zone Diagnostic panel's "What to do" line to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
 | B6 | Deck and metrics write-up | adk (Akul: architecture slide) | Open | B6.1 rates with raw counts and 90% intervals, plus false alarms per zone-year. B6.2 limitations slide: label count, test-set status, radar scope; tide is not built although some labels carry a `rain_tide` tag. B6.3 credit all datasets, libraries, models. B6.4 draft as soon as possible, both review, **deck saved as PDF in the repo**. Include the "mentor suggestions measured" slide (§6) |
-| J1 | Integration and demo flow | both | Open | J1.1 CI green, freeze and tag before the limit (23 Oct 18:00 SGT). J1.2 demo order: app live from gold, map with radar nowcast, resident view, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
+| J1 | Integration and demo flow | both | Open | J1.1 CI green, freeze and tag before the limit (23 Oct 18:00 SGT). J1.2 demo order: app live from gold, map with radar nowcast, Zone Diagnostic panel's "What to do" line, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
 | J2 | Rehearsals and Q&A | both | Open | J2.1 rehearsal 1 (time it, note failures). J2.2 rehearsal 2 (every fallback works), once the freeze is done and the fallbacks exist. J2.3 Q&A answers (adk): why not full radar; false-alarm rate; how labels are verified; what happens during NEA downtime |
 | J3 | Final workspace and submission | Akul (J3.1), adk (J3.2, J3.3) | Open | J3.1 pipeline, poller, app and model in the final workspace; check quota. J3.2 scan repo and deck for tokens, passwords, personal data. J3.3 submit deck and links before the deadline; keep a PDF copy; save the confirmation |
 
@@ -319,9 +332,9 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 
 | Criterion (weight) | Plan items |
 |---|---|
-| Social impact (30%) | A5 Telegram alerts, A9 resident view, B5 (optional) |
+| Social impact (30%) | A5 Telegram alerts, A9 "What to do" line, B5 (optional) |
 | Technical execution on Databricks (30%) | A1 radar archive, A2 app on gold, A3 live poller, A4 registry serving, A6 Databricks App, A7 `ai_query`, A8 governance and Asset Bundles |
-| Solution and UX (20%) | A1.5 nowcast overlay, A1.6 forecast risk, A9 resident view, per-zone explanations |
+| Solution and UX (20%) | A1.5 nowcast overlay, A1.6 forecast risk, A9 "What to do" line, per-zone explanations |
 | Data rigour (10%) | B1 labels, B2 static features, B3 kriging, B4 fixes, the test-set protocol |
 | Presentation (10%) | J1–J3, the fallback recordings |
 
@@ -334,8 +347,8 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 - [x] At least one mentor suggestion is measured (B3 kriging, B2.4 static features).
 - [ ] The measured mentor suggestion is on a slide (B6).
 - [x] The radar archive is complete from 16 Jul, and the nowcast overlay is on the map.
-- [ ] Forecast risk (A1.6) is shown if go, otherwise the spike result is on a slide. The "experimental" label conflicts with the UI rule; caption is an open decision (§0).
-- [x] The resident view (A9) is in the app (adk's branch, not yet on master).
+- [ ] Forecast risk (A1.6) is shown if go, otherwise the spike result is on a slide. No "experimental" label (UI rule).
+- [x] The A9 "What to do" line is in the Zone Diagnostic panel (adk's branch, `1bd7ab6`, not yet on master).
 - [ ] Metrics are reported honestly, with intervals and a limitations slide (B6).
 - [ ] Two rehearsals are done, and a fallback exists for each live step (J1, J2).
 

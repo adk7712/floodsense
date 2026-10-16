@@ -1,8 +1,15 @@
 # Candidate selection, October 2026 (B4.1, B4.2, B4.2b, B2.4)
 
-**Run:** 16 Oct 2026, adk's session, on branch `adk/labels-kriging-zone-features` (`9424984` plus
-uncommitted changes). **Results file:** `models/candidates/selection_2026-10-16.json`.
-**Reproduce:** `uv run python -m floodsense.models.select_candidates --date 2026-10-16`.
+**Run:** 16 Oct 2026, adk's session, on branch `adk/review-followups`. The results were reproduced
+on clean commit `60e2b19`: every number matches the first run. **Results file:**
+`models/candidates/selection_2026-10-16.json` (it records `git_sha` 60e2b19).
+
+**Reproduce** (from the repo root, on a clean tree):
+1. `git status --porcelain` must print nothing. `select_candidates.py` does not check for a dirty
+   tree itself. Only `prior_sensitivity.py` records a `dirty` flag in its output.
+2. `uv run python -m floodsense.models.select_candidates --date 2026-10-16`
+3. `uv run python -m floodsense.models.prior_sensitivity --date 2026-10-16` (source:
+   `src/floodsense/models/prior_sensitivity.py`; output: `models/candidates/prior_sensitivity_2026-10-16.json`)
 
 **Recommendation: keep `rule_rain60`.** No new candidate beats it, and the static zone features
 made the rain rule worse in cross-validation. There is nothing new for Akul to register as
@@ -132,15 +139,18 @@ to 19.5 (Straits View), with a median of 0.77.
   rises, and floods elsewhere are missed.
 - So a prior of SD 0.5 per feature-SD was not "heavy" in threshold terms.
 
-**Post-hoc sensitivity check (not used for selection).** After the main run, I re-ran
-`rule_rain60_static` with stronger priors (scratch script, not in the repo; same folds):
+**Post-hoc sensitivity check (not used for selection).** After the main run, `rule_rain60_static`
+was re-run with stronger priors. The script is `src/floodsense/models/prior_sensitivity.py`
+(committed in `60e2b19`), with the same folds. Its output is
+`models/candidates/prior_sensitivity_2026-10-16.json`. Cells show hits (90% CI), then false
+episodes per zone-year:
 
 | Prior SD | Event score | High at budget | Moderate at budget |
 |---|---|---|---|
-| 0.05 | 0.478 | 12/23, 2.32 | 17/23, 10.43 |
-| 0.10 | 0.565 | 12/23, 2.00 | 17/23, 9.30 |
-| 0.25 | 0.446 | 6/23, 0.66 | 16/23, 7.90 |
-| 0.5 (main run) | 0.315 | 6/23, 1.40 | 12/23, 8.24 |
+| 0.05 | 0.478 | 12/23 (35–70%), 2.32 | 17/23 (57–87%), 10.43 |
+| 0.10 | 0.565 | 12/23 (35–70%), 2.00 | 17/23 (57–87%), 9.30 |
+| 0.25 | 0.446 | 6/23 (13–43%), 0.66 | 16/23 (52–83%), 7.90 |
+| 0.5 (main run) | 0.315 | 6/23 (13–43%), 1.40 | 12/23 (35–70%), 8.24 |
 
 At SD 0.1, the floods caught at the actual budgets are the same as `rule_rain60` (no flood gained
 or lost), with somewhat fewer false episodes (2.00 against 2.32 per zone-year at High, 9.30 against
