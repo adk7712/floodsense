@@ -47,7 +47,7 @@
      - **Not rain-driven:** Hougang Ave 3 (2020-11-02) was caused by construction runoff, so it may not belong in a rain model.
    - **Not one of the 14, but worth a look:** the 2023-07-20 Dunearn Rd row is already verified (`Akul9`). Its severity "Minor" conflicts with a later Mothership article, which says only one of three lanes was passable. Recheck the severity.
 3. **Done by Akul:** A1 (radar archive and nowcast), A2 (`d484942`, Live mode reads gold), A6 (`f02fc15`, Databricks App deployed) and the data.gov.sg fallback (`82f1cb6`). Nothing else is open on Akul's list for these.
-4. **B4.4:** nothing new to register on 21 Oct. `rule_rain60` stays champion, pending adk's sign-off. If the 14 labels change the picture, see "B4 status" below.
+4. **B4.4:** nothing new to register. `rule_rain60` stays champion, pending adk's sign-off. If the 14 labels change the picture, see "B4 status" below.
 
 **Open decisions:**
 - **Model sign-off (adk):** keep `rule_rain60` as champion (see B4.2 above).
@@ -63,10 +63,10 @@
 - **Kriging (team).** Keep IDW (recommended) or add kriging as an option before the freeze.
 
 **B4 status: paused until the 14 labels are verified.**
-- Once Akul has verified them: (1) adk re-runs `python -m floodsense.models.select_candidates`; (2) retrain the champion only if the tier cut-offs change; (3) hand any candidate to Akul, ideally by 21 Oct (a registration deadline, not a start date); (4) adk signs off at the 23 Oct freeze.
+- Once Akul has verified them: (1) adk re-runs `python -m floodsense.models.select_candidates`; (2) retrain the champion only if the tier cut-offs change; (3) hand any candidate to Akul as soon as it is ready; (4) adk signs off before the freeze.
 - **The champion `models/flood_model.joblib` was not retrained after the gate fix.** The CV thresholds were identical (0.003 / 0.00706), so no change is expected. This is an inference, not a re-run.
 - Current tier cut-offs: Moderate from 0.30%, High from 0.71%.
-- If Akul can't verify in time, keep the current model and document the shortfall.
+- If Akul can't verify before the freeze, keep the current model and document the shortfall.
 
 **Done later on 16 Oct (adk), pushed in `1bfd0be` (A9) and `6ce0431` (B4.2/B2.4); this file and the README note in `c4339ce` and `49969c4`:**
 - **B4.2 / B4.2b / B2.4** (`docs/candidate_selection_2026-10.md`, `models/candidates/`):
@@ -75,7 +75,7 @@
   - New candidate `rule_rain60_static`: the rule plus one shrunk coefficient per static feature.
   - **The static features hurt.** High 6/23 vs 12/23 (−26 pts, 90% CI −43 to −9); Moderate 12/23 vs 17/23 (−22 pts, −39 to −4). The fit learns "built-up zones flood more", which mostly reflects where floods get reported.
   - LR and LightGBM, with or without the static features, are still far behind.
-  - **Recommendation: keep `rule_rain60`; nothing new to register on 21 Oct** (adk to sign off).
+  - **Recommendation: keep `rule_rain60`; nothing new to register** (adk to sign off).
   - A stronger shrinkage (prior SD 0.1) matched the rule post hoc. It is not adopted: it was chosen after seeing the folds. Re-check it after the 14 labels are verified.
   - If a candidate is ever registered, `databricks/register_model.py` needs a path option, and `--alias candidate`.
 - **A9 resident view** (`src/floodsense/app/resident_view.py`):
@@ -104,7 +104,7 @@
 
 **Before handing off to Akul (adk's checklist):**
 1. ~~Commit and push the branch~~: done 16 Oct (`c4339ce` and earlier).
-2. Sign off on the model decision: keep `rule_rain60` as champion. Tell Akul nothing new needs registering on 21 Oct.
+2. Sign off on the model decision: keep `rule_rain60` as champion. Tell Akul nothing new needs registering.
 3. Decide the A9 wording:
    - the Low advice text ("No action needed. Carry on as normal, and check PUB's channels if the weather changes.")
    - the forecast caption ("Forecast from radar; flood accuracy not yet tested.")
@@ -119,12 +119,12 @@
 
 **Next for adk (can start now):**
 1. **Telegram live mode:** write the `(timestamp, {zone: tier})` provider by wrapping `latest_zone_risk()` in `src/floodsense/serving/gold.py`, and pass it to `run_live()`. This removes the provider item from Akul's list.
-2. **B6 deck and metrics write-up** (draft due 24 Oct), with the kriging and static-feature results as the "mentor suggestions measured" slide.
+2. **B6 deck and metrics write-up** (start as soon as possible), with the kriging and static-feature results as the "mentor suggestions measured" slide.
 3. **J2.3 Q&A answers** for likely judge questions.
 4. **Investigate** why the "In 1 hour" line did not show at 15:00 and 15:30 on 30 Sep 2026 (probably no radar nowcast for those times; not confirmed).
 5. Re-run `python -m floodsense.models.select_candidates` once Akul has verified the 14 labels.
 6. More label drafting, if the team wants it (leads above).
-7. **Optional — stakeholder feedback (B5):** if time allows, show the resident view to one real user (town council, residents' committee or volunteer) for 10–15 minutes by 22 Oct and record their answers word for word with consent. Not required; nothing depends on it.
+7. **Optional — stakeholder feedback (B5):** if time allows, show the resident view to one real user (town council, residents' committee or volunteer) for 10–15 minutes and record their answers word for word with consent. Not required; nothing depends on it.
 
 ---
 
@@ -141,11 +141,11 @@ Streamlit app, live or as a replay of any day since 2017.
 
 **Status:** Round 1 submitted on 6 Oct, **qualified for the top 10** (of ~800).
 - **Mentor:** Suneel Sunkara.
-- **Sprint:** 12–26 Oct. **Demo Day: Tue 27 Oct**, 4–7pm SGT, where the top 3 are selected.
-- **Office hours:**
-  - 16 Oct: first working pipeline and blockers
-  - 19 Oct: progress, evaluation, next milestones
-  - 23 Oct: demo story, reproducibility, gaps
+- **Sprint:** runs up to Demo Day. **Demo Day: Tue 27 Oct**, 4–7pm SGT, where the top 3 are selected.
+- **Office hours** with the mentor are scheduled. Topics:
+  - first working pipeline and blockers
+  - progress, evaluation, next milestones
+  - demo story, reproducibility, gaps
 - **Another team is in Track B2.** Akul wants to do everything needed to win.
 
 **Demo Day judging:**
@@ -193,7 +193,7 @@ Streamlit app, live or as a replay of any day since 2017.
   - Beats both baselines. CSI for ≥29.5 mm in 60 min: 0.23, against 0.18 for radar persistence
     and 0.03 for gauge persistence.
   - The gain over gauges is significant; the gain from motion is modest.
-  - **Recommendation: GO** for "risk in 1 hour" (team decides 19 Oct).
+  - **Recommendation: GO** for "risk in 1 hour" (team decides).
 - **In the app:** `floodsense.radar.live`. Demo day for radar: **30 Sep 2026** (Woodlands flood);
   17 Apr 2021 predates the radar archive.
 
@@ -205,7 +205,7 @@ The poller is paused, so two jobs keep the data growing (DEPLOYMENT.md §14):
   readings, as raw API pages in `landing/rainfall/daily/`. The pipeline ingests them on its next
   update (the job doesn't run it). Gauges backfilled from 1 Oct, so there is no gap since 30 Sep.
 - **`floodsense-flood-alerts`** (every 15 min): PUB alerts, which the API doesn't keep. Only pages
-  with an alert are saved. **Pause it when the poller is unpaused (24 Oct)**; the poller saves alerts
+  with an alert are saved. **Pause it at the same time as the poller is unpaused** (A3); the poller saves alerts
   too. Check its compute use after the first day; fall back to every 30 min if heavy.
 - The **local** gauge store (`data/raw/rainfall`) still ends 30 Sep, and local radar ends 14 Oct;
   neither updates by itself.
@@ -229,36 +229,34 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 1. Finish the day-1 checks: second user, and a look at the competitor (see §5).
 2. **Done:** A2 (app reads gold, `d484942`) and A6 (Databricks App, `f02fc15`; OpenCV is in `requirements.txt` for radar). A1 is also done.
 3. A4 (pipeline loads `flood_model@champion`; re-run the parity test).
-4. A3 (unpause the poller from 24 Oct, and pause `floodsense-flood-alerts` at the same time; watch the quota) and A8.
+4. A3 (unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; pause `floodsense-flood-alerts` at the same time) and A8.
 5. Review and merge adk's branch, and verify the 14 label rows (§0). The Telegram provider is adk's (§0, "Next for adk").
 6. Run `brew upgrade uv` before `uv sync --locked` (see the uv note in §0).
 
 **Also:**
 - Share the radar results with adk (§4b is the plan).
-- Settle the 19 Oct radar go/no-go.
+- Settle the radar go/no-go.
 
 ---
 
 ## 4b. Round 2 plan (task list, merged from the old work plan on 16 Oct)
 
 **Goal:** a live, Databricks-run flood risk system that is honest about its evidence, with at least one mentor suggestion implemented and measured.
-- **Scope cuts, in order:** (1) radar as a *risk input* (the forecast-risk layer, A1.6) if the 19 Oct go/no-go fails; the archive and rain-nowcast overlay are not cut. (2) Kriging, unless it is clearly better. (3) The Telegram bot.
+- **Scope cuts, in order:** (1) radar as a *risk input* (the forecast-risk layer, A1.6) if the go/no-go fails; the archive and rain-nowcast overlay are not cut. (2) Kriging, unless it is clearly better. (3) The Telegram bot.
 - **Never cut:** the app reading gold, the radar archive and nowcast overlay, the rehearsals, the fallback recordings, the limitations slide.
-- **Rules:** test-set rule and 23 Oct 18:00 freeze are in `CLAUDE.md`. Neither person's work should block the other's for more than half a day.
+- **Rules:** the test-set rule and the freeze are in `CLAUDE.md`. Finish all model and feature changes before the freeze (hard limit 23 Oct 18:00 SGT); after it, bug fixes only. Neither person's work should block the other's for more than half a day.
 
-**Timeline** (today's reality in the last column):
-
-| Dates | Milestone | Reality on 16 Oct |
-|---|---|---|
-| 15 Oct | Radar backfill and daily archiver | Done |
-| 15–16 Oct | Shared setup; label batch 1; second-user and `ai_query` tests | `ai_query` and Apps tested (§5); second user open; 14 label candidates drafted, unverified |
-| 17–19 Oct | Radar go/no-go (19 Oct); static features (18 Oct); app reads gold | A2 and A6 done early; B2 and B3 done on adk's branch; radar GO recommended, team decides 19 Oct |
-| 20–21 Oct | Candidate model v2 registered | Nothing new to register (§0) |
-| 22 Oct | Radar integration if go; retrain | Open |
-| 23 Oct | Freeze 18:00; promote to `champion` | Open |
-| 24 Oct | Slides and architecture visuals; poller unpaused from 12:00 SGT | Open |
-| 25–26 Oct | Two rehearsals; fallback recordings; final workspace check | Open |
-| 27 Oct | Demo Day | |
+**Order of work** (what depends on what; do each step as soon as its inputs are ready):
+1. Radar archive and daily archiver: done.
+2. Shared setup, label batch 1, second-user and `ai_query` tests: `ai_query` and Apps tested (§5); second user open; 14 label candidates drafted, unverified.
+3. Radar go/no-go, static features, app reads gold: A2 and A6 done; B2 and B3 done on adk's branch; radar GO recommended, team decides.
+4. Labels verified, then re-run candidate selection, then adk signs off. Nothing new to register today (§0).
+5. Radar integration if go, and retrain if needed. Finish before the freeze (hard limit 23 Oct 18:00 SGT).
+6. Promote to `champion` after adk signs off and before the freeze.
+7. App and bot read gold, so the bot's live mode follows once the gold wrapper is written.
+8. Poller unpause for the run-up to the demo (48 h of clean runs, then pause), with `floodsense-flood-alerts` paused at the same time.
+9. Slides and architecture visuals, then two rehearsals, fallback recordings and the final workspace check.
+10. Demo Day: Tue 27 Oct.
 
 **Tasks.** Status as of 16 Oct, from §0 and the repo. "Branch" means adk's branch, not yet on master.
 
@@ -267,45 +265,45 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | 0.1 | Agree freeze date and test-set rule; record in README "Evaluation protocol" | both | Partly | Rules are in `CLAUDE.md`; README has no "Evaluation protocol" heading: open |
 | 0.2 | `data/reference/zone_static.csv` contract (55 rows, sourced, no blanks) | adk | Done | B2, branch |
 | 0.3 | Label-file schema | both | Done | Existing `flood_events.csv`; `verified_by` = verifier's initials, not the drafter |
-| 0.4 | Registry rule | both | Done | Alias `candidate` for candidates; only `champion` serves; promote on 23 Oct only |
+| 0.4 | Registry rule | both | Done | Alias `candidate` for candidates; only `champion` serves; promote before the freeze, only after adk signs off |
 | 0.5 | Shared task board | both | Open | This section is the list |
 | 0.6 | Free Edition unknowns (second user, `ai_query`, Apps) | Akul | Partly | §5: `ai_query` and Apps answered; second user open |
 | 0.7 | Look at the other B2 team | Akul | Open | Devpost gallery is behind Cloudflare, check by hand (§5) |
-| A1 | Radar archive, calibration, nowcast, overlay, forecast risk (A1.1–A1.6) | Akul | Done | §3. A1.6 is built; the go/no-go is the team's call on 19 Oct. Radar is not a trained feature (3 months of data vs 2017–2023). Go test: the nowcast beats persistence at 30 min on gauge-interpolated storm steps |
+| A1 | Radar archive, calibration, nowcast, overlay, forecast risk (A1.1–A1.6) | Akul | Done | §3. A1.6 is built; the go/no-go is the team's call. Radar is not a trained feature (3 months of data vs 2017–2023). Go test: the nowcast beats persistence at 30 min on gauge-interpolated storm steps |
 | A2 | App reads gold | Akul | Done | `d484942`. Spec asked for a data-age line, and a warning above 60 min. **`82f1cb6` removed the stale-data banner** (team decision, see Definition of Done). Credentials stay in secrets; cache queries to save warehouse compute |
-| A3 | Poller operations | Akul | Open | A3.0 secret exists (§7). A3.1 48 h of clean runs before the demo. A3.2 job-failure email alert. A3.3 schedule from **24 Oct 12:00 SGT** through the demo; log daily usage and re-pause if the cap gets close; pause `floodsense-flood-alerts` at the same time |
-| A4 | Serve from Unity Catalog | Akul | Open | A4.1 load `models:/workspace.floodsense.flood_model@champion` in `databricks/pipelines/lakeflow_pipeline.py` (v1 already loads back with identical tiers: code change only). A4.2 read `zone_static.csv` only if the model uses it (it does not). A4.3 re-run the parity test (`test_phase5_parity.py`); it must pass or the difference be documented. A4.4 promote on 23 Oct after adk signs off |
+| A3 | Poller operations | Akul | Open | A3.0 secret exists (§7). A3.1 48 h of clean runs before the demo. A3.2 job-failure email alert. A3.3 unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; log daily usage and re-pause if the cap gets close; pause `floodsense-flood-alerts` at the same time |
+| A4 | Serve from Unity Catalog | Akul | Open | A4.1 load `models:/workspace.floodsense.flood_model@champion` in `databricks/pipelines/lakeflow_pipeline.py` (v1 already loads back with identical tiers: code change only). A4.2 read `zone_static.csv` only if the model uses it (it does not). A4.3 re-run the parity test (`test_phase5_parity.py`); it must pass or the difference be documented. A4.4 promote before the freeze, after adk signs off |
 | A5 | Telegram bot (A5.1–A5.4) | adk | Partly | Branch (`b240b41`): tier-change logic, A5.3 one message per zone per hour (rise above last tier gets through), A5.4 replay mode (17 Apr 2021). **A5.1 bot and demo channel not created; live provider is a stub** (§0) |
-| A6 | Databricks App | Akul | Done | `f02fc15`. A6.2 fresh-browser test: open. A6.3 Apps auto-stop after 24 h (§5): restart before rehearsals and the demo. Fallback if it fails by 25 Oct: run Streamlit locally, show the App as roadmap |
-| A7 | LLM-drafted flood candidates | adk | Partly | A7.1 `ai_query` works but invents facts (§5). A7.2 **2017–2023 only**, never 2024–2026 before the freeze: first pass done (14 candidates, 122 rejections, `fef4165`). A7.3 post batches with an ID, hand to Akul. A7.4 rejections in `docs/flood_events_rejected.md`. The "6 batches by 19 Oct" target is not met (§0 label target) |
-| A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | Open | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only after 23 Oct |
+| A6 | Databricks App | Akul | Done | `f02fc15`. A6.2 fresh-browser test: open. A6.3 Apps auto-stop after 24 h (§5): restart before rehearsals and the demo. Fallback if it fails: run Streamlit locally, show the App as roadmap |
+| A7 | LLM-drafted flood candidates | adk | Partly | A7.1 `ai_query` works but invents facts (§5). A7.2 **2017–2023 only**, never 2024–2026 before the freeze: first pass done (14 candidates, 122 rejections, `fef4165`). A7.3 post batches with an ID, hand to Akul. A7.4 rejections in `docs/flood_events_rejected.md`. The "6 batches" target is not met (§0 label target) |
+| A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | Open | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only once the freeze work is done |
 | A9 | Resident / town-council view | adk | Done (branch) | `1bfd0be`. Wording and forecast caption open (§0) |
-| B1 | Label verification (B1.1–B1.4) | Akul verifies, adk drafts | Waiting | 14 unverified rows (§0). Checkpoint **60 new verified by 19 Oct**: not on track, document the shortfall. Set `time_precision` to match the source; run `load_flood_events()` after each batch |
+| B1 | Label verification (B1.1–B1.4) | Akul verifies, adk drafts | Waiting | 14 unverified rows (§0). Target: **60 new verified**; not on track, document the shortfall. Set `time_precision` to match the source; run `load_flood_events()` after each batch |
 | B2 | Static zone features | adk | Done (branch) | `3fdc66c`. Sources: Copernicus GLO-30, ESA WorldCover; licences in README. PUB drainage capacity and catchments: not openly available, unverified |
 | B3 | Kriging vs IDW | adk | Done (branch) | `1fc34b1`, `docs/kriging_vs_idw.md`. Decision rule: add kriging only if clearly better. Recommendation: keep IDW; team to confirm |
 | B4.1 | Fix active-rain gate tolerance; drop unused columns | adk | Done (branch) | `48b86ea` |
 | B4.2 | Re-run selection on 2020–2023 only | adk | Done (branch) | `docs/candidate_selection_2026-10.md`; `rule_rain60` still wins. Re-run after the 14 labels are verified |
 | B4.2b | Candidate that uses static features; re-run LR and LightGBM | adk | Done (branch) | `rule_rain60_static` hurts (High 6/23 vs 12/23); LR and LightGBM still behind |
-| B4.3 | Radar via A1.6, without retraining | adk | Open | Depends on the 19 Oct go/no-go |
-| B4.4 | Register the candidate with alias `candidate` | Akul | Nothing to register | Deadline 21 Oct. Needs `register_model.py` path option and `--alias candidate` if one is ever registered |
-| B4.5 | Freeze 23 Oct and set thresholds | adk | Open | Thresholds come from the budget rule in `config.py` (2.5 false High, 11 false Moderate per zone-year; achieved 1.56 and 7.28). Do not change the budgets to improve a result |
+| B4.3 | Radar via A1.6, without retraining | adk | Open | Depends on the radar go/no-go |
+| B4.4 | Register the candidate with alias `candidate` | Akul | Nothing to register | Needs `register_model.py` path option and `--alias candidate` if one is ever registered |
+| B4.5 | Freeze and set thresholds (before the freeze) | adk | Open | Thresholds come from the budget rule in `config.py` (2.5 false High, 11 false Moderate per zone-year; achieved 1.56 and 7.28). Do not change the budgets to improve a result |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
-| B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the resident view to one real user for 10–15 min by 22 Oct; record answers word for word, with consent. Quote on a slide only if it happened |
-| B6 | Deck and metrics write-up | adk (Akul: architecture slide) | Open | B6.1 rates with raw counts and 90% intervals, plus false alarms per zone-year. B6.2 limitations slide: label count, test-set status, radar scope; tide is not built although some labels carry a `rain_tide` tag. B6.3 credit all datasets, libraries, models. B6.4 **draft 24 Oct**, both review, **deck saved as PDF in the repo**. Include the "mentor suggestions measured" slide (§6) |
-| J1 | Integration and demo flow | both | Open | J1.1 CI green, freeze and tag 23 Oct 18:00. J1.2 demo order: app live from gold, map with radar nowcast, resident view, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
-| J2 | Rehearsals and Q&A | both | Open | J2.1 rehearsal 1 on **25 Oct** (time it, note failures). J2.2 rehearsal 2 on **26 Oct** (every fallback works). J2.3 Q&A answers (adk): why not full radar; false-alarm rate; how labels are verified; what happens during NEA downtime |
+| B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the resident view to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
+| B6 | Deck and metrics write-up | adk (Akul: architecture slide) | Open | B6.1 rates with raw counts and 90% intervals, plus false alarms per zone-year. B6.2 limitations slide: label count, test-set status, radar scope; tide is not built although some labels carry a `rain_tide` tag. B6.3 credit all datasets, libraries, models. B6.4 draft as soon as possible, both review, **deck saved as PDF in the repo**. Include the "mentor suggestions measured" slide (§6) |
+| J1 | Integration and demo flow | both | Open | J1.1 CI green, freeze and tag before the limit (23 Oct 18:00 SGT). J1.2 demo order: app live from gold, map with radar nowcast, resident view, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
+| J2 | Rehearsals and Q&A | both | Open | J2.1 rehearsal 1 (time it, note failures). J2.2 rehearsal 2 (every fallback works), once the freeze is done and the fallbacks exist. J2.3 Q&A answers (adk): why not full radar; false-alarm rate; how labels are verified; what happens during NEA downtime |
 | J3 | Final workspace and submission | Akul (J3.1), adk (J3.2, J3.3) | Open | J3.1 pipeline, poller, app and model in the final workspace; check quota. J3.2 scan repo and deck for tokens, passwords, personal data. J3.3 submit deck and links before the deadline; keep a PDF copy; save the confirmation |
 
 **Dependency map** (handoffs between tracks):
 
-| Handoff | From → To | Due | Risk | Mitigation |
-|---|---|---|---|---|
-| Verified label batches | A7 → B1 | 4 h after each batch | Low | Small batches |
-| `zone_static.csv` | B2 → A4 | 18 Oct | Medium | Delivered; matches the contract |
-| Radar go/no-go | A1 → B4.3 | 19 Oct | Low | Retrain does not wait for it |
-| Candidate registered | B4.4 → A4 | 21 Oct | Medium | A4 can use the current `champion` |
-| Gold live | A2/A3 → B6 | 20 Oct | Low | Gold is live; the data.gov.sg fallback exists |
-| Feature freeze | both → J1 | 23 Oct 18:00 | Hard deadline | No changes after the freeze |
+| Handoff | From → To | Risk | Mitigation |
+|---|---|---|---|
+| Verified label batches | A7 → B1 | Low | Small batches; verify each batch soon after it is posted |
+| `zone_static.csv` | B2 → A4 | Medium | Delivered; matches the contract |
+| Radar go/no-go | A1 → B4.3 | Low | Retrain does not wait for it |
+| Candidate registered | B4.4 → A4 | Medium | A4 can use the current `champion` |
+| Gold live | A2/A3 → B6 | Low | Gold is live; the data.gov.sg fallback exists |
+| Feature freeze | both → J1 | Hard limit: 23 Oct 18:00 SGT | No changes after the freeze |
 
 **Key design:** the app and the bot read gold, not the model directly, so adk can retrain without blocking Akul. Akul switches the `champion` alias only after adk signs off.
 
@@ -336,7 +334,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 **Open questions still open:**
 1. **Label target.** An early team goal was "a few hundred" new floods, the plan said 100, B1 says 60; 14 drafted so far. See §0.
 2. **PUB X/Telegram history.** How far back PUB's posts go, and whether they can be archived legally and reliably.
-3. **Radar role.** Confirm the team accepts radar as a nowcast layer evaluated on storm steps, not a trained feature (decision 19 Oct).
+3. **Radar role.** Confirm the team accepts radar as a nowcast layer evaluated on storm steps, not a trained feature.
 4. **Second user on Free Edition.** Open (§5).
 5. **Daily compute cap.** Not published, and the usage table is not available, so we can only watch for failures. It affects A3 (poller schedule) and A2 (query caching).
 - Answered, see §5: `ai_query` works; Databricks Apps auto-stop after 24 h.
