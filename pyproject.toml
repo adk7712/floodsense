@@ -51,8 +51,8 @@ packages = ["src/floodsense"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Not part of the package: Databricks pipeline sources and the competition submission docs.
-extend-exclude = ["databricks", "submission"]
+# Not part of the package: the Databricks pipeline and job sources.
+extend-exclude = ["databricks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

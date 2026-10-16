@@ -132,7 +132,7 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 
 - **Poller on a live schedule**: the job exists and has run (section 11), but its schedule is paused
   to protect the daily compute cap.
-- **Databricks App**: not deployed yet. The Streamlit app reads gold when run locally (section 15).
+- **Telegram alerts** on Databricks: built and tested offline; waiting for the bot token (section 19).
 - **Promoting a new model** to `champion` (A4.4, 23 Oct): gold already serves whatever the alias
   points to (section 17).
 

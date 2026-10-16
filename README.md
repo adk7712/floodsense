@@ -2,28 +2,35 @@
 
 FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning areas, one hour ahead. It ingests 5-minute NEA rainfall gauge readings from data.gov.sg, interpolates them to planning areas with inverse-distance weighting, derives rainfall-accumulation and storm-rarity features, and gives each zone a calibrated chance of a reported flood in the next hour. A Streamlit dashboard shows the result as a risk map, live or replayed for any day since 2017, with the major reported storms one click away. Built for the DAISI Challenge 2026, Track B2.
 
-> **Status: working prototype on real data.**
-> - **Model:** a calibrated 60-minute-rainfall rule (`models/flood_model.joblib`). It beat logistic regression and LightGBM at matched false-alarm levels.
-> - **Data:** trained on NEA rainfall 2017–2023 and 66 sourced flood events. It was scored once on held-out floods from 2024 to Sep 2026 (30 floods):
+> **Status: working prototype on real data, running on Databricks.**
+> - **Model:** a calibrated 60-minute-rainfall rule (`models/flood_model.joblib`, registered in Unity
+>   Catalog as `workspace.floodsense.flood_model@champion`). It beat logistic regression, LightGBM and
+>   a static-feature variant at matched false-alarm levels (`docs/candidate_selection_2026-10.md`).
+> - **Test result:** trained on NEA rainfall 2017–2023, then scored once on held-out floods from 2024
+>   to Sep 2026 (30 floods):
 >   - High alerts caught 12 (40%), median warning 10 min, 1.6 false alarms per zone-year
 >   - Moderate alerts caught 21 (70%), median warning 15 min, 7.3 false alarms per zone-year
 >
->   Details are in `models/final_report.json` and `models/model_card.json`.
-> - **Databricks:** on Free Edition (`DEPLOYMENT.md`):
->   - the pipeline reproduces local scoring on the 17 April 2021 storm
->   - a poller job lands live NEA readings and refreshes it (schedule paused to save compute)
->   - the model is registered in Unity Catalog as `workspace.floodsense.flood_model@champion`
->   - PUB flood alerts are archived on every poll (the API keeps no history)
->   - an AI/BI dashboard reads gold; tables carry source and layer tags
-> - **PUB flood alerts:** shown live in the app beside the risk map; the live view reloads every 5 min.
-> - **Transport at risk:** MRT/LRT stations with an exit in a Moderate/High area or a PUB alert circle (LTA MRT Station Exit, data.gov.sg).
-> - **Uncertainty:** every test rate in `models/final_report.json` has a bootstrap 90% interval (`ci90`).
-> - **Radar** (data.gov.sg rain areas):
->   - archived daily from 16 Jul 2026 (the API keeps ~3 months)
->   - colours calibrated to mm/h against NEA gauges (`docs/radar_calibration.md`)
->   - an optical-flow nowcast that beats persistence (`docs/radar_nowcast_result.md`)
->   - in the app: a map overlay (now, +30 and +60 min) and an experimental forecast-risk view (needs the `radar` extra)
-> - **Not built yet:** tide, the app reading gold, and gold loading the model from the registry.
+>   Details and 90% intervals are in `models/final_report.json` and `models/model_card.json`.
+> - **Databricks** (Free Edition, `DEPLOYMENT.md`):
+>   - a Lakeflow pipeline (bronze → silver → gold) scores every zone every 5 minutes with the model
+>     loaded from Unity Catalog; it reproduces local scoring on the 17 April 2021 storm
+>   - Lakeflow Jobs: a rainfall poller (lands NEA readings and PUB alerts, then runs the pipeline), a
+>     daily archiver (radar frames and gauge readings) and a 15-minute PUB-alert saver
+>   - the app runs as a Databricks App and reads gold through a SQL warehouse; an AI/BI dashboard
+>     reads gold too
+>   - every table, volume, model and job carries a description and tags (`DEPLOYMENT.md` §18)
+>   - the architecture diagram is in `docs/architecture/`
+> - **App:** a live risk map for 55 planning areas, replay of any day since 2017, live PUB flood
+>   alerts, MRT stations at risk, and a Resident view (your area, the risk now and in an hour, what
+>   to do). Light and dark themes.
+> - **Radar** (data.gov.sg rain areas, archived daily from 16 Jul 2026): colours calibrated to mm/h
+>   against NEA gauges (`docs/radar_calibration.md`), and an optical-flow nowcast that beats
+>   persistence (`docs/radar_nowcast_result.md`). The app shows it as a map overlay (now, +30, +60
+>   min) and as "risk in 1 hour".
+> - **Telegram alerts:** a bot that posts when a zone's risk rises (`floodsense.alerts`), with a
+>   replay mode; going live with the poller.
+> - **Not built:** tide, and PUB drainage capacity (not openly available).
 
 ## Quickstart
 
@@ -52,23 +59,29 @@ On macOS, LightGBM needs OpenMP (`brew install libomp`).
 
 ```
 src/floodsense/
-  app/          Streamlit dashboard
+  app/          Streamlit app (Analyst and Resident views, Replay)
+  alerts/       Telegram alert bot and the shared advice wording
   common/       Pydantic schemas and central config (config.py)
   data/         Rainfall store (build and load), sourced flood events, replay files
-  serving/      Pandas core shared by the app and the Databricks pipeline
   features/     Rolling-rainfall features, storm rarity, the feature store
+  ingestion/    NEA rainfall poller, PUB flood alerts
   labels/       How flood events become training labels
-  ingestion/    NEA rainfall poller
-  models/       Training, evaluation, backtest, model artifact
-  spatial/      Station and planning-area geometry, IDW interpolation
+  models/       Training, evaluation, backtest, model artifact and registry loading,
+                candidate selection
+  radar/        Radar decoding, calibration, optical-flow nowcast, app radar layer
+  serving/      Pandas core shared by the app and the Databricks pipeline; gold-table reader
+  spatial/      Station and planning-area geometry, IDW and kriging, static zone features
 tests/          pytest suite (unit, integration, e2e)
-models/         Trained model, model card and final test-set report
+models/         Trained model, model card, final test-set report, candidate results
 data/raw/rainfall/  NEA 5-minute rainfall store, 2017 onward (~18 MB Parquet, committed)
 data/replay/    Real NEA readings for the 17 April 2021 storm (with 72 h warm-up)
-data/reference/ Station snapshot, URA planning-area polygons, sourced flood events,
-                and the Databricks parity export (phase5/)
-databricks/     Lakeflow pipeline and spec, poller job, model registration, parity export, local Spark runner
-docs/           Flood reports examined and excluded, with reasons
+data/reference/ Station snapshot, URA planning-area polygons, flood events, static zone
+                features, MRT exits, radar colour scale, and the Databricks parity export
+databricks/     Lakeflow pipeline and spec, jobs, Databricks App config, dashboard,
+                model registration, parity export, local Spark runner
+docs/           Architecture diagram, radar and kriging results, model selection,
+                flood-label reviews and rejections, team handoff
+app.yaml        Databricks App entry point
 ```
 
 Configuration (risk thresholds, false-alarm budgets, timing constants, API URLs, paths) lives in `src/floodsense/common/config.py` and can be overridden with `FLOODSENSE_*` environment variables.
@@ -176,7 +189,9 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
 
 ### Flood events (`data/reference/flood_events.csv`)
 
-66 events, 2017 to Sep 2026, across 27 planning areas. Each row has:
+80 verified events, 2017 to Sep 2026, across 32 planning areas: 50 in 2017–2023 (training and
+cross-validation) and 30 in 2024–2026 (the test set). 11 more candidates are drafted and waiting for
+their second check. Each row has:
 - a `source_url` and `source_name`
 - an `evidence_quote` copied from the source, naming the place and time
 - a `time_precision` (`exact`, `approx_15min`, `approx_hour` or `day_only`)
