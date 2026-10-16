@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     databricks_profile: str | None = None
     gold_table: str = "workspace.floodsense.flood_risk_predictions_gold"
     gold_stale_minutes: float = 60.0  # older gold gets a visible warning
+    # Databricks volume with the archived radar frames (e.g. /Volumes/workspace/floodsense/radar).
+    # Set in the Databricks App, which has no local archive; read through the Files API.
+    radar_volume: str | None = None
 
     # Paths
     root_dir: Path = _DEFAULT_ROOT_DIR

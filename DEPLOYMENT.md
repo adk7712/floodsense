@@ -498,3 +498,21 @@ Bundles (A8.2) are a stretch goal for after the freeze.
   `floodsense/telegram_chat_id` from adk's bot.
 - **Note:** the project's `.venv` no longer contains `uv` (a `uv sync` removed it); use the Homebrew
   `uv` (`/opt/homebrew/bin/uv`).
+
+## 20. Faster radar in Replay (16 Oct 2026)
+
+Radar frames come from, in order: the local archive (`data/raw/radar`), then the Databricks radar
+volume (`settings.radar_volume`, read through the Files API and kept in memory per day), then
+data.gov.sg. The live API is slow for replay: it pages newest-first through the whole day, so a
+1am frame took about 2 s, against 0.1–0.4 s from an archive.
+
+- **App:** a replayed time's radar (more than an hour old) is computed once and kept (up to 500
+  times); recent times still refresh every 5 minutes.
+- **Databricks App:** `FLOODSENSE_RADAR_VOLUME=/Volumes/workspace/floodsense/radar` in `app.yaml`, and
+  a fourth app resource, `radar` (the volume, READ_VOLUME). Deployment
+  `01f1c94f54381db19ff1416f99f8309e`, checked by Akul in a browser, then stopped.
+- **Local archive** topped up from the volume to 15 Oct (both sizes). To top it up again, copy any
+  newer `date=` folders from `dbfs:/Volumes/workspace/floodsense/radar/{70km,240km}/` into
+  `data/raw/radar/`.
+- A frame read from the volume, the local archive and data.gov.sg is byte-identical (checked for
+  30 Sep 14:30).

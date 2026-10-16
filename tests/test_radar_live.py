@@ -85,3 +85,72 @@ def test_forecast_features_swap_in_next_hour_rain():
     out = forecast_features(f, z).set_index("ura_planning_area")
     assert out.loc["A", "rain_60m"] == 40 and out.loc["A", "rain_120m"] == 45
     assert out.loc["B", "rain_60m"] == 0  # no radar for a zone means no forecast rain, not a guess
+
+
+# --- The Databricks radar volume (how the Databricks App gets frames) ---------------------------
+
+
+class _FakeFiles:
+    """The Files API: serves the archive fixture's day files from a fake volume path."""
+
+    def __init__(self, archive):
+        self.archive, self.calls = archive, []
+
+    def download(self, path):
+        from types import SimpleNamespace
+
+        self.calls.append(path)
+        rel = path.removeprefix("/Volumes/workspace/floodsense/radar/")
+        f = self.archive / rel
+        if not f.exists():
+            raise FileNotFoundError(path)  # the SDK raises NotFound
+        return SimpleNamespace(contents=io.BytesIO(f.read_bytes()))
+
+
+def test_frames_come_from_the_volume_when_there_is_no_local_archive(archive, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from floodsense.radar import live
+
+    files = _FakeFiles(archive)
+    monkeypatch.setattr(settings, "radar_volume", "/Volumes/workspace/floodsense/radar")
+    monkeypatch.setattr(live, "_volume_client", SimpleNamespace(files=files))
+    monkeypatch.setattr(live, "_VOLUME_DAYS", {})
+    monkeypatch.setattr(
+        live, "_api_day", lambda *a, **k: pytest.fail("the API shouldn't be needed")
+    )
+
+    empty_local = tmp_path / "no_local_archive"
+    when = datetime(2026, 9, 30, 12, 10, tzinfo=settings.tzinfo)
+    frames = recent_frames(when, empty_local)
+    assert [f["t"].strftime("%H:%M") for f in frames] == ["12:00", "12:05", "12:10"]
+    assert "/Volumes/workspace/floodsense/radar/70km/date=2026-09-30/frames.parquet" in files.calls
+
+    n = len(files.calls)
+    recent_frames(when, empty_local)  # the day is kept: no second download
+    assert (
+        files.calls.count("/Volumes/workspace/floodsense/radar/70km/date=2026-09-30/frames.parquet")
+        == 1
+        and len(files.calls) >= n
+    )
+
+
+def test_a_day_missing_from_the_volume_is_retried_later(archive, monkeypatch):
+    from types import SimpleNamespace
+
+    from floodsense.radar import live
+
+    files = _FakeFiles(archive)
+    monkeypatch.setattr(settings, "radar_volume", "/Volumes/workspace/floodsense/radar")
+    monkeypatch.setattr(live, "_volume_client", SimpleNamespace(files=files))
+    monkeypatch.setattr(live, "_VOLUME_DAYS", {})
+    assert live._volume_day("2026-10-01") is None
+    assert live._volume_day("2026-10-01") is None
+    assert len(files.calls) == 2  # misses aren't remembered
+
+
+def test_no_volume_configured_means_no_volume_reads(monkeypatch):
+    from floodsense.radar import live
+
+    monkeypatch.setattr(settings, "radar_volume", None)
+    assert live._volume_day("2026-09-30") is None

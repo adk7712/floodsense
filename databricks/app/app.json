@@ -5,12 +5,19 @@
     {
       "name": "sql-warehouse",
       "description": "Runs the Live-mode query on flood_risk_predictions_gold.",
-      "sql_warehouse": {"id": "<warehouse-id>", "permission": "CAN_USE"}
+      "sql_warehouse": {
+        "id": "<warehouse-id>",
+        "permission": "CAN_USE"
+      }
     },
     {
       "name": "data-gov-key",
       "description": "data.gov.sg API key for the live fallback, radar and PUB alerts.",
-      "secret": {"scope": "floodsense", "key": "data_gov_api_key", "permission": "READ"}
+      "secret": {
+        "scope": "floodsense",
+        "key": "data_gov_api_key",
+        "permission": "READ"
+      }
     },
     {
       "name": "gold",
@@ -19,6 +26,15 @@
         "securable_full_name": "workspace.floodsense.flood_risk_predictions_gold",
         "securable_type": "TABLE",
         "permission": "SELECT"
+      }
+    },
+    {
+      "name": "radar",
+      "description": "Archived NEA radar frames, so Replay doesn't fetch them from data.gov.sg.",
+      "uc_securable": {
+        "securable_full_name": "workspace.floodsense.radar",
+        "securable_type": "VOLUME",
+        "permission": "READ_VOLUME"
       }
     }
   ]

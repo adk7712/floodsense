@@ -2,7 +2,8 @@
 FloodSense - Radar for the app: the frames at a given time, the nowcast, map images and zone forecasts.
 
 Frames come from the local archive (``data/raw/radar``, written by ``databricks/jobs/archive_radar.py``)
-when it has the day, otherwise from data.gov.sg's date history. That only reaches back about 3 months,
+when it has the day, then from the Databricks radar volume (``settings.radar_volume``, kept current by
+the daily archiver; how the Databricks App gets them), otherwise from data.gov.sg's date history. That only reaches back about 3 months,
 so older times (e.g. the 17 Apr 2021 storm) have no radar.
 
 The forecast risk (plan A1.6) feeds the nowcast's next-hour rain into the existing flood model,
@@ -62,6 +63,36 @@ def _archive_day(day: str, archive: Path) -> pd.DataFrame | None:
     return pd.read_parquet(f) if f.exists() else None
 
 
+# Days read from the volume, kept for the life of the process: archived days are complete and never
+# change (about 2 MB each). Misses aren't kept, so a day archived later is picked up.
+_VOLUME_DAYS: dict[str, pd.DataFrame] = {}
+_volume_client: Any = None
+
+
+def _volume_day(day: str) -> pd.DataFrame | None:
+    """A day's frames from the Databricks radar volume, or None (not configured, not archived, or
+    unreachable). Uses the Files API, so it also works where /Volumes isn't mounted (Databricks Apps)."""
+    global _volume_client
+    if not settings.radar_volume:
+        return None
+    if day in _VOLUME_DAYS:
+        return _VOLUME_DAYS[day]
+    try:
+        if _volume_client is None:
+            from databricks.sdk import WorkspaceClient
+
+            p = settings.databricks_profile
+            _volume_client = WorkspaceClient(profile=p) if p else WorkspaceClient()
+        path = f"{settings.radar_volume.rstrip('/')}/70km/date={day}/frames.parquet"
+        data = _volume_client.files.download(path).contents.read()
+        df = pd.read_parquet(io.BytesIO(data))
+    except Exception as exc:  # NotFound for a day not archived yet, auth, network, missing SDK
+        logger.info("Radar volume has no %s (%s)", day, type(exc).__name__)
+        return None
+    _VOLUME_DAYS[day] = df
+    return df
+
+
 def _api_day(day: str, until: datetime) -> pd.DataFrame | None:
     """Frames for ``day`` from data.gov.sg (newest page first), stopping once 3 before ``until`` are in."""
     headers = {"User-Agent": "floodsense"}
@@ -115,12 +146,15 @@ def recent_frames(when: datetime, archive: Path = ARCHIVE_DIR) -> list[pd.Series
     if (
         when < datetime.now(settings.tzinfo) - timedelta(days=API_HISTORY_DAYS)
         and not (archive / "70km" / f"date={when.date().isoformat()}").exists()
+        and not settings.radar_volume
     ):
         return None
     days = sorted({(when - k * STEP).date().isoformat() for k in range(4)})
     parts = []
     for day in days:
         df = _archive_day(day, archive)
+        if df is None:
+            df = _volume_day(day)
         if df is None:
             df = _api_day(day, when + STEP)
         if df is not None:

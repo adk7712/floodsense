@@ -1114,13 +1114,30 @@ def live_flood_alerts() -> tuple[list[FloodAlert] | None, str | None]:
         return None, str(exc)
 
 
-@st.cache_data(ttl=300, show_spinner="Loading radar…")
-def radar_for(when_iso: str) -> RadarView | None:
-    """Radar now and the nowcast at a time (None: no radar exists for it). Cached per frame time."""
+def _radar(when_iso: str) -> RadarView | None:
     try:
         return radar_view(datetime.fromisoformat(when_iso))
     except ImportError:
         return None  # the optional 'radar' extra (OpenCV) isn't installed
+
+
+# Frames more than an hour old never change, so a replayed time is computed once and kept (about
+# 0.2 MB each; 500 is plenty for a session of scrubbing). Recent times are refreshed every 5 min,
+# since the newest frames may still be arriving.
+@st.cache_data(max_entries=500, show_spinner="Loading radar…")
+def _radar_past(when_iso: str) -> RadarView | None:
+    return _radar(when_iso)
+
+
+@st.cache_data(ttl=300, show_spinner="Loading radar…")
+def _radar_recent(when_iso: str) -> RadarView | None:
+    return _radar(when_iso)
+
+
+def radar_for(when_iso: str) -> RadarView | None:
+    """Radar now and the nowcast at a time (None: no radar exists for it). Cached per frame time."""
+    age = datetime.now(settings.tzinfo) - datetime.fromisoformat(when_iso)
+    return _radar_past(when_iso) if age > timedelta(hours=1) else _radar_recent(when_iso)
 
 
 LIVE_REFRESH = timedelta(minutes=5)

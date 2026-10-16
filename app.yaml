@@ -19,5 +19,8 @@ env:
     valueFrom: sql-warehouse
   - name: FLOODSENSE_DATA_GOV_API_KEY
     valueFrom: data-gov-key
+  # Archived radar frames for Replay, read through the Files API (no local archive in the App).
+  - name: FLOODSENSE_RADAR_VOLUME
+    value: /Volumes/workspace/floodsense/radar
   - name: STREAMLIT_GATHER_USAGE_STATS
     value: "false"
