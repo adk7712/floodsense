@@ -237,3 +237,9 @@ articles (year from page metadata when the body has none), MustShareNews, Mother
 PUB's X timeline load as empty JavaScript pages; theindependent.sg returns 403; Parliament search
 needs a browser. Not yet tried: Shin Min Daily News / NewspaperSG for 2022–23, and paging
 `stomp.sg/tag/flash-flood` in a browser.
+
+## Second check of Akul's session's candidates, 17 Oct 2026 (adk)
+
+- 2017-04-27 Hougang Avenue 1, between Hougang Ave 1 and Hougang Ave 3 (towards KPE and Tampines Link), https://www.stomp.sg/singapore-seen/singapore/workers-wade-through-shin-deep-water-after-heavy-rain-causes-flood-at-kovan : Stomp reader video only (Stomper Ray); no PUB or news corroboration found; year not stated in the body (page metadata only).
+- 2018-11-12 Woodlands Avenue 2 towards Seletar Expressway (SLE), https://www.stomp.sg/singapore-seen/stompers-experience-flash-floods-in-woodlands-during-heavy-rain : Stomp reader videos only (incl. a reader's screen grab of PUB's MyWaters camera); no PUB or news report of a flood on Woodlands Ave 2 on 12 Nov 2018 found; year not in the page text (metadata only).
+- 2022-11-07 Bukit Timah Expressway (BKE) road shoulder near Kranji Exit 8, https://www.stomp.sg/singapore-seen/car-drives-through-floodwater-on-bke-can-go-kayaking-on-highway-in-future : Real flood (Mothership, https://mothership.sg/2022/11/bke-flooded-drains-blocked/), but the BKE shoulder near Kranji Exit 8 lies within about 10 m of the Sungei Kadut, Mandai and Woodlands boundaries and no source gives a direction or km, so no single planning area can be assigned.
