@@ -30,6 +30,8 @@ train = ["mlflow>=2.10"]
 radar = [
     "opencv-python-headless>=4.8",
 ]
+# The Databricks pipeline loads the model registered in Unity Catalog (models.artifact).
+serving = ["mlflow-skinny>=2.10"]
 
 [dependency-groups]
 dev = [

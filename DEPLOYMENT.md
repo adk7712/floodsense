@@ -133,8 +133,8 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 - **Poller on a live schedule**: the job exists and has run (section 11), but its schedule is paused
   to protect the daily compute cap.
 - **Databricks App**: not deployed yet. The Streamlit app reads gold when run locally (section 15).
-- **Serving from the registry**: gold still loads the committed `models/flood_model.joblib`, not the
-  registered model (section 10).
+- **Promoting a new model** to `champion` (A4.4, 23 Oct): gold already serves whatever the alias
+  points to (section 17).
 
 ## 7. Answers to plan §9
 
@@ -411,3 +411,49 @@ Steps, as run (fill in `<login>` and the warehouse ID in `app.json` first):
 5. Stop it: `databricks apps stop floodsense`. Start it later: `databricks apps start floodsense`
 
 First deployment `01f1c8c47306131f8da3bded252d3b6f` (16 Oct) installed and started cleanly.
+
+## 17. Gold scores with the model registered in Unity Catalog (A4, 16 Oct 2026)
+
+The pipeline's configuration `floodsense.model_uri` is
+`models:/workspace.floodsense.flood_model@champion`, so gold scores with whatever version the
+`champion` alias points to. Promoting a new model (A4.4) is a matter of moving the alias; the
+pipeline doesn't change. With the key empty, gold falls back to `models/flood_model.joblib` under
+`floodsense.root_dir`, which the local runner uses.
+
+- **Loader:** `floodsense.models.artifact.load_registered_model()` downloads the registered model
+  and loads only its `artifacts/flood_model.joblib`. It deliberately skips `mlflow.pyfunc`: the
+  registered model bundles the floodsense code from registration day (`code_paths`), and pyfunc
+  would put that older copy ahead of the pipeline's wheel. The driver log (not the event log) prints the version used.
+- **No fallback:** if the registry can't be read, the update fails rather than scoring with
+  something else.
+- **Environment:** the pipeline's dependencies gained `mlflow-skinny` (also the `serving` extra in
+  `pyproject.toml`). The wheel was rebuilt and re-uploaded, which also brought the
+  newest-filled-step rule (gold stops at the newest step most gauges have reported).
+
+**Parity (A4.3), 16 Oct:**
+- The file behind `@champion` (version 1) has the same SHA-256 as the committed
+  `models/flood_model.joblib`.
+- Loaded through `load_registered_model`, it scores the 17 Apr 2021 replay exactly like the
+  committed Databricks export (`data/reference/phase5/databricks_replay_predictions.csv`): 4,675
+  rows, the largest probability difference off the rain gate 1e-16, tiers identical (4,113 Low,
+  367 Moderate, 195 High), and identical to the local joblib.
+- The original full-refresh parity run (section 2) wasn't repeated: the landing folder now holds
+  live and daily data as well as the replay, so it would need a full rebuild that discards gold's
+  history. Same file plus same scores is the same model.
+- **In the pipeline:** update `2ca71abb…` (triggered, 16 Oct) completed with no warnings or
+  errors, scoring through the registry (with `floodsense.model_uri` set there is no other path).
+  It took in the 1–15 Oct daily gauge files: gold's newest step is 15 Oct 23:55 SGT, 55 zones,
+  90 gauges reporting.
+
+Steps, as run:
+
+```bash
+uv build --wheel --out-dir dist
+databricks fs cp dist/floodsense-0.1.0-py3-none-any.whl \
+    dbfs:/Volumes/workspace/floodsense/artifacts/wheels/ --overwrite
+databricks workspace import /Workspace/Users/<login>/floodsense/lakeflow_pipeline.py \
+    --file databricks/pipelines/lakeflow_pipeline.py --format AUTO --overwrite
+# add floodsense.model_uri and mlflow-skinny to the pipeline (pipeline_spec.json), then:
+databricks pipelines update <pipeline_id> --json @<spec with the two additions>
+databricks pipelines start-update <pipeline_id>
+```

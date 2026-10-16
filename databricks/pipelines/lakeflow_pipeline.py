@@ -16,6 +16,9 @@ Pipeline configuration (all optional):
     floodsense.landing_path   UC volume Auto Loader watches (default /Volumes/floodsense/default/landing)
     floodsense.schema_path    Auto Loader schema location
     floodsense.gold_hours     hours of predictions gold keeps (default 24; it reads 72 h more)
+    floodsense.model_uri      registered model gold scores with, e.g.
+                              models:/workspace.floodsense.flood_model@champion (empty: the
+                              models/flood_model.joblib under root_dir, as the local runner uses)
 """
 
 import json
@@ -42,7 +45,12 @@ _root_dir = spark.conf.get("floodsense.root_dir", "")
 if _root_dir:
     os.environ["FLOODSENSE_ROOT_DIR"] = _root_dir
 
-from floodsense.models.artifact import FloodModel, load_model  # noqa: E402
+from floodsense.models.artifact import (  # noqa: E402
+    FloodModel,
+    load_model,
+    load_registered_model,
+    registered_version,
+)
 from floodsense.serving.pipeline_core import (  # noqa: E402
     PREDICTION_COLUMNS,
     WARMUP,
@@ -266,11 +274,20 @@ def weather_stations_silver():
 def flood_risk_predictions_gold():
     emit_hours = float(spark.conf.get("floodsense.gold_hours", "24"))
     session_tz = spark.conf.get("spark.sql.session.timeZone", "UTC")
-    # Loaded here (it reads floodsense.root_dir) and shipped to the worker inside score().
-    # load_model() falls back to a heuristic when the file is missing: refuse that.
-    model = load_model()
-    if not isinstance(model, FloodModel):
-        raise RuntimeError(f"trained model not found under {os.environ.get('FLOODSENSE_ROOT_DIR')}")
+    # Loaded on the driver and shipped to the worker inside score(). From Unity Catalog when
+    # floodsense.model_uri is set (moving the alias serves a new version); otherwise the file under
+    # floodsense.root_dir. No fallback either way: a missing or unreadable model fails the update.
+    model_uri = spark.conf.get("floodsense.model_uri", "")
+    if model_uri:
+        model = load_registered_model(model_uri)
+        print(f"FloodSense gold: scoring with {model_uri} (version {registered_version(model_uri)})")
+    else:
+        # load_model() falls back to a heuristic when the file is missing: refuse that.
+        model = load_model()
+        if not isinstance(model, FloodModel):
+            raise RuntimeError(
+                f"trained model not found under {os.environ.get('FLOODSENSE_ROOT_DIR')}"
+            )
 
     # Readings from newest - (emit_hours + 72 h warm-up) on: pipeline_core.silver_window_start.
     span_minutes = int(emit_hours * 60 + WARMUP / pd.Timedelta(minutes=1))

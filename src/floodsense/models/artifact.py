@@ -7,6 +7,7 @@ calibrator, the alert thresholds chosen under the false-alarm budget, and proven
 """
 
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -93,3 +94,43 @@ def load_model() -> FloodModel | None:
     if not isinstance(model, FloodModel):
         raise TypeError(f"{settings.flood_model_path} is not a FloodModel")
     return model
+
+
+# The model the Databricks pipeline serves (DEPLOYMENT.md section 17). The alias moves when a
+# candidate is promoted, so the pipeline needs no change to serve a new version.
+REGISTERED_MODEL_URI = "models:/workspace.floodsense.flood_model@champion"
+
+
+def load_registered_model(uri: str = REGISTERED_MODEL_URI) -> FloodModel:
+    """
+    The ``FloodModel`` registered in Unity Catalog under ``uri`` (e.g. ``models:/name@alias``).
+
+    Only the logged joblib file is used: ``databricks/register_model.py`` also bundles a copy of
+    the floodsense code from registration time, and loading through ``mlflow.pyfunc`` would put
+    that older copy ahead of the installed package. Needs ``mlflow`` and Databricks credentials.
+    """
+    import mlflow  # optional: the "serving" / "train" extras
+
+    mlflow.set_registry_uri("databricks-uc")
+    with tempfile.TemporaryDirectory() as tmp:
+        local = Path(mlflow.artifacts.download_artifacts(artifact_uri=uri, dst_path=tmp))
+        model = joblib.load(local / "artifacts" / "flood_model.joblib")
+    if not isinstance(model, FloodModel):
+        raise TypeError(f"{uri} does not hold a FloodModel")
+    return model
+
+
+def registered_version(uri: str = REGISTERED_MODEL_URI) -> str | None:
+    """The version a ``models:/name@alias`` or ``models:/name/version`` URI points to now."""
+    from mlflow import MlflowClient
+
+    ref = uri.removeprefix("models:/")
+    if "@" in ref:
+        name, alias = ref.split("@", 1)
+        return str(
+            MlflowClient(registry_uri="databricks-uc")
+            .get_model_version_by_alias(name, alias)
+            .version
+        )
+    name, _, version = ref.rpartition("/")
+    return version or None
