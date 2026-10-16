@@ -504,3 +504,63 @@ def test_resident_view_in_live_reads_the_same_gold_and_shows_no_stale_caption(go
     at.button(key="advanced_btn").click()  # the sidebar control still works from this view
     at.run(timeout=60)
     assert not at.exception
+
+
+# --- PUB flood alert for the selected area (Live only) -----------------------------------------
+def _fake_alert(zone: str = "BUKIT TIMAH"):
+    from datetime import datetime
+
+    from floodsense.common.config import settings
+    from floodsense.ingestion.flood_alerts import FloodAlert
+
+    return FloodAlert(
+        identifier="test-1",
+        msg_type="Alert",
+        references="",
+        issued_at=datetime(2026, 10, 17, 14, 5, tzinfo=settings.tzinfo),
+        headline="Flash flood",
+        description="Flash flood at Bukit Timah Road near Coronation Road. Avoid the area.",
+        area_desc="Bukit Timah",
+        latitude=1.33,
+        longitude=103.8,
+        radius_km=0.5,
+        severity="Severe",
+        zone=zone,
+    )
+
+
+def _alert_lines(at: AppTest) -> list[str]:
+    return [str(e.value) for e in at.error if "PUB flood alert active here" in str(e.value)]
+
+
+@pytest.fixture
+def pub_alert(gold_table, monkeypatch):
+    from floodsense.ingestion import flood_alerts
+
+    gold_table(minutes_old=5)
+    monkeypatch.setattr(flood_alerts, "fetch_flood_alerts", lambda *a, **k: [_fake_alert()])
+
+
+@pytest.mark.parametrize("view", ["Analyst view", "Resident view"])
+def test_pub_alert_shows_only_for_its_own_area_in_live(pub_alert, view):
+    def run(zone):
+        at = AppTest.from_file(APP_PATH)
+        at.session_state["mode"] = "Live Feed"
+        at.session_state["view"] = view
+        at.session_state["zone"] = zone
+        at.run(timeout=60)
+        assert not at.exception
+        return _alert_lines(at)
+
+    here = run("BUKIT TIMAH")
+    assert len(here) == 1
+    assert "Coronation Road" in here[0] and "14:05 SGT" in here[0]
+    assert run("BEDOK") == []
+
+
+def test_no_pub_alert_line_in_replay(pub_alert):
+    at = _app(mode="Replay Storm")
+    at.session_state["zone"] = "BUKIT TIMAH"
+    at.run(timeout=60)
+    assert not at.exception
+    assert _alert_lines(at) == []

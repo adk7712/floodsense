@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from floodsense.alerts.messages import ADVICE, DISCLAIMER
+from floodsense.ingestion.flood_alerts import FloodAlert
 
 # The same wording as the Telegram alerts and the zone panel (alerts/messages.py).
 ADVICE_FOR_TIER = ADVICE
@@ -32,6 +33,29 @@ def _tier_of(table: pd.DataFrame, zone: str) -> str:
     return str(table.loc[table["ura_planning_area"] == zone, "risk_tier"].iloc[0])
 
 
+_ALERT_TEXT_MAX = 160
+_ALERTS_SHOWN = 3
+
+
+def show_pub_alerts(alerts: list[FloodAlert] | None, zone: str) -> None:
+    """The official PUB flood alert(s) active in ``zone``, in PUB's own words; nothing if none.
+
+    An alert belongs to a zone only when its centre point falls inside that planning area
+    (``FloodAlert.zone``, from the zone polygons). An alert without a point, or at sea, is never
+    attached to a zone. PUB's alert is official; FloodSense's tier is a model, so it is styled
+    apart from the tier card. Shared by the Zone Diagnostic panel and the Resident view."""
+    here = [a for a in alerts or [] if a.msg_type == "Alert" and a.zone == zone]
+    for a in here[:_ALERTS_SHOWN]:
+        text = " ".join(a.description.split()) or a.headline or "flash flood observed"
+        if len(text) > _ALERT_TEXT_MAX:
+            text = text[: _ALERT_TEXT_MAX - 1].rstrip() + "…"
+        st.error(
+            f"**PUB flood alert active here:** {text} (issued {a.issued_at:%H:%M} SGT, "
+            "official PUB alert)",
+            icon=":material/flood:",
+        )
+
+
 def render_resident_view(
     *,
     risk_now: pd.DataFrame,
@@ -41,6 +65,7 @@ def render_resident_view(
     tier_style: TierStyle,
     is_dark: bool,
     tokens: Mapping[str, str],
+    pub_alerts: list[FloodAlert] | None = None,
 ) -> str:
     """Draw the resident page and return the chosen planning area."""
     names = sorted(risk_now["ura_planning_area"])
@@ -66,6 +91,8 @@ def render_resident_view(
         "</div>",
         unsafe_allow_html=True,
     )
+
+    show_pub_alerts(pub_alerts, zone)
 
     if risk_in_1h is not None:
         tier_1h = _tier_of(risk_in_1h, zone)

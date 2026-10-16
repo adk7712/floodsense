@@ -24,7 +24,7 @@ import streamlit as st
 from shapely.geometry import mapping, shape
 
 from floodsense.app import replay_days
-from floodsense.app.resident_view import RESIDENT_CSS, render_resident_view
+from floodsense.app.resident_view import RESIDENT_CSS, render_resident_view, show_pub_alerts
 from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data.flood_events import load_flood_events
@@ -1446,6 +1446,8 @@ if resident_view_on():
             tier_style=tier_style,
             is_dark=IS_DARK,
             tokens=tokens,
+            # Live only; the list is cached (no new fetch). A failed fetch shows nothing here.
+            pub_alerts=(live_flood_alerts()[0] or []) if mode == "Live Feed" else [],
         )
     st.stop()
 
@@ -1829,6 +1831,8 @@ with detail_col, st.container(border=True, key="zone_card"):
         f"</div>",
         unsafe_allow_html=True,
     )
+
+    show_pub_alerts(active_pub_alerts, selected_zone)
 
     if radar_mode and radar is not None:
         zr = radar.zones.set_index("ura_planning_area").loc[selected_zone]
