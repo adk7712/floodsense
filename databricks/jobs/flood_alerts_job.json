@@ -1,6 +1,11 @@
 {
   "name": "floodsense-flood-alerts",
   "description": "Every 15 min: lands recent PUB flash-flood alerts (data.gov.sg keeps no history) in the landing/flood_alerts folder that the floodsense pipeline reads. Only pages holding an alert are written. Pause it while the rainfall poller runs (the poller lands alerts too).",
+  "tags": {
+    "project": "floodsense",
+    "track": "DAISI-B2",
+    "role": "ingest-alerts"
+  },
   "max_concurrent_runs": 1,
   "schedule": {
     "quartz_cron_expression": "0 0/15 * * * ?",
@@ -8,7 +13,15 @@
     "pause_status": "UNPAUSED"
   },
   "environments": [
-    {"environment_key": "alerts", "spec": {"client": "2", "dependencies": ["requests"]}}
+    {
+      "environment_key": "alerts",
+      "spec": {
+        "client": "2",
+        "dependencies": [
+          "requests"
+        ]
+      }
+    }
   ],
   "tasks": [
     {
@@ -16,7 +29,10 @@
       "environment_key": "alerts",
       "spark_python_task": {
         "python_file": "/Workspace/Users/<your-login>/floodsense/archive_flood_alerts.py",
-        "parameters": ["--lookback-minutes", "20"]
+        "parameters": [
+          "--lookback-minutes",
+          "20"
+        ]
       },
       "timeout_seconds": 300
     }

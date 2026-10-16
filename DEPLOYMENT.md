@@ -459,3 +459,22 @@ databricks workspace import /Workspace/Users/<login>/floodsense/lakeflow_pipelin
 databricks pipelines update <pipeline_id> --json @<spec with the two additions>
 databricks pipelines start-update <pipeline_id>
 ```
+
+## 18. Governance: descriptions and tags (A8, 16 Oct 2026)
+
+Audited every object in `workspace.floodsense`, then filled the gaps:
+
+| Object | Description | Tags |
+|---|---|---|
+| Schema `floodsense` | yes (6 Oct) | `project`, `track`, `data_classification` (6 Oct) |
+| 8 pipeline tables (bronze, silver, quarantine, gold, PUB alerts) | yes (from the pipeline code) | `source`, `layer` (6 Oct); **added** `project`, `data_classification` |
+| Gold columns | **added** in the pipeline code (`GOLD_SCHEMA` column comments); they reach Unity Catalog on the next pipeline update | |
+| Volumes `landing`, `radar`, `artifacts` | yes | **added** `project`, `data_classification`, `purpose`, and `source` on `landing` and `radar` |
+| Volume `autoloader` | **added** (pipeline state, not data) | **added** as above |
+| Model `flood_model` | yes | **added** `project`, `track`, `data_classification`, `model_type` |
+| Model version 1 (`@champion`) | **added**: what it is, its tiers and its test result | |
+| Jobs (poller, daily archiver, flood alerts) | yes | **added** `project`, `track`, `role` (also in the job JSON files) |
+| App `floodsense` | yes | Apps have no tags |
+
+The pipeline's own event-log table (`event_log_…`) is created by Databricks and left as is. Asset
+Bundles (A8.2) are a stretch goal for after the freeze.

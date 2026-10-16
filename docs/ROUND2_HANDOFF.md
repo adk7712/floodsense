@@ -238,7 +238,8 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 2. **Done:** A2 (app reads gold, `d484942`) and A6 (Databricks App, `f02fc15`; OpenCV is in `requirements.txt` for radar). A1 is also done.
 3. **Done:** A4.1–A4.3 (`772ad07`). Parity: the champion file is byte-identical to `models/flood_model.joblib` and scores the 17 Apr 2021 replay like the Databricks export. Left: A4.4, promote adk's candidate before the freeze if there is one.
 4. A3 (unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; pause `floodsense-flood-alerts` at the same time) and A8.
-5. **Done:** reviewed and merged adk's branch (`0e315b3`). Still to do: verify the 14 label rows (§0). The Telegram provider is adk's (§0, "Next for adk").
+5. **Done:** reviewed and merged adk's branch (`0e315b3`). **14 labels checked against sources and signed off by Akul 16 Oct (`docs/label_review_2026-10-16.md`): 80 verified events now. adk can re-run `select_candidates`.** 11 new candidates added unverified for adk to check.
+6. **Done:** A8 (descriptions and tags; DEPLOYMENT.md §18). Gold column comments go live on the next pipeline update. The Telegram provider is adk's (§0, "Next for adk").
 6. Run `brew upgrade uv` before `uv sync --locked` (see the uv note in §0).
 
 **Also:**
@@ -284,9 +285,9 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | A5 | Telegram bot (A5.1–A5.4) | adk | Partly | Branch (`b240b41`): tier-change logic, A5.3 one message per zone per hour (rise above last tier gets through), A5.4 replay mode (17 Apr 2021). **A5.1 bot and demo channel not created; live provider is a stub** (§0) |
 | A6 | Databricks App | Akul | Done | `f02fc15`. A6.2 fresh-browser test: open. A6.3 Apps auto-stop after 24 h (§5): restart before rehearsals and the demo. Fallback if it fails: run Streamlit locally, show the App as roadmap |
 | A7 | LLM-drafted flood candidates | adk | Partly | A7.1 `ai_query` works but invents facts (§5). A7.2 **2017–2023 only**, never 2024–2026 before the freeze: first pass done (14 candidates, 122 rejections, `fef4165`). A7.3 post batches with an ID, hand to Akul. A7.4 rejections in `docs/flood_events_rejected.md`. The "6 batches" target is not met (§0 label target) |
-| A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | Open | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only once the freeze work is done |
+| A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | A8.1 done 16 Oct (DEPLOYMENT.md §18); A8.2 stretch | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only once the freeze work is done |
 | A9 | Resident / town-council view | adk | Done (branch) | `1bfd0be`. Wording and forecast caption open (§0) |
-| B1 | Label verification (B1.1–B1.4) | Akul verifies, adk drafts | Waiting | 14 unverified rows (§0). Target: **60 new verified**; not on track, document the shortfall. Set `time_precision` to match the source; run `load_flood_events()` after each batch |
+| B1 | Label verification (B1.1–B1.4) | Akul verifies, adk drafts | In progress | 14 rows checked and signed off 16 Oct (80 verified); 11 more drafted by Akul's side for adk to check. Target: **60 new verified**; not on track, document the shortfall. Set `time_precision` to match the source; run `load_flood_events()` after each batch |
 | B2 | Static zone features | adk | Done (branch) | `3fdc66c`. Sources: Copernicus GLO-30, ESA WorldCover; licences in README. PUB drainage capacity and catchments: not openly available, unverified |
 | B3 | Kriging vs IDW | adk | Done (branch) | `1fc34b1`, `docs/kriging_vs_idw.md`. Decision rule: add kriging only if clearly better. Recommendation: keep IDW; team to confirm |
 | B4.1 | Fix active-rain gate tolerance; drop unused columns | adk | Done (branch) | `48b86ea` |

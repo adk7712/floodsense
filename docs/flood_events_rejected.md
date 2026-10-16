@@ -214,3 +214,26 @@ Result: no new rows. `flood_events_2022_2023_b.csv` holds the header only. Windo
 ### Searches with no usable result
 - Targeted searches for 2022 and 2023 flash floods returned only events already in flood_events.csv, risk warnings, or 2024+ and 2025 items (not opened). The PUB X profile snippet showed alert dates with no year, so they cannot be dated.
 - https://www.asiaone.com/singapore/western-region-singapore-flash-floods-pub : "Thursday (Dec 4)" is 2025, outside the window.
+
+## Second search, 16 Oct 2026 (Akul's session)
+
+11 new 2017–2022 candidates went into `flood_events.csv` unverified (adk to check, since Akul's side
+drafted them). Considered and not added:
+
+- **3 Jun 2019, Republic Boulevard (DOWNTOWN CORE):** same day and planning area as the existing
+  Rochor Road row; recorded in that row's notes instead of as a second event.
+- **18 Nov 2017, Yishun and Mandai Road:** PUB risk warnings only; the one flood seen was an HDB
+  car park.
+- **2 May 2018, Clementi Ave 5 coffee shop; 9 Dec 2020, NSRCC foyer; 3 Jun 2019, Smith Street car
+  park and People's Park:** not road flash floods.
+- **2 Feb 2023, Clementi Road shophouses (Mothership, 4pm):** date, time and road are sourced, but
+  Clementi Road spans CLEMENTI, QUEENSTOWN and BUKIT TIMAH and the shop address isn't given. Usable
+  if someone finds the address (e.g. Shin Min Daily News).
+- **24 Dec 2016, Upper Thomson Road:** outside 2017–2023.
+
+Leads tried: the wildsingapore Blogger JSON feed (useful to mid-2019), stomp.sg "Singapore Seen"
+articles (year from page metadata when the body has none), MustShareNews, Mothership and MSE replies
+(only events already listed). Dead ends: `t.me/sgflood` is an unrelated chat; Wayback copies of
+PUB's X timeline load as empty JavaScript pages; theindependent.sg returns 403; Parliament search
+needs a browser. Not yet tried: Shin Min Daily News / NewspaperSG for 2022–23, and paging
+`stomp.sg/tag/flash-flood` in a browser.

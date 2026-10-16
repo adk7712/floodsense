@@ -78,19 +78,28 @@ STATIONS_SCHEMA = StructType(
     ]
 )
 
+def _col(name: str, kind: Any, comment: str) -> StructField:
+    """A non-null column with a Unity Catalog column comment."""
+    return StructField(name, kind, False, metadata={"comment": comment})
+
+
 GOLD_SCHEMA = StructType(
     [
-        StructField("ura_planning_area", StringType(), False),
-        StructField("timestamp", TimestampType(), False),
-        StructField("rain_5m", DoubleType(), False),
-        StructField("rain_15m", DoubleType(), False),
-        StructField("rain_30m", DoubleType(), False),
-        StructField("rain_60m", DoubleType(), False),
-        StructField("rain_120m", DoubleType(), False),
-        StructField("rain_decay_72h", DoubleType(), False),
-        StructField("reporting_stations", LongType(), False),
-        StructField("flood_probability", DoubleType(), False),
-        StructField("risk_tier", StringType(), False),
+        _col("ura_planning_area", StringType(), "URA Master Plan 2019 planning area (55 zones)"),
+        _col("timestamp", TimestampType(), "End of the 5-minute step the row scores"),
+        _col("rain_5m", DoubleType(), "Zone rainfall in the last 5 minutes, mm (IDW from NEA gauges)"),
+        _col("rain_15m", DoubleType(), "Zone rainfall in the last 15 minutes, mm"),
+        _col("rain_30m", DoubleType(), "Zone rainfall in the last 30 minutes, mm"),
+        _col("rain_60m", DoubleType(), "Zone rainfall in the last 60 minutes, mm (the model's input)"),
+        _col("rain_120m", DoubleType(), "Zone rainfall in the last 120 minutes, mm (active-rain gate)"),
+        _col("rain_decay_72h", DoubleType(), "Wet-ground index: rain over 72 h with a 24 h half-life"),
+        _col("reporting_stations", LongType(), "NEA gauges with a reading at this step"),
+        _col(
+            "flood_probability",
+            DoubleType(),
+            "Calibrated chance of a reported flash flood in the next 60 min (model @champion)",
+        ),
+        _col("risk_tier", StringType(), "Low / Moderate / High, from the model's budgeted thresholds"),
     ]
 )
 
@@ -267,6 +276,7 @@ def weather_stations_silver():
 # runs after silver is updated. The data is small (about 96 h x 70 gauges).
 @dlt.table(
     name="flood_risk_predictions_gold",
+    schema=GOLD_SCHEMA,  # carries the column comments into Unity Catalog
     comment="Calibrated flood probability and Low/Moderate/High tier per zone and 5-minute step, "
     "for the last floodsense.gold_hours, computed by pipeline_core.gold_from_silver.",
     table_properties={"quality": "gold"},

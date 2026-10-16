@@ -1,6 +1,11 @@
 {
   "name": "floodsense-rainfall-poller",
   "description": "Lands recent NEA rainfall in the landing volume, then runs the floodsense pipeline (triggered update, not a full refresh).",
+  "tags": {
+    "project": "floodsense",
+    "track": "DAISI-B2",
+    "role": "ingest-score"
+  },
   "max_concurrent_runs": 1,
   "schedule": {
     "quartz_cron_expression": "0 0/30 * * * ?",
@@ -12,7 +17,9 @@
       "environment_key": "poller",
       "spec": {
         "client": "2",
-        "dependencies": ["/Volumes/workspace/floodsense/artifacts/wheels/floodsense-0.1.0-py3-none-any.whl"]
+        "dependencies": [
+          "/Volumes/workspace/floodsense/artifacts/wheels/floodsense-0.1.0-py3-none-any.whl"
+        ]
       }
     }
   ],
@@ -22,14 +29,24 @@
       "environment_key": "poller",
       "spark_python_task": {
         "python_file": "/Workspace/Users/<your-login>/floodsense/poll_rainfall.py",
-        "parameters": ["--lookback-minutes", "40"]
+        "parameters": [
+          "--lookback-minutes",
+          "40"
+        ]
       },
       "timeout_seconds": 900
     },
     {
       "task_key": "refresh_pipeline",
-      "depends_on": [{"task_key": "poll_rainfall"}],
-      "pipeline_task": {"pipeline_id": "c32feb3d-5e5f-4c78-8219-e3acf131e804", "full_refresh": false},
+      "depends_on": [
+        {
+          "task_key": "poll_rainfall"
+        }
+      ],
+      "pipeline_task": {
+        "pipeline_id": "c32feb3d-5e5f-4c78-8219-e3acf131e804",
+        "full_refresh": false
+      },
       "timeout_seconds": 1800
     }
   ]
