@@ -14,6 +14,7 @@ validated yet (radar starts 16 Jul 2026), so the app labels it experimental.
 import base64
 import io
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -93,6 +94,35 @@ def _volume_day(day: str) -> pd.DataFrame | None:
     return df
 
 
+# data.gov.sg answers 429 when asked too often (unkeyed: a handful of requests per minute, and one
+# radar view needs ~9). Images already fetched are kept for the life of the process, and a 429 is
+# retried after a short pause, so a rate limit doesn't silently blank the layer.
+_API_PNGS: dict[str, bytes] = {}
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_WAIT_SEC = 10.0
+
+
+def _get(url: str, **kwargs: Any) -> requests.Response:
+    resp = requests.get(url, **kwargs)
+    for _ in range(RATE_LIMIT_RETRIES):
+        if resp.status_code != 429:
+            break
+        logger.info("data.gov.sg rate limit; retrying in %.0f s", RATE_LIMIT_WAIT_SEC)
+        time.sleep(RATE_LIMIT_WAIT_SEC)
+        resp = requests.get(url, **kwargs)
+    return resp
+
+
+def _api_png(url: str) -> bytes | None:
+    if url not in _API_PNGS:
+        resp = _get(url, timeout=settings.api_timeout_sec)
+        if resp.status_code != 200:
+            logger.warning("Radar image fetch failed (HTTP %s)", resp.status_code)
+            return None
+        _API_PNGS[url] = resp.content
+    return _API_PNGS[url]
+
+
 def _api_day(day: str, until: datetime) -> pd.DataFrame | None:
     """Frames for ``day`` from data.gov.sg (newest page first), stopping once 3 before ``until`` are in."""
     headers = {"User-Agent": "floodsense"}
@@ -105,10 +135,9 @@ def _api_day(day: str, until: datetime) -> pd.DataFrame | None:
             params = {"date": day}
             if token:
                 params["paginationToken"] = token
-            resp = requests.get(
-                API, params=params, headers=headers, timeout=settings.api_timeout_sec
-            )
+            resp = _get(API, params=params, headers=headers, timeout=settings.api_timeout_sec)
             if resp.status_code != 200:
+                logger.warning("Radar API for %s answered HTTP %s", day, resp.status_code)
                 return None
             data = resp.json().get("data") or {}
             bbox = data.get("boundaryBox") or {}
@@ -116,7 +145,9 @@ def _api_day(day: str, until: datetime) -> pd.DataFrame | None:
                 ts = to_sgt(datetime.fromisoformat(rec["timestamp"]))
                 if ts > until or ts < until - 3 * STEP:
                     continue
-                png = requests.get(rec["image"]["url"], timeout=settings.api_timeout_sec).content
+                png = _api_png(rec["image"]["url"])
+                if png is None:
+                    return None  # a frame we can't get: no nowcast, never a guess
                 rows.append(
                     {
                         "timestamp_sgt": ts.isoformat(),
