@@ -23,8 +23,8 @@ import plotly.graph_objects as go
 import streamlit as st
 from shapely.geometry import mapping, shape
 
-from floodsense.alerts.messages import ADVICE, DISCLAIMER
 from floodsense.app import replay_days
+from floodsense.app.resident_view import RESIDENT_CSS, render_resident_view
 from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data.flood_events import load_flood_events
@@ -602,12 +602,33 @@ button[kind="secondary"]:hover,
 [data-testid="stMain"] {{
     position: relative !important;
 }}
-.st-key-theme_toggle {{
+.st-key-top_controls {{
     position: absolute !important;
     top: 0.7rem !important;
     right: 1.25rem !important;
     width: auto !important;
     z-index: 999990 !important;
+    flex-wrap: nowrap !important;
+}}
+.st-key-view_switch [data-testid="stElementContainer"],
+.st-key-view_switch div[data-testid="stButtonGroup"] {{
+    margin: 0 !important;
+}}
+/* Same 34px height as the theme toggle beside it */
+.st-key-view_switch div[data-testid="stButtonGroup"] {{
+    height: 34px !important;
+    box-sizing: border-box !important;
+    align-items: center !important;
+}}
+.st-key-view_switch button {{
+    min-height: 0 !important;
+    height: 26px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 0.82rem !important;
+}}
+.st-key-theme_toggle {{
+    justify-content: center !important;
     background: var(--bg-surface) !important;
     border: 1px solid var(--border-main) !important;
     border-radius: 9999px !important;
@@ -852,6 +873,21 @@ hr {{
     color: var(--text-muted) !important;
     font-size: 0.78rem !important;
 }}
+
+/* View switch (Analyst / Resident): the chosen view is the orange button. */
+.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-pressed="true"],
+.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-checked="true"] {{
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}}
+.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
+.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-checked="true"] * {{
+    color: {"#111827" if IS_DARK else "#FFFFFF"} !important;
+}}
+
+/* Resident view */
+{RESIDENT_CSS}
+.st-key-resident_page [data-testid="stCaptionContainer"] {{ font-size: 1rem !important; }}
 </style>
 """
 st.markdown(MODERN_TELEMETRY_CSS, unsafe_allow_html=True)
@@ -989,8 +1025,18 @@ def _replay_pinned_storm() -> None:
     st.session_state["replay_stage"] = "simulate"
 
 
+ANALYST_VIEW, RESIDENT_VIEW = "Analyst view", "Resident view"
+
+
+def resident_view_on() -> bool:
+    return st.session_state.get("view") == RESIDENT_VIEW
+
+
 def zone_picker() -> str:
-    """The planning-area selector for the Zone Diagnostic (sidebar)."""
+    """The planning-area selector for the Zone Diagnostic (sidebar). The resident view has its
+    own selector on the page, so the sidebar one steps aside (same session key)."""
+    if resident_view_on():
+        return str(st.session_state["zone"])
     st.sidebar.subheader(":material/tune: Zone Diagnostic")
     return str(
         st.sidebar.selectbox("Select Planning Area", options=sorted(URA_PLANNING_AREAS), key="zone")
@@ -1149,8 +1195,20 @@ if mode == "Live Feed":
 
 # --- TOP HEADER & APPEARANCE SWITCH --------------------------------------------------------
 def render_app_header() -> None:
-    with st.container(key="theme_toggle"):  # pinned to the top-right corner (CSS)
-        is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
+    # Top-right corner (CSS): the Analyst / Resident switch, then the theme toggle.
+    st.session_state.setdefault("view", ANALYST_VIEW)
+    with st.container(
+        key="top_controls", horizontal=True, vertical_alignment="center", gap="small"
+    ):
+        with st.container(key="view_switch", width="content"):
+            st.segmented_control(
+                "View",
+                options=[ANALYST_VIEW, RESIDENT_VIEW],
+                key="view",
+                label_visibility="collapsed",
+            )
+        with st.container(key="theme_toggle", width="content"):
+            is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
     with st.container(key="app_header"):
         st.title("FloodSense Intelligence Center")
     if is_dark_active != IS_DARK:
@@ -1351,6 +1409,28 @@ df_results = (features if from_gold else score_zone_features(features, model)).m
 )
 df_results["zone"] = df_results["ura_planning_area"]
 reporting_stations = int(features["reporting_stations"].iloc[0])
+
+# --- RESIDENT VIEW -------------------------------------------------------------------------
+if resident_view_on():
+    if mode == "Live Feed":
+        live_auto_refresh()
+    # radar_for returns None when there's no radar for this time (or no OpenCV); anything else
+    # is a bug and should show, not silently drop the "In 1 hour" line.
+    resident_radar = radar_for(view_time.isoformat())
+    resident_forecast = (
+        forecast_scored(features, resident_radar) if resident_radar is not None else None
+    )
+    with st.container(key="resident_page"):
+        render_resident_view(
+            risk_now=df_results,
+            risk_in_1h=resident_forecast,
+            when=view_time,
+            is_replay=mode != "Live Feed",
+            tier_style=tier_style,
+            is_dark=IS_DARK,
+            tokens=tokens,
+        )
+    st.stop()
 
 # --- TOP BAR & SCOPE INDICATORS -----------------------------------------------------------
 st.markdown(status_line, unsafe_allow_html=True)
@@ -1747,23 +1827,6 @@ with detail_col, st.container(border=True, key="zone_card"):
             f"are low: Moderate from {tier_thresholds['moderate']:.2%}, "
             f"High from {tier_thresholds['high']:.2%}."
         )
-
-    # One plain line on what to do at this tier (shared with the Telegram bot), shown in every
-    # view: it follows the status box above, which is always the current tier.
-    st.markdown(
-        f'<div class="fs-advice" style="border-left: 3px solid {tier_text_color}; '
-        f"background: {tokens['stat_tile_bg']}; border-radius: 4px; padding: 8px 12px; "
-        f'margin: 4px 0 12px 0;">'
-        f'<div style="font-size: 0.65rem; font-weight: 700; color: {tier_text_color}; '
-        f"text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">"
-        f"What to do</div>"
-        f'<div style="font-size: 0.9rem; color: {tokens["text_main"]}; margin-top: 2px;">'
-        f"{html.escape(ADVICE[zone_data['risk_tier']])}</div>"
-        f'<div style="font-size: 0.7rem; color: {tokens["text_muted"]}; margin-top: 6px;">'
-        f"{html.escape(DISCLAIMER)}</div>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
 
     # Rolling rainfall and wet-ground tiles
     st.markdown(

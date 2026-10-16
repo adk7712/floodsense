@@ -133,6 +133,11 @@
 7. Tell Akul to upgrade uv to 0.13.1 or newer (`brew upgrade uv`) before syncing (see the uv note).
 
 **Next for adk (can start now):**
+0. **From Akul's side, 16 Oct evening** (after merging `adk/review-followups`):
+   - **The separate Resident view stays** (team decision). `1bd7ab6`'s fold into the Zone panel was reverted; the Analyst/Resident switch now sits top right, left of the Light/Dark toggle. The Low wording is the shared "No action suggested" everywhere. Please don't re-fold it.
+   - **14 labels are signed off (80 verified).** Your selection re-run (`60e2b19`) used the old 66: please re-run `select_candidates` and the prior-sensitivity script on the 80.
+   - **11 new candidates** (end of `flood_events.csv`, drafted by Akul's session) need your second check.
+   - **Telegram job:** instead of its own 5-minute schedule (288 runs a day; gold only changes when the poller runs), Akul proposes adding the bot as a third task in the poller job, after `refresh_pipeline`. Akul deploys it; you create the bot and chat and give Akul the token and chat id to store as secrets.
 1. **Done, `2ec4bfb`: Telegram live mode.** The `(timestamp, {zone: tier})` provider wraps `latest_zone_risk()` and is passed to `run_live()`. Akul's deployment notes are in "Waiting on Akul", item 5.
 2. **B6 deck and metrics write-up** (start as soon as possible), with the kriging and static-feature results as the "mentor suggestions measured" slide.
 3. **J2.3 Q&A answers** for likely judge questions.

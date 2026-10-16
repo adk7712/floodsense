@@ -4,7 +4,6 @@ FloodSense - Streamlit app tests (in-process, via streamlit.testing.v1.AppTest).
 Live mode is exercised with the network patched out, so these tests run offline.
 """
 
-import html
 from pathlib import Path
 
 import pytest
@@ -403,20 +402,22 @@ def test_live_data_gov_scores_the_newest_filled_in_step(monkeypatch):
         st.cache_data.clear()
 
 
-# --- "What to do" advice in the Zone Diagnostic ---------------------------------------------
-def _zone_at(zone: str, time_label: str = "12:50") -> AppTest:
+# --- Resident view -------------------------------------------------------------------------
+def _resident(zone: str | None = None, time_label: str = "12:15") -> AppTest:
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = "Replay Storm"
     at.session_state["replay_stage"] = "simulate"
-    at.session_state["zone"] = zone
+    at.session_state["view"] = "Resident view"
+    if zone:
+        at.session_state["zone"] = zone
     at.session_state[f"replay-time-{replay_days.PINNED_STORM}"] = time_label
     at.run(timeout=60)
     assert not at.exception
     return at
 
 
-def _markdown_text(at: AppTest) -> str:
-    return " ".join(md.value for md in at.markdown)
+def _resident_text(at: AppTest) -> str:
+    return " ".join(md.value for md in at.markdown) + " ".join(c.value for c in at.caption)
 
 
 def _tiers_at(time_label: str) -> dict[str, str]:
@@ -430,46 +431,76 @@ def _tiers_at(time_label: str) -> dict[str, str]:
     return dict(zip(scored["ura_planning_area"], scored["risk_tier"], strict=True))
 
 
-@needs_store
-def test_zone_diagnostic_advice_matches_the_selected_zones_tier():
-    from floodsense.alerts.messages import ADVICE, DISCLAIMER
+def test_resident_view_renders_plain_language_and_hides_the_analyst_page():
+    at = _resident()
+    text = _resident_text(at)
+    assert "Your area" in text and "What to do" in text
+    assert "flash flood" in text and "(Singapore time)" in text
+    assert "complements, and does not replace, PUB's flood alerts" in text
+    assert "Replay of past data: showing 12:15, 17 Apr 2021" in text
+    for jargon in ("probability", "calibrated", "IDW", "(experimental)"):
+        assert jargon.lower() not in text.lower()
+    assert len(at.metric) == 0  # no KPI cards, charts or map: the analyst page is not drawn
+    assert at.selectbox[0].value == "BUKIT TIMAH"
 
+
+def test_resident_view_switch_returns_to_the_analyst_view():
+    at = _resident()
+    at.button_group[0].set_value("Analyst view")
+    at.run(timeout=60)
+    assert not at.exception
+    assert "/ 55" in at.metric[0].value
+    assert "Zone Diagnostic" in " ".join(md.value for md in at.markdown)
+
+
+def test_resident_area_selection_changes_the_shown_area():
+    at = _resident(zone="BEDOK")
+    assert "Bedok, right now" in _resident_text(at)
+    at.selectbox[0].set_value("BUKIT TIMAH")
+    at.run(timeout=60)
+    assert not at.exception
+    text = _resident_text(at)
+    assert "Bukit Timah, right now" in text and "Bedok, right now" not in text
+
+
+@needs_store
+def test_resident_advice_matches_the_tier():
+    from floodsense.app.resident_view import ADVICE_FOR_TIER, RISK_NOW
+
+    # 12:50 on 17 Apr 2021 has High zones. Check each tier that occurs.
+    at = _resident(time_label="12:50")
     tiers = _tiers_at("12:50")
-    assert tiers["BUKIT TIMAH"] == "High"
-    low_zone = next(z for z in sorted(URA_PLANNING_AREAS) if tiers[z] == "Low")
-    for zone in ("BUKIT TIMAH", low_zone):
+    seen = set()
+    for zone in sorted(URA_PLANNING_AREAS):
         tier = tiers[zone]
-        text = _markdown_text(_zone_at(zone))
-        assert "What to do" in text
-        assert html.escape(ADVICE[tier]) in text, (zone, tier)
-        for other in set(ADVICE) - {tier}:
-            assert html.escape(ADVICE[other]) not in text
-        assert text.count(html.escape(DISCLAIMER)) == 1
-
-
-def test_there_is_no_view_switch():
-    at = _app()
-    options = [o for g in at.button_group for o in g.options]
-    assert "Analyst view" not in options and "Resident view" not in options
-    assert "view" not in at.session_state
-    assert "Resident view" not in _page_text(at)
-
-
-@needs_store
-def test_an_unexpected_radar_failure_is_not_swallowed(monkeypatch):
-    import streamlit as st
-
-    def boom(*args, **kwargs):
-        raise RuntimeError("radar exploded")
-
-    monkeypatch.setattr("floodsense.radar.live.radar_view", boom)
-    st.cache_data.clear()
-    try:
-        at = AppTest.from_file(APP_PATH)
-        at.session_state["mode"] = "Replay Storm"
-        at.session_state["replay_stage"] = "simulate"
-        at.session_state["risk_when"] = "In 1 hour"
+        if tier in seen and tier != "High":
+            continue
+        at.selectbox[0].set_value(zone)
         at.run(timeout=60)
-        assert any("radar exploded" in e.value for e in at.exception)
-    finally:
-        st.cache_data.clear()
+        assert not at.exception
+        text = _resident_text(at)
+        assert RISK_NOW[tier] in text, (zone, tier)
+        assert ADVICE_FOR_TIER[tier] in text
+        for other in set(ADVICE_FOR_TIER) - {tier}:
+            assert ADVICE_FOR_TIER[other] not in text
+        seen.add(tier)
+    assert "High" in seen, "expected some zone to be High at 12:50 on 17 Apr 2021"
+
+
+def test_resident_view_in_live_reads_the_same_gold_and_shows_no_stale_caption(gold_table):
+    gold_table(minutes_old=9 * 24 * 60)
+    at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Live Feed"
+    at.session_state["view"] = "Resident view"
+    at.session_state["zone"] = "BUKIT TIMAH"
+    at.run(timeout=60)
+    assert not at.exception
+    text = _resident_text(at)
+    assert "Bukit Timah, right now" in text
+    assert "High risk of a flash flood" in text  # gold's own tier, as in the analyst view
+    assert not at.warning
+    assert "poller" not in text and "old" not in text.lower().replace("older", "")
+    assert not any(m.label == "Use data.gov.sg readings" for m in at.button)
+    at.button(key="advanced_btn").click()  # the sidebar control still works from this view
+    at.run(timeout=60)
+    assert not at.exception
