@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-10-16T19:28:08.628165+00:00",
+  "git_sha": "33e9484",
+  "dirty": false,
+  "candidate": "rule_rain60",
+  "artifact": "models/candidates/rule_rain60_refit_2026-10-17.joblib",
+  "thresholds": {
+    "moderate": 0.00531,
+    "high": 0.00706
+  },
+  "thresholds_percent": {
+    "moderate": 0.531,
+    "high": 0.706
+  },
+  "rain_60m_mm_equivalent": {
+    "moderate": 37.65,
+    "high": 43.150000000000006
+  },
+  "calibration_method": "platt",
+  "budgets": {
+    "high": 2.5,
+    "moderate": 11.0
+  },
+  "training": {
+    "rows": 5480033,
+    "from": "2017-01-01 12:25:00+08:00",
+    "to": "2023-12-31 23:40:00+08:00",
+    "verified_events_2017_to_2023": 58,
+    "validation_years": [
+      2020,
+      2021,
+      2022,
+      2023
+    ],
+    "oof_event_score": 0.5
+  },
+  "test_years_scored": false,
+  "status": "not registered; compare with models/model_card.json before any promotion"
+}
