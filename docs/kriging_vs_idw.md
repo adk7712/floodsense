@@ -53,11 +53,17 @@ weighting (IDW, power 2) we use today?
 
 ## Decision
 
-By the pre-set rule (90% interval of the heavy-rain RMSE difference excludes 0 in kriging's
-favour): **kriging clearly better, so add it as a pipeline option.** The gain is about 3% in
-heavy-rain RMSE and nothing was run on the model itself, so it should stay an option, off by
-default, until the team chooses whether to use it. Any change before the 23 Oct freeze is the
-team's call.
+Kriging is about 3% better on heavy rain (RMSE −0.91 mm/h, 90% CI −0.98 to −0.85) and about 5%
+worse on light rain (+0.22 mm/h, 90% CI +0.19 to +0.26). Both methods badly under-predict heavy
+cells (bias about −16 to −17 mm/h).
+
+The pre-set rule was that kriging would be adopted if the 90% interval of the heavy-rain RMSE
+difference excluded 0 in kriging's favour. It does exclude 0, so the rule is met, but the gain is
+small and it was not tested on the model or against flood labels. The team judged the gain too
+small to switch.
+
+**IDW stays in serving. Kriging is not wired into the pipeline.** Any change before the 23 Oct
+freeze is the team's call.
 
 ## Reproduce
 
@@ -65,6 +71,6 @@ team's call.
 .venv/bin/python -m floodsense.spatial.compare_interpolation   # about 20 s
 ```
 
-Writes `data/processed/kriging_vs_idw.json` (gitignored) with the full numbers, seed 42.
+Writes `docs/results/kriging_vs_idw.json` (committed) with the full numbers, seed 42.
 Code: `src/floodsense/spatial/kriging.py`, `src/floodsense/spatial/compare_interpolation.py`;
 tests: `tests/test_kriging.py`.

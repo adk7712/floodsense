@@ -1,0 +1,113 @@
+{
+  "window": "2017-01-01 to 2023-12-31 (2024+ held-out, not used)",
+  "storm_definition": "step with max gauge 5-min reading >= 2.0 mm",
+  "steps_scanned": 716632,
+  "storm_steps_available": 40268,
+  "fit_steps": 1000,
+  "eval_steps": 4000,
+  "min_neighbours": 4,
+  "seed": 42,
+  "bootstrap_resamples": 2000,
+  "units": "mm/h-equivalent (5-min total x 12)",
+  "variogram": {
+    "fit_steps_used": 1000,
+    "fit_steps_skipped_constant": 0,
+    "exponential": {
+      "nugget": 0.4634166137081368,
+      "partial_sill": 0.8078849496189187,
+      "range_km": 32.286004057577635,
+      "model": "exponential",
+      "weighted_rms_error": 0.03550725499172194
+    },
+    "spherical": {
+      "nugget": 0.6291374081102636,
+      "partial_sill": 0.6192256348262896,
+      "range_km": 30.056607369539908,
+      "model": "spherical",
+      "weighted_rms_error": 0.04943736801111727
+    },
+    "used": "exponential"
+  },
+  "kriging_calls": 242714,
+  "kriging_fallbacks": {
+    "constant_field": 213,
+    "too_few_gauges": 0,
+    "singular": 0,
+    "total": 213
+  },
+  "steps_skipped_few_gauges": 0,
+  "results": {
+    "light (<10 mm/h)": {
+      "n_gauge_steps": 216659,
+      "n_time_steps": 4000,
+      "rmse_idw_mmh": 4.400266307669108,
+      "rmse_kriging_mmh": 4.625078711705996,
+      "bias_idw_mmh": 2.1616678745521947,
+      "bias_kriging_mmh": 1.9500409585662348,
+      "rmse_diff_kriging_minus_idw_mmh": 0.22481240403688751,
+      "rmse_diff_ci90_mmh": [
+        0.19067379017319874,
+        0.2581974611101202
+      ],
+      "n_days": 1352,
+      "rmse_diff_ci90_by_day_mmh": [
+        0.18424028632908138,
+        0.2675281315286415
+      ]
+    },
+    "heavy (>=10 mm/h)": {
+      "n_gauge_steps": 26055,
+      "n_time_steps": 4000,
+      "rmse_idw_mmh": 27.31328214898656,
+      "rmse_kriging_mmh": 26.401318704131885,
+      "bias_idw_mmh": -17.345539754260837,
+      "bias_kriging_mmh": -15.981071471946505,
+      "rmse_diff_kriging_minus_idw_mmh": -0.9119634448546741,
+      "rmse_diff_ci90_mmh": [
+        -0.9761394428359973,
+        -0.849301005646279
+      ],
+      "n_days": 1352,
+      "rmse_diff_ci90_by_day_mmh": [
+        -0.9806285985527621,
+        -0.8434717000051293
+      ]
+    },
+    "very heavy (>=30 mm/h)": {
+      "n_gauge_steps": 11066,
+      "n_time_steps": 3333,
+      "rmse_idw_mmh": 39.72491497586908,
+      "rmse_kriging_mmh": 38.28191805410897,
+      "bias_idw_mmh": -32.85622148811609,
+      "bias_kriging_mmh": -31.013628483080158,
+      "rmse_diff_kriging_minus_idw_mmh": -1.4429969217601126,
+      "rmse_diff_ci90_mmh": [
+        -1.542501520772836,
+        -1.3378471322825252
+      ],
+      "n_days": 1241,
+      "rmse_diff_ci90_by_day_mmh": [
+        -1.5508732667268634,
+        -1.335424165413194
+      ]
+    },
+    "all": {
+      "n_gauge_steps": 242714,
+      "n_time_steps": 4000,
+      "rmse_idw_mmh": 9.867497436553188,
+      "rmse_kriging_mmh": 9.691241076353553,
+      "bias_idw_mmh": 0.06759709672840387,
+      "bias_kriging_mmh": 0.02516174114569294,
+      "rmse_diff_kriging_minus_idw_mmh": -0.17625636019963586,
+      "rmse_diff_ci90_mmh": [
+        -0.1954835793043334,
+        -0.1564663240810111
+      ],
+      "n_days": 1352,
+      "rmse_diff_ci90_by_day_mmh": [
+        -0.19927272695001283,
+        -0.15202156364749894
+      ]
+    }
+  }
+}
