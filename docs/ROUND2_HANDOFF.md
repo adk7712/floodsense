@@ -219,7 +219,7 @@ Streamlit app, live or as a replay of any day since 2017.
   - Beats both baselines. CSI for ≥29.5 mm in 60 min: 0.23, against 0.18 for radar persistence
     and 0.03 for gauge persistence.
   - The gain over gauges is significant; the gain from motion is modest.
-  - **Recommendation: GO** for "risk in 1 hour" (team decides).
+  - **Decided: GO** (team, 17 Oct): "risk in 1 hour" (A1.6) stays in the app and the demo.
 - **In the app:** `floodsense.radar.live`. Demo day for radar: **30 Sep 2026** (Woodlands flood);
   17 Apr 2021 predates the radar archive.
 
@@ -263,7 +263,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 
 **Also:**
 - Share the radar results with adk (§4b is the plan).
-- Settle the radar go/no-go.
+- ~~Settle the radar go/no-go~~: **GO**, decided 17 Oct.
 
 ---
 
@@ -277,7 +277,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 **Order of work** (what depends on what; do each step as soon as its inputs are ready):
 1. Radar archive and daily archiver: done.
 2. Shared setup, label batch 1, second-user and `ai_query` tests: `ai_query` and Apps tested (§5); second user open; 14 label candidates drafted, unverified.
-3. Radar go/no-go, static features, app reads gold: A2 and A6 done; B2 and B3 done on adk's branch; radar GO recommended, team decides.
+3. Radar go/no-go, static features, app reads gold: A2 and A6 done; B2 and B3 done on adk's branch; radar **GO** (decided 17 Oct).
 4. Labels verified, then re-run candidate selection, then adk signs off. Nothing new to register today (§0).
 5. Radar integration if go, and retrain if needed. Finish before the freeze (hard limit 23 Oct 18:00 SGT).
 6. Promote to `champion` after adk signs off and before the freeze.
@@ -297,7 +297,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | 0.5 | Shared task board | both | Open | This section is the list |
 | 0.6 | Free Edition unknowns (second user, `ai_query`, Apps) | Akul | Partly | §5: `ai_query` and Apps answered; second user open |
 | 0.7 | Look at the other B2 team | Akul | Open | Devpost gallery is behind Cloudflare, check by hand (§5) |
-| A1 | Radar archive, calibration, nowcast, overlay, forecast risk (A1.1–A1.6) | Akul | Done | §3. A1.6 is built; the go/no-go is the team's call. Radar is not a trained feature (3 months of data vs 2017–2023). Go test: the nowcast beats persistence at 30 min on gauge-interpolated storm steps |
+| A1 | Radar archive, calibration, nowcast, overlay, forecast risk (A1.1–A1.6) | Akul | Done | §3. A1.6 is built; **GO** decided 17 Oct. Radar is not a trained feature (3 months of data vs 2017–2023). Go test: the nowcast beats persistence at 30 min on gauge-interpolated storm steps |
 | A2 | App reads gold | Akul | Done | `d484942`. Spec asked for a data-age line, and a warning above 60 min. **`82f1cb6` removed the stale-data banner** (team decision, see Definition of Done). Credentials stay in secrets; cache queries to save warehouse compute |
 | A3 | Poller operations | Akul | Open | A3.0 secret exists (§7). A3.1 48 h of clean runs before the demo. A3.2 job-failure email alert. A3.3 unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; log daily usage and re-pause if the cap gets close; pause `floodsense-flood-alerts` at the same time |
 | A4 | Serve from Unity Catalog | Akul | Done (A4.1–A4.3, `772ad07`); A4.4 open | A4.1 load `models:/workspace.floodsense.flood_model@champion` in `databricks/pipelines/lakeflow_pipeline.py` (v1 already loads back with identical tiers: code change only). A4.2 read `zone_static.csv` only if the model uses it (it does not). A4.3 re-run the parity test (`test_phase5_parity.py`); it must pass or the difference be documented. A4.4 promote before the freeze, after adk signs off |
@@ -312,7 +312,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | B4.1 | Fix active-rain gate tolerance; drop unused columns | adk | Done (branch) | `48b86ea` |
 | B4.2 | Re-run selection on 2020–2023 only | adk | Done (branch) | `docs/candidate_selection_2026-10.md`; `rule_rain60` still wins. Re-run after the 14 labels are verified |
 | B4.2b | Candidate that uses static features; re-run LR and LightGBM | adk | Done (branch) | `rule_rain60_static` hurts (High 6/23 vs 12/23); LR and LightGBM still behind |
-| B4.3 | Radar via A1.6, without retraining | adk | Open | Depends on the radar go/no-go |
+| B4.3 | Radar via A1.6, without retraining | adk | Done | Radar GO (17 Oct): the forecast risk uses the nowcast with the current model, no retraining |
 | B4.4 | Register the candidate with alias `candidate` | Akul | Nothing to register | Needs `register_model.py` path option and `--alias candidate` if one is ever registered |
 | B4.5 | Freeze and set thresholds (before the freeze) | adk | Open | Thresholds come from the budget rule in `config.py` (2.5 false High, 11 false Moderate per zone-year; achieved 1.56 and 7.28). Do not change the budgets to improve a result |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
@@ -354,7 +354,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 - [x] At least one mentor suggestion is measured (B3 kriging, B2.4 static features).
 - [ ] The measured mentor suggestion is on a slide (B6).
 - [x] The radar archive is complete from 16 Jul, and the nowcast overlay is on the map.
-- [ ] Forecast risk (A1.6) is shown if go, otherwise the spike result is on a slide. No "experimental" label (UI rule).
+- [x] Forecast risk (A1.6) is shown (GO, 17 Oct); its rain-nowcast skill result goes on a slide. No "experimental" label (UI rule).
 - [x] The A9 "What to do" line is in the Zone Diagnostic panel (adk's branch, `1bd7ab6`, not yet on master).
 - [ ] Metrics are reported honestly, with intervals and a limitations slide (B6).
 - [ ] Two rehearsals are done, and a fallback exists for each live step (J1, J2).

@@ -196,7 +196,7 @@ DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py   #
 - Logs the committed `FloodModel` as an `mlflow.pyfunc` model that scores through
   `floodsense.models.scoring.score_zone_features` (code shipped with `code_paths=src/floodsense`), with
   its signature, `model_card.json`, `final_report.json`, the thresholds and the test metrics.
-- Experiment `/Users/akul.sharma009@gmail.com/floodsense-model` (the `floodsense` name is taken by the
+- Experiment `/Users/<login>/floodsense-model` (the `floodsense` name is taken by the
   workspace folder), run `85df4e2d536f43d4a4df1663f1f5c14a`.
 - Registered as **`workspace.floodsense.flood_model` version 1, alias `champion`** (status READY).
   Each re-run adds a version and moves `champion`.

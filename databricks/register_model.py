@@ -30,7 +30,14 @@ from floodsense.serving.pipeline_core import _snapshots, payloads_to_readings, s
 
 log = logging.getLogger("floodsense.register_model")
 
-EXPERIMENT = "/Users/akul.sharma009@gmail.com/floodsense-model"
+# Under the signed-in user's workspace folder (the name "floodsense" is taken by that folder).
+EXPERIMENT_NAME = "floodsense-model"
+
+
+def default_experiment() -> str:
+    from databricks.sdk import WorkspaceClient
+
+    return f"/Users/{WorkspaceClient().current_user.me().user_name}/{EXPERIMENT_NAME}"
 MODEL_NAME = "workspace.floodsense.flood_model"
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "flood_model.joblib"
@@ -67,7 +74,7 @@ def replay_feature_rows(model: FloodModel, replay_path: Path | None = None) -> p
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--experiment", default=EXPERIMENT)
+    parser.add_argument("--experiment", help="MLflow experiment path (default: /Users/<you>/floodsense-model)")
     parser.add_argument("--name", default=MODEL_NAME)
     parser.add_argument("--alias", default="champion")
     parser.add_argument("--no-register", action="store_true", help="log the model only")
@@ -76,7 +83,7 @@ def main() -> None:
 
     mlflow.set_tracking_uri("databricks")
     mlflow.set_registry_uri("databricks-uc")
-    mlflow.set_experiment(args.experiment)
+    mlflow.set_experiment(args.experiment or default_experiment())
 
     model: FloodModel = joblib.load(MODEL_PATH)
     report = json.loads((ROOT / "models" / "final_report.json").read_text())

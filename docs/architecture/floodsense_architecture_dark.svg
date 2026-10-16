@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Inter, 'Helvetica Neue', Arial, sans-serif">
+<defs><marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748B"/></marker></defs>
+<rect width="1600" height="900" fill="#0B1220"/>
+<text x="30" y="70" font-size="13" font-weight="700" letter-spacing="1.2" fill="#94A3B8">OPEN DATA · DATA.GOV.SG</text>
+<rect x="30" y="112" width="245" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="46" y="139" font-size="17" font-weight="700" fill="#E5E7EB">NEA rain radar</text>
+<text x="46" y="162" font-size="14" fill="#94A3B8">Rain-area image</text>
+<text x="46" y="182" font-size="14" fill="#94A3B8">every 5 min (70 km)</text>
+<rect x="30" y="212" width="245" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="46" y="239" font-size="17" font-weight="700" fill="#E5E7EB">NEA rain gauges</text>
+<text x="46" y="262" font-size="14" fill="#94A3B8">5-min readings</text>
+<text x="46" y="282" font-size="14" fill="#94A3B8">~90 gauges island-wide</text>
+<rect x="30" y="312" width="245" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="46" y="339" font-size="17" font-weight="700" fill="#E5E7EB">PUB flash-flood alerts</text>
+<text x="46" y="362" font-size="14" fill="#94A3B8">Live only: the API</text>
+<text x="46" y="382" font-size="14" fill="#94A3B8">keeps no history</text>
+<text x="30" y="445" font-size="13" font-weight="700" letter-spacing="1.2" fill="#94A3B8">REFERENCE DATA</text>
+<rect x="30" y="460" width="245" height="108" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="46" y="487" font-size="17" font-weight="700" fill="#E5E7EB">In the repo</text>
+<text x="46" y="510" font-size="14" fill="#94A3B8">URA 2019 planning areas (55)</text>
+<text x="46" y="530" font-size="14" fill="#94A3B8">80 verified flood events</text>
+<text x="46" y="550" font-size="14" fill="#94A3B8">LTA MRT station exits</text>
+<text x="30" y="612" font-size="13" font-weight="700" letter-spacing="1.2" fill="#94A3B8">MODEL TRAINING</text>
+<rect x="30" y="627" width="245" height="128" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<rect x="30" y="635" width="4" height="112" rx="2" fill="#F97316"/>
+<text x="46" y="654" font-size="17" font-weight="700" fill="#E5E7EB">MLflow experiment</text>
+<text x="46" y="677" font-size="14" fill="#94A3B8">60-min rain rule, calibrated</text>
+<text x="46" y="697" font-size="14" fill="#94A3B8">selected on 2020–23 floods</text>
+<text x="46" y="717" font-size="14" fill="#94A3B8">test 2024–26 scored once</text>
+<text x="46" y="737" font-size="14" fill="#94A3B8">tiers set by alarm budgets</text>
+<rect x="305" y="35" width="1280" height="830" rx="16" fill="#0F1A2E" stroke="#1F2D47" stroke-width="1.5"/>
+<text x="330" y="70" font-size="13" font-weight="700" letter-spacing="1.2" fill="#FF5F46">DATABRICKS · FREE EDITION · SERVERLESS</text>
+<text x="330" y="100" font-size="12" font-weight="700" letter-spacing="1.2" fill="#94A3B8">LAKEFLOW JOBS</text>
+<rect x="330" y="112" width="250" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="346" y="139" font-size="17" font-weight="700" fill="#E5E7EB">Daily archiver</text>
+<text x="346" y="162" font-size="14" fill="#94A3B8">03:00 SGT</text>
+<text x="346" y="182" font-size="14" fill="#94A3B8">Radar frames + gauges</text>
+<rect x="330" y="212" width="250" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="346" y="239" font-size="17" font-weight="700" fill="#E5E7EB">Rainfall poller</text>
+<text x="346" y="262" font-size="14" fill="#94A3B8">Every 30 min near the demo</text>
+<text x="346" y="282" font-size="14" fill="#94A3B8">Lands data, runs pipeline</text>
+<rect x="330" y="312" width="250" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="346" y="339" font-size="17" font-weight="700" fill="#E5E7EB">Flood-alert saver</text>
+<text x="346" y="362" font-size="14" fill="#94A3B8">Every 15 min</text>
+<text x="346" y="382" font-size="14" fill="#94A3B8">Keeps PUB alerts</text>
+<text x="610" y="100" font-size="12" font-weight="700" letter-spacing="1.2" fill="#94A3B8">VOLUMES</text>
+<rect x="610" y="112" width="200" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="626" y="139" font-size="17" font-weight="700" fill="#E5E7EB">radar</text>
+<text x="626" y="162" font-size="14" fill="#94A3B8">Every frame since</text>
+<text x="626" y="182" font-size="14" fill="#94A3B8">16 Jul 2026</text>
+<rect x="610" y="212" width="200" height="186" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="626" y="239" font-size="17" font-weight="700" fill="#E5E7EB">landing</text>
+<text x="626" y="262" font-size="14" fill="#94A3B8">Raw API pages,</text>
+<text x="626" y="282" font-size="14" fill="#94A3B8">unchanged:</text>
+<text x="626" y="302" font-size="14" fill="#94A3B8">rainfall + alerts</text>
+<rect x="840" y="88" width="345" height="430" rx="12" fill="none" stroke="#2A3B5C" stroke-width="1.5" stroke-dasharray="4 4"/>
+<text x="856" y="112" font-size="12" font-weight="700" letter-spacing="1.2" fill="#94A3B8">LAKEFLOW DECLARATIVE PIPELINE</text>
+<rect x="860" y="125" width="305" height="76" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<rect x="860" y="133" width="4" height="60" rx="2" fill="#D08A4A"/>
+<text x="876" y="152" font-size="17" font-weight="700" fill="#E5E7EB">Bronze · Auto Loader</text>
+<text x="876" y="175" font-size="14" fill="#94A3B8">Every payload, one row per file</text>
+<rect x="860" y="225" width="305" height="96" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<rect x="860" y="233" width="4" height="80" rx="2" fill="#AAB6C8"/>
+<text x="876" y="252" font-size="17" font-weight="700" fill="#E5E7EB">Silver · parse + expectations</text>
+<text x="876" y="275" font-size="14" fill="#94A3B8">Readings 0–100 mm, de-duplicated</text>
+<text x="876" y="295" font-size="14" fill="#94A3B8">Bad payloads → quarantine</text>
+<rect x="860" y="345" width="305" height="150" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<rect x="860" y="353" width="4" height="134" rx="2" fill="#EAB308"/>
+<text x="876" y="372" font-size="17" font-weight="700" fill="#E5E7EB">Gold · flood risk</text>
+<text x="876" y="395" font-size="14" fill="#94A3B8">flood_risk_predictions_gold</text>
+<text x="876" y="415" font-size="14" fill="#94A3B8">Gauges → 55 zones (IDW)</text>
+<text x="876" y="435" font-size="14" fill="#94A3B8">→ rain features → model</text>
+<text x="876" y="455" font-size="14" fill="#94A3B8">→ Low / Moderate / High</text>
+<rect x="860" y="565" width="305" height="100" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<rect x="860" y="573" width="4" height="84" rx="2" fill="#F97316"/>
+<text x="876" y="592" font-size="17" font-weight="700" fill="#E5E7EB">Unity Catalog model registry</text>
+<text x="876" y="615" font-size="14" fill="#94A3B8">flood_model @champion</text>
+<text x="876" y="635" font-size="14" fill="#94A3B8">Gold loads it on every run</text>
+<text x="1230" y="100" font-size="12" font-weight="700" letter-spacing="1.2" fill="#94A3B8">SERVING</text>
+<rect x="1230" y="112" width="330" height="176" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="1246" y="139" font-size="17" font-weight="700" fill="#F97316">Databricks App</text>
+<text x="1246" y="162" font-size="14" fill="#94A3B8">Streamlit, signed in via Databricks</text>
+<text x="1246" y="182" font-size="14" fill="#94A3B8">Live risk map for 55 zones</text>
+<text x="1246" y="202" font-size="14" fill="#94A3B8">Replay any day since 2017</text>
+<text x="1246" y="222" font-size="14" fill="#94A3B8">Rain radar + 1-hour nowcast</text>
+<text x="1246" y="242" font-size="14" fill="#94A3B8">Resident view: what to do</text>
+<rect x="1230" y="310" width="330" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="1246" y="337" font-size="17" font-weight="700" fill="#E5E7EB">AI/BI dashboard</text>
+<text x="1246" y="360" font-size="14" fill="#94A3B8">Live risk by zone, from gold</text>
+<rect x="1230" y="418" width="330" height="86" rx="10" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="1246" y="445" font-size="17" font-weight="700" fill="#E5E7EB">Telegram alerts</text>
+<text x="1246" y="468" font-size="14" fill="#94A3B8">Posts when a zone&#x27;s risk rises</text>
+<text x="1246" y="488" font-size="14" fill="#94A3B8">Built; goes live with the poller</text>
+<rect x="330" y="700" width="1230" height="140" rx="12" fill="#14203A" stroke="#2A3B5C" stroke-width="1.5"/>
+<text x="350" y="730" font-size="13" font-weight="700" letter-spacing="1.2" fill="#FF5F46">UNITY CATALOG · WORKSPACE.FLOODSENSE</text>
+<rect x="350" y="752" width="92" height="34" rx="17" fill="#0F1A2E" stroke="#2A3B5C"/><text x="396" y="774" font-size="14" fill="#E5E7EB" text-anchor="middle">4 volumes</text>
+<rect x="453.8" y="752" width="157" height="34" rx="17" fill="#0F1A2E" stroke="#2A3B5C"/><text x="532" y="774" font-size="14" fill="#E5E7EB" text-anchor="middle">8 pipeline tables</text>
+<rect x="623.2" y="752" width="215" height="34" rx="17" fill="#0F1A2E" stroke="#2A3B5C"/><text x="731" y="774" font-size="14" fill="#E5E7EB" text-anchor="middle">Registered model + alias</text>
+<rect x="850.0" y="752" width="264" height="34" rx="17" fill="#0F1A2E" stroke="#2A3B5C"/><text x="982" y="774" font-size="14" fill="#E5E7EB" text-anchor="middle">Descriptions + column comments</text>
+<rect x="1126.0" y="752" width="182" height="34" rx="17" fill="#0F1A2E" stroke="#2A3B5C"/><text x="1217" y="774" font-size="14" fill="#E5E7EB" text-anchor="middle">Tags on every object</text>
+<rect x="1320.0" y="752" width="215" height="34" rx="17" fill="#0F1A2E" stroke="#2A3B5C"/><text x="1427" y="774" font-size="14" fill="#E5E7EB" text-anchor="middle">Serverless SQL warehouse</text>
+<text x="350" y="818" font-size="14" fill="#94A3B8">All tables, volumes and the model live in one governed schema: lineage, access and descriptions in one place.</text>
+<polyline points="275,155 330,155" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="275,255 330,255" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="275,355 330,355" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="580,155 610,155" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="580,185 595,185 595,232 610,232" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="580,270 610,270" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="580,355 610,355" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="810,245 832,245 832,163 860,163" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="1012,201 1012,225" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="1012,321 1012,345" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="1012,565 1012,495" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<text x="1040" y="535" font-size="12.5" fill="#94A3B8" text-anchor="middle">model</text>
+<polyline points="275,691 300,691 300,615 860,615" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<text x="720" y="607" font-size="12.5" fill="#94A3B8" text-anchor="middle">registered</text>
+<polyline points="1165,400 1200,400 1200,200 1230,200" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="1165,420 1210,420 1210,353 1230,353" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<polyline points="1165,460 1230,460" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<text x="1197" y="532" font-size="12.5" fill="#94A3B8" text-anchor="middle">via SQL warehouse</text>
+<polyline points="710,112 710,80 1395,80 1395,112" fill="none" stroke="#64748B" stroke-width="2" marker-end="url(#head)"/>
+<text x="1010" y="73" font-size="12.5" fill="#94A3B8" text-anchor="middle">radar frames for Replay and the nowcast</text>
+</svg>
