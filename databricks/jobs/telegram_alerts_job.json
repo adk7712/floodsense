@@ -23,6 +23,8 @@
       "spark_python_task": {
         "python_file": "/Workspace/Users/<your-login>/floodsense/telegram_bot.py",
         "parameters": [
+          "--warehouse-id",
+          "<warehouse-id>",
           "live",
           "--once",
           "--state-file",

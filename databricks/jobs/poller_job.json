@@ -1,6 +1,6 @@
 {
   "name": "floodsense-rainfall-poller",
-  "description": "Lands recent NEA rainfall in the landing volume, then runs the floodsense pipeline (triggered update, not a full refresh).",
+  "description": "Lands recent NEA rainfall in the landing volume, runs the floodsense pipeline (triggered update, not a full refresh), then posts Telegram alerts from the newest gold step. The bot reads its token and chat id from the secrets scope 'floodsense' (telegram_bot_token, telegram_chat_id); the per-zone state file on the artifacts volume stops re-sends.",
   "tags": {
     "project": "floodsense",
     "track": "DAISI-B2",
@@ -48,6 +48,27 @@
         "full_refresh": false
       },
       "timeout_seconds": 1800
+    },
+    {
+      "task_key": "telegram_alerts",
+      "depends_on": [
+        {
+          "task_key": "refresh_pipeline"
+        }
+      ],
+      "environment_key": "poller",
+      "spark_python_task": {
+        "python_file": "/Workspace/Users/<your-login>/floodsense/telegram_bot.py",
+        "parameters": [
+          "--warehouse-id",
+          "<warehouse-id>",
+          "live",
+          "--once",
+          "--state-file",
+          "/Volumes/workspace/floodsense/artifacts/telegram_state.json"
+        ]
+      },
+      "timeout_seconds": 240
     }
   ]
 }

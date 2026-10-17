@@ -5,7 +5,7 @@
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
   the radar-gap fix and the PUB alert line. Merge fixes: the radar image cache is capped at 600
   images (`API_PNG_CACHE_MAX`), and doc corrections.
-- **Decided and done 18 Oct:** Moderate cut-off 0.53% (the refit), registered as model version 3 and **promoted to `champion` early by Akul**; gold and the app now use it. **adk: please confirm your sign-off** (B4.5).
+- **Decided and done 18 Oct:** Moderate cut-off 0.53% (the refit), registered as model version 3 and **promoted to `champion` early by Akul**; gold and the app now use it. **adk signed off on 18 Oct** (B4.5, relayed by Akul).
 - The 16 Oct branches (`adk/labels-kriging-zone-features`, `adk/review-followups`) are merged into
   master. The 16 Oct session is kept below as history (§0).
 
@@ -130,7 +130,7 @@ Branch `app-radar-gap-live-alerts`, cut from `65d7387`. Committed and pushed (br
    - **Not one of the 14, but worth a look:** the 2023-07-20 Dunearn Rd row is already verified (`Akul9`). Its severity "Minor" conflicts with a later Mothership article, which says only one of three lanes was passable. Recheck the severity.
 3. **Done by Akul:** A1 (radar archive and nowcast), A2 (`d484942`, Live mode reads gold), A6 (`f02fc15`, Databricks App deployed), the data.gov.sg fallback (`82f1cb6`) and A4.1–A4.3 (`772ad07`, gold scores with `flood_model@champion`; DEPLOYMENT.md §17). Nothing else is open on Akul's list for these.
 4. **B4.4:** nothing to register unless the team chooses the refit (17 Oct block above). `rule_rain60` stays champion, pending adk's sign-off.
-5. **Deploy the Telegram bot** (Akul's plan, 16 Oct evening; **not deployed**). Run it as a third task in the poller job, after `refresh_pipeline`: `live --once --state-file /Volumes/workspace/floodsense/artifacts/telegram_state.json`. This replaces the separate 5-minute draft job.
+5. **Deploy the Telegram bot: done 18 Oct** (DEPLOYMENT.md §22; test run passed, all zones Low so nothing was posted). Original plan, kept as history (Akul's plan, 16 Oct evening). Run it as a third task in the poller job, after `refresh_pipeline`: `live --once --state-file /Volumes/workspace/floodsense/artifacts/telegram_state.json`. This replaces the separate 5-minute draft job.
    1. Create two secrets in scope `floodsense`: `telegram_bot_token` and `telegram_chat_id`. Neither exists yet. adk sends the values privately (17 Oct block).
    2. Add the task to the poller job and deploy it.
    3. Notes:
@@ -372,7 +372,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 
 | ID | Task | Owner | Status | Notes / links |
 |---|---|---|---|---|
-| 0.1 | Agree freeze date and test-set rule; record in README "Evaluation protocol" | both | Partly | Rules are in `CLAUDE.md`; README has no "Evaluation protocol" heading: open |
+| 0.1 | Agree freeze date and test-set rule; record in README "Evaluation protocol" | both | Done 18 Oct | README "Evaluation protocol" section (`fc82aa8`) |
 | 0.2 | `data/reference/zone_static.csv` contract (55 rows, sourced, no blanks). Columns: `ura_planning_area, built_up_pct, elevation_m_mean, low_lying_pct, source_name, source_url, retrieved_at`. `low_lying_pct` = % of the zone's DEM pixels under 5 m | adk | Done | B2 (`3fdc66c`); `low_lying_pct` contract line added on `adk/review-followups` (merged; committed in `afaf60e`) |
 | 0.3 | Label-file schema | both | Done | Existing `flood_events.csv`; `verified_by` = verifier's initials, not the drafter |
 | 0.4 | Registry rule | both | Done | Alias `candidate` for candidates; only `champion` serves; promote before the freeze, only after adk signs off |
@@ -396,7 +396,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | B4.2b | Candidate that uses static features; re-run LR and LightGBM | adk | Done; 88-label result on `rerun-88-labels` | On 88 labels the static features are mixed, not adopted (High 8/28 vs 14/28; Moderate 19/28 vs 18/28 at twice the false episodes); LR and LightGBM still behind |
 | B4.3 | Radar via A1.6, without retraining | adk | Done | Radar GO (17 Oct): the forecast risk uses the nowcast with the current model, no retraining |
 | B4.4 | Register the candidate with alias `candidate` | Akul | Done 18 Oct | The refit (Moderate 0.53%) is `workspace.floodsense.flood_model` **version 3, alias `candidate`**. Version 2 is the same model with a differently named file: superseded, do not promote. `champion` is still version 1 |
-| B4.5 | Freeze and set thresholds (before the freeze) | adk | Done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk: please record your sign-off.** The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
+| B4.5 | Freeze and set thresholds (before the freeze) | adk | Done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk signed off on 18 Oct** (relayed by Akul). The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
 | B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the Resident view's "What to do" line to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
 | B6 | Deck and metrics write-up | adk (Akul: architecture slide) | Open | B6.1 rates with raw counts and 90% intervals, plus false alarms per zone-year. B6.2 limitations slide: label count, test-set status, radar scope; tide is not built although some labels carry a `rain_tide` tag. B6.3 credit all datasets, libraries, models. B6.4 draft as soon as possible, both review, **deck saved as PDF in the repo**. Include the "mentor suggestions measured" slide (§6) |

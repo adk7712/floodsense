@@ -132,7 +132,8 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 
 - **Poller on a live schedule**: the job exists and has run (section 11), but its schedule is paused
   to protect the daily compute cap.
-- **Telegram alerts** on Databricks: built and tested offline; waiting for the bot token (section 19).
+- **Telegram alerts** run as the poller's third task (section 22), so they only post while the
+  poller is unpaused.
 - **Promoting a new model** to `champion` (A4.4, 23 Oct): gold already serves whatever the alias
   points to (section 17).
 
@@ -492,7 +493,7 @@ Bundles (A8.2) are a stretch goal for after the freeze.
 - **Databricks App** redeployed (`01f1c94bf50f16b7a08f06a9438d1378`) with that day's app: the
   Resident view switch top right, the data.gov.sg fallback behind Advanced. Akul checked it in a
   browser, then it was stopped again.
-- **Telegram alerts (proposed, not deployed):** run the bot as a third task in the poller job, after
+- **Telegram alerts (proposed here; deployed 18 Oct, section 22):** run the bot as a third task in the poller job, after
   `refresh_pipeline` (`live --once --state-file /Volumes/workspace/floodsense/artifacts/telegram_state.json`),
   rather than its own 5-minute schedule. It needs the secrets `floodsense/telegram_bot_token` and
   `floodsense/telegram_chat_id` from adk's bot.
@@ -545,3 +546,30 @@ The team chose the refit of `rule_rain60` on 88 verified labels: the budget rule
 - Previously planned for 23 Oct: move the alias
   (`MlflowClient(registry_uri="databricks-uc").set_registered_model_alias("workspace.floodsense.flood_model", "champion", 3)`),
   rebuild and upload the wheel, then run the pipeline once.
+
+## 22. Telegram alerts as a poller task (18 Oct 2026)
+
+The bot (`floodsense.alerts.telegram_bot`, @fs_tele_alert_bot, channel "floodsense test") is the
+third task of `floodsense-rainfall-poller`, after `refresh_pipeline`, so it reads gold right after
+each pipeline update. The job's schedule stays **paused** until A3.
+
+- Task `telegram_alerts`: `databricks/jobs/telegram_bot.py`, uploaded to
+  `/Workspace/Users/<login>/floodsense/telegram_bot.py`, with the floodsense wheel. Parameters:
+  `--warehouse-id <id> live --once --state-file /Volumes/workspace/floodsense/artifacts/telegram_state.json`.
+  The script sets `FLOODSENSE_DATABRICKS_WAREHOUSE_ID` (serverless tasks can't set environment
+  variables) and exits only on an error: under IPython even `SystemExit(0)` fails the task.
+- Secrets in scope `floodsense`: `telegram_bot_token` and `telegram_chat_id`, created by Akul on
+  18 Oct. The bot reads them itself.
+- The per-zone state file on the artifacts volume stops re-sends across runs. Deleting it makes the
+  next run treat every zone as new.
+- Test run on 18 Oct (one manual run of the paused job): `poll_rainfall` and `refresh_pipeline`
+  succeeded. `telegram_alerts` first failed on the `SystemExit(0)` above, then succeeded after the
+  fix (repair run). All 55 zones were Low, so no message was sent; the state file was written.
+  A real post from the job has not been seen yet.
+- The separate 5-minute job `databricks/jobs/telegram_alerts_job.json` is kept as a paused fallback.
+
+```bash
+databricks workspace import /Workspace/Users/<login>/floodsense/telegram_bot.py \
+    --file databricks/jobs/telegram_bot.py --format AUTO --overwrite
+databricks jobs reset --json '{"job_id": 986423263843293, "new_settings": <poller_job.json, login and warehouse filled in>}'
+```
