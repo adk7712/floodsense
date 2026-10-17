@@ -35,7 +35,8 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 >   persistence (`docs/radar_nowcast_result.md`). The app shows it as a map overlay (now, +30, +60
 >   min) and as "risk in 1 hour".
 > - **Telegram alerts:** a bot that posts when a zone's risk rises (`floodsense.alerts`), with a
->   replay mode; going live with the poller.
+>   replay mode. On Databricks it runs as the poller job's third task (`DEPLOYMENT.md` §22), so it
+>   posts only while the poller runs; no real alert has been posted yet.
 > - **Not built:** tide, and PUB drainage capacity (not openly available).
 
 ## Quickstart
@@ -261,7 +262,7 @@ Agreed by the team for Round 2 (DAISI Challenge 2026). These rules hold until De
 2. **The test set is scored once.** It was scored on 1 Oct 2026 (Round 1), with model version 1
    (git `cac91ca`; `models/final_report.json`). Any later use of 2024–2026 data for anything is
    reported as a **"second look"**, never as a test result.
-3. **No new 2024–2026 labels before the freeze.** Label candidates are drafted for 2017–2023 only.
+3. **No new 2024–2026 labels before Demo Day.** Label candidates are drafted for 2017–2023 only.
 4. **Labels need a source and a second person.** Each row has a source link, a quote naming the
    place and time, and a `time_precision` that matches the source. It is signed in `verified_by` by
    someone other than the person who drafted it. Rejected candidates are listed with the reason in
@@ -273,9 +274,10 @@ Agreed by the team for Round 2 (DAISI Challenge 2026). These rules hold until De
    floods, 90% CI 27–53%", alongside false-alarm episodes per zone-year.
 7. **Model registry.** Each candidate is registered in Unity Catalog
    (`workspace.floodsense.flood_model`) with the alias `candidate`. Only `champion` serves. A
-   candidate becomes `champion` only after the model owner signs off, and before the freeze.
-8. **Freeze: 23 Oct 2026, 18:00 SGT.** Features and the model are frozen and the commit is tagged.
-   After that, bug fixes only.
+   candidate becomes `champion` only after the model owner signs off. Version 3 was promoted on 18 Oct
+   2026, with adk's sign-off.
+8. **No code freeze.** The team decided on 18 Oct 2026 not to freeze or tag a commit before Demo
+   Day. Rules 1–6 still hold for any change to the model or its thresholds.
 
 ## Development
 

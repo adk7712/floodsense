@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 18 Oct 2026, by Akul's session (adk's 17 Oct blocks below).
+**Last updated:** 18 Oct 2026, end of Akul's session (Telegram deployed, no code freeze; §0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
   the radar-gap fix and the PUB alert line. Merge fixes: the radar image cache is capped at 600
@@ -21,7 +21,19 @@
 
 ---
 
-## 0. Latest sessions: 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 18 Oct (Akul): done, waiting, next
+
+**Done:**
+- README "Evaluation protocol" section (task 0.1, `fc82aa8`); the flood-events paragraph now says 88 verified.
+- adk's sign-off on model version 3 (Moderate 0.53%) recorded (B4.5).
+- Telegram deployed as the poller job's third task (`ba360db`, DEPLOYMENT.md §22). The secrets `floodsense/telegram_bot_token` and `floodsense/telegram_chat_id` exist. One test run passed. All 55 zones were Low, so nothing was posted; no real alert has been seen yet. The poller stays paused.
+- **No code freeze (Akul, 18 Oct).** The 23 Oct freeze and tag are dropped; work continues up to the submission. The test-set rule still holds. README protocol rule 8 says so. References to the freeze further down this file are history.
+
+**Next for Akul:** demo script (J1); about 24 Oct, A3 (unpause the poller, pause `floodsense-flood-alerts`, failure email, 48 h clean runs); before rehearsals, start and redeploy the Databricks App and refresh data with a poller run; before submission, remove or strip this file (it has the warehouse ID).
+
+**For adk:** review `fc82aa8` and `ba360db` (pushed straight to master). The B6 deck, J2.3 Q&A answers and the label-target decision are still open.
 
 ### 17 Oct (adk): done, waiting, next
 
