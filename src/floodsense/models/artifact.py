@@ -114,7 +114,13 @@ def load_registered_model(uri: str = REGISTERED_MODEL_URI) -> FloodModel:
     mlflow.set_registry_uri("databricks-uc")
     with tempfile.TemporaryDirectory() as tmp:
         local = Path(mlflow.artifacts.download_artifacts(artifact_uri=uri, dst_path=tmp))
-        model = joblib.load(local / "artifacts" / "flood_model.joblib")
+        path = local / "artifacts" / "flood_model.joblib"
+        if not path.exists():  # a version logged under its local file name
+            found = sorted((local / "artifacts").glob("*.joblib"))
+            if len(found) != 1:
+                raise FileNotFoundError(f"{uri}: expected one .joblib artifact, found {len(found)}")
+            path = found[0]
+        model = joblib.load(path)
     if not isinstance(model, FloodModel):
         raise TypeError(f"{uri} does not hold a FloodModel")
     return model

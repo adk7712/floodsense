@@ -72,3 +72,23 @@ def test_registered_version(monkeypatch, committed_model):
     assert registered_version() == "4"
     assert calls.uris == ["workspace.floodsense.flood_model@champion"]
     assert registered_version("models:/workspace.floodsense.flood_model/2") == "2"
+
+
+def test_a_version_logged_under_another_file_name_still_loads(
+    monkeypatch, committed_model, tmp_path
+):
+    renamed = tmp_path / "rule_rain60_refit_2026-10-17.joblib"
+    shutil.copy(committed_model, renamed)
+
+    calls = fake_mlflow(monkeypatch, committed_model)
+
+    def download_artifacts(artifact_uri: str, dst_path: str) -> str:
+        calls.uris.append(artifact_uri)
+        (Path(dst_path) / "artifacts").mkdir(parents=True)
+        shutil.copy(renamed, Path(dst_path) / "artifacts" / renamed.name)
+        return dst_path
+
+    sys.modules["mlflow"].artifacts.download_artifacts = download_artifacts
+    assert isinstance(
+        load_registered_model("models:/workspace.floodsense.flood_model/2"), FloodModel
+    )

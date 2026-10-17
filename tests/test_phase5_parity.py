@@ -46,9 +46,16 @@ def exported() -> pd.DataFrame:
     return df.sort_values(["timestamp", "ura_planning_area"]).reset_index(drop=True)
 
 
+# The export was produced on 2 Oct by the model then in use (version 1, Moderate 0.30%), so parity
+# is checked against that model, now archived. The current model is version 3 (DEPLOYMENT.md §21).
+V1_MODEL = settings.models_dir / "archive" / "flood_model_v1_2026-10-01.joblib"
+
+
 @pytest.fixture(scope="module")
 def expected() -> pd.DataFrame:
-    return core.replay_predictions()
+    import joblib
+
+    return core.replay_predictions(model=joblib.load(V1_MODEL))
 
 
 def test_run_info_identifies_a_real_pipeline_update():
@@ -103,7 +110,7 @@ def test_same_probabilities_off_the_gate(exported, expected):
     )
     np.testing.assert_allclose(got[~gate], want[~gate], rtol=1e-6, atol=1e-9)
     assert gate.sum() < 0.01 * len(gate)
-    threshold = 0.003  # Moderate (models/final_report.json)
+    threshold = 0.003  # version 1's Moderate cut-off (models/final_report.json)
     assert (got[gate] < threshold / 100).all() and (want[gate] < threshold / 100).all()
 
 

@@ -516,3 +516,32 @@ data.gov.sg. The live API is slow for replay: it pages newest-first through the 
   `data/raw/radar/`.
 - A frame read from the volume, the local archive and data.gov.sg is byte-identical (checked for
   30 Sep 14:30).
+
+## 21. Candidate model version 3: the refit (18 Oct 2026)
+
+The team chose the refit of `rule_rain60` on 88 verified labels: the budget rule now gives Moderate
+**0.53%** (about 37.7 mm in 60 min), with High unchanged at 0.71%
+(`models/candidates/rule_rain60_refit_2026-10-17.json`, `docs/candidate_selection_2026-10.md`).
+
+- Rebuilt the local feature store with the B4.1 gate tolerance (7,587,282 rows, as adk's), then
+  regenerated the refit with `python -m floodsense.models.refit_champion`. Thresholds, millimetre
+  equivalents, training rows and the cross-validation score were identical to adk's run on `33e9484`.
+- `databricks/register_model.py` now takes `--model-path`, `--summary` and `--alias` (default
+  `candidate`). A candidate is logged with its own summary, never the committed model's test-set
+  report, and its file is always stored as `artifacts/flood_model.joblib`, the name the pipeline
+  loads. `load_registered_model` also accepts a single differently named `.joblib`.
+- Registered as **version 3, alias `candidate`** (version 2 is the same model, but its file kept its
+  local name; marked superseded). `champion` is still version 1 (Moderate 0.30%), so gold is unchanged
+  until the promotion.
+- **Promoted 18 Oct** (by Akul, ahead of the planned 23 Oct; adk's sign-off to be recorded): `champion`
+  → version 3, wheel rebuilt, pipeline update `5e1554ac…` completed with no warnings. The committed
+  `models/flood_model.joblib` is now version 3 (byte-identical to the registry's file), so the app's
+  Replay, data.gov.sg and forecast views use the same model as gold. Version 1 is kept as
+  `models/archive/flood_model_v1_2026-10-01.joblib`; the parity test checks the 2 Oct export against it.
+- Effect on the 17 Apr 2021 demo storm (11:00–18:00, all zones): Moderate zone-steps 367 → 127,
+  High 195 → 211 (the refit's calibration puts High at about 43 mm instead of 44 mm); Bukit Timah
+  still turns High at 12:45. At 12:15, 1 Moderate area instead of 6.
+- To roll back: move `champion` to version 1, restore the archived file, rebuild the wheel.
+- Previously planned for 23 Oct: move the alias
+  (`MlflowClient(registry_uri="databricks-uc").set_registered_model_alias("workspace.floodsense.flood_model", "champion", 3)`),
+  rebuild and upload the wheel, then run the pipeline once.

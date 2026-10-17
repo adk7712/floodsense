@@ -4,14 +4,20 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 
 > **Status: working prototype on real data, running on Databricks.**
 > - **Model:** a calibrated 60-minute-rainfall rule (`models/flood_model.joblib`, registered in Unity
->   Catalog as `workspace.floodsense.flood_model@champion`). It beat logistic regression, LightGBM and
->   a static-feature variant at matched false-alarm levels (`docs/candidate_selection_2026-10.md`).
-> - **Test result:** trained on NEA rainfall 2017–2023, then scored once on held-out floods from 2024
->   to Sep 2026 (30 floods):
+>   Catalog as `workspace.floodsense.flood_model@champion`, version 3). It beat logistic regression,
+>   LightGBM and a static-feature variant at matched false-alarm levels
+>   (`docs/candidate_selection_2026-10.md`). Moderate from **0.53%** (about 38 mm in 60 min), High from
+>   **0.71%** (about 43 mm), set by the false-alarm budget rule on 88 verified floods (18 Oct).
+>   In 2020–2023 cross-validation (28 floods) it catches 14 at High (90% CI 36–64%) and 18 at
+>   Moderate (50–79%), at 2.5 and 4.5 false alarms per zone-year.
+> - **Test result** (the previous model, version 1: same rule, Moderate from 0.30%, trained on 66
+>   labels): scored once on held-out floods from 2024 to Sep 2026 (30 floods):
 >   - High alerts caught 12 (40%), median warning 10 min, 1.6 false alarms per zone-year
 >   - Moderate alerts caught 21 (70%), median warning 15 min, 7.3 false alarms per zone-year
 >
->   Details and 90% intervals are in `models/final_report.json` and `models/model_card.json`.
+>   Details and 90% intervals are in `models/final_report.json` and `models/model_card.json`, which
+>   describe version 1 (kept as `models/archive/flood_model_v1_2026-10-01.joblib`). The current
+>   model hasn't been scored on the test years; doing so would be a "second look".
 > - **Databricks** (Free Edition, `DEPLOYMENT.md`):
 >   - a Lakeflow pipeline (bronze → silver → gold) scores every zone every 5 minutes with the model
 >     loaded from Unity Catalog; it reproduces local scoring on the 17 April 2021 storm
@@ -236,8 +242,10 @@ How the numbers are kept honest:
 - **Thresholds.** High and Moderate thresholds are chosen under a false-alarm budget of 2.5 and 11
   false alert episodes per zone per year (`FLOODSENSE_FALSE_ALARM_BUDGET_HIGH`,
   `FLOODSENSE_FALSE_ALARM_BUDGET_MODERATE`). The team picked them from the validation trade-off
-  table before the test set was scored. They give a Moderate threshold of 0.30% and a High
-  threshold of 0.71%.
+  table before the test set was scored. On the first 66 labels they gave Moderate 0.30% and High
+  0.71% (version 1, the tested model). Re-applied to 88 verified labels on 18 Oct, the same rule
+  gives Moderate 0.53% and High 0.71% (version 3, live): at 0.30%, Moderate had gone over its budget
+  (11.3 false episodes per zone-year against 11). The budgets themselves never changed.
 
 Runs are logged to MLflow (`sqlite:///mlflow.db` by default; `uv run mlflow ui --backend-store-uri
 sqlite:///mlflow.db`).

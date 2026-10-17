@@ -1,16 +1,26 @@
 """
 FloodSense - Log the trained model to MLflow and register it in Unity Catalog.
 
-Wraps the committed ``FloodModel`` in an ``mlflow.pyfunc`` model that scores through
+Wraps a ``FloodModel`` in an ``mlflow.pyfunc`` model that scores through
 ``floodsense.models.scoring.score_zone_features`` (the same path the app and pipeline use),
-registers it as ``workspace.floodsense.flood_model`` and points the ``champion`` alias at it.
+registers it as a new version of ``workspace.floodsense.flood_model`` and points an alias at it:
+``candidate`` by default. Only the team promotes a version to ``champion`` (moving that alias), on
+the freeze day, after sign-off.
 
-    DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py
+    # a candidate, e.g. a refit (its summary JSON is logged with it)
+    DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py \
+        --model-path models/candidates/rule_rain60_refit_<date>.joblib \
+        --summary models/candidates/rule_rain60_refit_<date>.json
+Version 1 (1 Oct, Moderate 0.30%) was registered with its test-set report, models/final_report.json;
+its file is now models/archive/flood_model_v1_2026-10-01.joblib. Version 3, the 88-label refit, is
+the champion and the committed models/flood_model.joblib (DEPLOYMENT.md section 21).
 """
 
 import argparse
 import json
 import logging
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -76,7 +86,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment", help="MLflow experiment path (default: /Users/<you>/floodsense-model)")
     parser.add_argument("--name", default=MODEL_NAME)
-    parser.add_argument("--alias", default="champion")
+    parser.add_argument(
+        "--model-path",
+        type=Path,
+        default=MODEL_PATH,
+        help="FloodModel joblib to register (default: the committed models/flood_model.joblib)",
+    )
+    parser.add_argument(
+        "--summary",
+        type=Path,
+        required=True,
+        help="JSON describing the model, logged with it (e.g. "
+        "models/candidates/rule_rain60_refit_<date>.json)",
+    )
+    # A new version is a candidate until the team promotes it (CLAUDE.md, rule 4).
+    parser.add_argument("--alias", default="candidate")
     parser.add_argument("--no-register", action="store_true", help="log the model only")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -85,8 +109,10 @@ def main() -> None:
     mlflow.set_registry_uri("databricks-uc")
     mlflow.set_experiment(args.experiment or default_experiment())
 
-    model: FloodModel = joblib.load(MODEL_PATH)
-    report = json.loads((ROOT / "models" / "final_report.json").read_text())
+    model_path = args.model_path.resolve()
+    model: FloodModel = joblib.load(model_path)
+    # Every version is logged with its own summary (cross-validation on 2017-2023). The test-set
+    # report (models/final_report.json) belongs to version 1 alone and is never attached to another.
     rows = replay_feature_rows(model)
     example = rows.sample(min(len(rows), 200), random_state=0).reset_index(drop=True)
     signature = infer_signature(
@@ -105,16 +131,21 @@ def main() -> None:
                 "label_horizon_minutes": model.provenance.get("label_horizon_minutes"),
             }
         )
-        for tier in ("high", "moderate"):
-            ev = report[f"events_{tier}"]
-            for key in ("hit_rate", "median_lead_minutes", "false_episodes_per_zone_year"):
-                mlflow.log_metric(f"test_{tier}_{key}", ev[key])
-        for name in ("model_card.json", "final_report.json"):
-            mlflow.log_artifact(str(ROOT / "models" / name))
+        summary = json.loads(args.summary.read_text())
+        mlflow.set_tag("test_years_scored", str(summary.get("test_years_scored", False)))
+        mlflow.log_param("summary_git_sha", summary.get("git_sha"))
+        oof = (summary.get("training") or {}).get("oof_event_score")
+        if oof is not None:
+            mlflow.log_metric("cv_oof_event_score", oof)
+        mlflow.log_artifact(str(args.summary))
+        # Always logged as artifacts/flood_model.joblib, whatever the local file is called: the
+        # pipeline's loader (models.artifact.load_registered_model) reads that name.
+        staged = Path(tempfile.mkdtemp()) / "flood_model.joblib"
+        shutil.copyfile(model_path, staged)
         info = mlflow.pyfunc.log_model(
             name="model",
             python_model=FloodSenseModel(),
-            artifacts={"flood_model": str(MODEL_PATH)},
+            artifacts={"flood_model": str(staged)},
             code_paths=[str(ROOT / "src" / "floodsense")],
             pip_requirements=[
                 "scikit-learn==1.9.1",
