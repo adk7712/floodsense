@@ -195,9 +195,9 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
 
 ### Flood events (`data/reference/flood_events.csv`)
 
-80 verified events, 2017 to Sep 2026, across 32 planning areas: 50 in 2017–2023 (training and
-cross-validation) and 30 in 2024–2026 (the test set). 11 more candidates are drafted and waiting for
-their second check. Each row has:
+88 verified events, 2017 to Sep 2026, across 33 planning areas: 58 in 2017–2023 (training and
+cross-validation) and 30 in 2024–2026 (the test set). No row is waiting for its second check. Each
+row has:
 - a `source_url` and `source_name`
 - an `evidence_quote` copied from the source, naming the place and time
 - a `time_precision` (`exact`, `approx_15min`, `approx_hour` or `day_only`)
@@ -249,6 +249,33 @@ How the numbers are kept honest:
 
 Runs are logged to MLflow (`sqlite:///mlflow.db` by default; `uv run mlflow ui --backend-store-uri
 sqlite:///mlflow.db`).
+
+### Evaluation protocol
+
+Agreed by the team for Round 2 (DAISI Challenge 2026). These rules hold until Demo Day (27 Oct 2026).
+
+1. **Data split.**
+   - 2017–2023 is the development data: training, model selection, thresholds and ablations.
+   - Cross-validation is forward-chaining by year on 2020–2023.
+   - 2024 to Sep 2026 is the held-out test set.
+2. **The test set is scored once.** It was scored on 1 Oct 2026 (Round 1), with model version 1
+   (git `cac91ca`; `models/final_report.json`). Any later use of 2024–2026 data for anything is
+   reported as a **"second look"**, never as a test result.
+3. **No new 2024–2026 labels before the freeze.** Label candidates are drafted for 2017–2023 only.
+4. **Labels need a source and a second person.** Each row has a source link, a quote naming the
+   place and time, and a `time_precision` that matches the source. It is signed in `verified_by` by
+   someone other than the person who drafted it. Rejected candidates are listed with the reason in
+   `docs/flood_events_rejected.md`.
+5. **Thresholds come from the false-alarm budget rule.** The budgets (2.5 false High and 11 false
+   Moderate episodes per zone-year, `config.py`) are fixed. They are never changed to improve a
+   result.
+6. **Rates are reported with uncertainty:** raw counts plus a 90% interval, for example "12 of 30
+   floods, 90% CI 27–53%", alongside false-alarm episodes per zone-year.
+7. **Model registry.** Each candidate is registered in Unity Catalog
+   (`workspace.floodsense.flood_model`) with the alias `candidate`. Only `champion` serves. A
+   candidate becomes `champion` only after the model owner signs off, and before the freeze.
+8. **Freeze: 23 Oct 2026, 18:00 SGT.** Features and the model are frozen and the commit is tagged.
+   After that, bug fixes only.
 
 ## Development
 
