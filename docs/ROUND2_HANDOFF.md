@@ -11,6 +11,7 @@
   master. The 16 Oct session is kept below as history (§0).
 
 **Read first in a new session:** this file; the Round 2 task list is in §4b.
+- **Every model tried, with results and why it isn't the champion:** `docs/model_comparison.md` (18 Oct). Check it before proposing a new candidate.
 - This is the only Round 2 status and plan file; `docs/ROUND2_WORK_PLAN.md` was merged into §4b on 16 Oct.
 - Details live in `README.md` (data, training, evaluation honesty), `DEPLOYMENT.md` (Databricks, §1–14)
   and `docs/` (radar calibration, nowcast results, kriging vs IDW).

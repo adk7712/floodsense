@@ -86,7 +86,7 @@ data/reference/ Station snapshot, URA planning-area polygons, flood events, stat
                 features, MRT exits, radar colour scale, and the Databricks parity export
 databricks/     Lakeflow pipeline and spec, jobs, Databricks App config, dashboard,
                 model registration, parity export, local Spark runner
-docs/           Architecture diagram, radar and kriging results, model selection,
+docs/           Architecture diagram, radar and kriging results, model selection and comparison,
                 flood-label reviews and rejections, team handoff
 app.yaml        Databricks App entry point
 ```
