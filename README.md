@@ -167,8 +167,8 @@ records. So the alerts can't be training labels yet. The Databricks poller archi
 
 ### Static zone features (`data/reference/zone_static.csv`)
 
-One row per planning area (55 rows): `built_up_pct`, `built_up_land_pct`, `elevation_m_mean` and `low_lying_pct`, each row
-carrying `source_name`, `source_url` and `retrieved_at`. Built by
+One row per planning area (55 rows): `built_up_pct`, `built_up_land_pct`, `elevation_m_mean` and
+`low_lying_pct`, each row carrying `source_name`, `source_url` and `retrieved_at`. Built by
 `uv run --extra static python -m floodsense.spatial.build_zone_static --retrieved-at <date>` from two
 rasters downloaded by hand into `data/raw/static/` (gitignored). A pixel counts for a zone when its
 centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops the build.

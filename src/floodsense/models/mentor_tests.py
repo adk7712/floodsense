@@ -147,17 +147,14 @@ def tier_comparison(cand: dict[str, Any], base: dict[str, Any], tier: str) -> di
 
 def verdict(cand: dict[str, Any], base: dict[str, Any]) -> dict[str, Any]:
     """The pre-registered margin (T1, T2): (a) event score >= baseline + 0.05; (b) some tier's
-    paired 90% CI lower bound > 0; (c) the other tier loses at most 1 flood."""
+    paired 90% CI lower bound > 0; (c) the other tier loses at most 1 flood. "Loses" counts
+    floods the baseline caught and the candidate missed, not the net change (the run on 18 Oct
+    used the net change; only T2's High, 2 gained and 2 lost, differs, and T2 fails (a))."""
     tiers = {t: tier_comparison(cand, base, t) for t in TIERS}
     a = cand["event_score"] >= base["event_score"] + SCORE_MARGIN - 1e-12
     winners = [t for t in TIERS if tiers[t]["paired_ci90"][0] > 0]
     b = bool(winners)
-    c = any(
-        tiers[o]["baseline_hits"] - tiers[o]["candidate_hits"] <= MAX_OTHER_TIER_LOSS
-        for w in winners
-        for o in TIERS
-        if o != w
-    )
+    c = any(len(tiers[o]["lost"]) <= MAX_OTHER_TIER_LOSS for w in winners for o in TIERS if o != w)
     adopted = a and b and c
     return {
         "event_score": cand["event_score"],

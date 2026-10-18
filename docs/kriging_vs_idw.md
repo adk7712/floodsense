@@ -59,16 +59,16 @@ cells (bias about −16 to −17 mm/h).
 
 The pre-set rule was that kriging would be adopted if the 90% interval of the heavy-rain RMSE
 difference excluded 0 in kriging's favour. It does exclude 0, so the rule is met, but the gain is
-small and it was not tested on the model or against flood labels. The team judged the gain too
-small to switch.
+small and, in this 16 Oct analysis, it was not tested on the model or against flood labels (that was
+done later, on 18 Oct: see the B7 paragraph below). The team judged the gain too small to switch.
 
 **IDW stays in serving. Kriging is not wired into the pipeline.**
 
 **Scored on floods (18 Oct, B7, T2):** a rule on the 60-minute kriged mean + 1 kriging SD was
 tested on the 2020–2023 cross-validation (`docs/mentor_tests_2026-10.md`). Event score 0.446
 against 0.500 for `rule_rain60`; High 14/28 (2 gained, 2 lost); Moderate 21/28 against 18/28 but at
-8.50 against 4.52 false episodes per zone-year. Not adopted. Any change before the 23 Oct
-freeze is the team's call.
+8.50 against 4.52 false episodes per zone-year. Not adopted. Any change is the team's call
+(no code freeze since 18 Oct).
 
 ## Reproduce
 

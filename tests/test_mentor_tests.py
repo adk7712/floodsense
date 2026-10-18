@@ -104,6 +104,25 @@ def test_verdict_needs_all_three_criteria() -> None:
     assert v["result"] == "not distinguishable, kept the simpler rule"
 
 
+def test_verdict_c_counts_floods_lost_not_the_net_change() -> None:
+    # Moderate wins clearly; High gains 2 and loses 2 (net 0, as T2's High): (c) fails.
+    ids = [f"e{i}" for i in range(10)]
+    base = summary(0.5, {i: i in ("e0", "e1") for i in ids}, dict.fromkeys(ids, False))
+    cand = summary(0.7, {i: i in ("e2", "e3") for i in ids}, dict.fromkeys(ids, True))
+    v = mt.verdict(cand, base)
+    assert v["tiers"]["high"]["lost"] == ["e0", "e1"]
+    assert v["tiers"]["high"]["candidate_hits"] == v["tiers"]["high"]["baseline_hits"]
+    assert v["criteria"]["b_tier_ci_above_0"] and not v["criteria"]["c_other_tier_loss_le_1"]
+
+
+def test_verdict_both_tiers_winning_is_enough() -> None:
+    ids = [f"e{i}" for i in range(10)]
+    base = summary(0.5, dict.fromkeys(ids, False), dict.fromkeys(ids, False))
+    cand = summary(0.7, dict.fromkeys(ids, True), dict.fromkeys(ids, True))
+    v = mt.verdict(cand, base)
+    assert v["adopted"] and all(v["criteria"].values())
+
+
 def test_verdict_refuses_different_floods() -> None:
     with pytest.raises(ValueError, match="same floods"):
         mt.verdict(summary(0.5, {"a": True}, {"a": True}), summary(0.5, {"b": True}, {"b": True}))
@@ -125,6 +144,11 @@ def test_t3_gate_counts_rain30_only_catches(tmp_path) -> None:
     assert gate["caught_by_rain30_only"] == ["b", "c"]
     assert gate["caught_by_rain60_only"] == ["d"]
     assert not gate["run_t3"]  # 2 or fewer: skipped
+
+    payload["candidates"]["rule_rain30"]["tiers"]["moderate"]["outcomes"]["e"] = True
+    payload["candidates"]["rule_rain60"]["tiers"]["moderate"]["outcomes"]["e"] = False
+    path.write_text(json.dumps(payload))
+    assert mt.t3_gate(path)["run_t3"]  # 3: runs
 
 
 def test_run_tests_scores_only_2020_2023(data, zone_static, budgets) -> None:

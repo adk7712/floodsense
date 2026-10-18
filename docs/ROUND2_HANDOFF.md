@@ -1,6 +1,7 @@
 # FloodSense: Round 2 handoff (the one status file)
 
 **Last updated:** 18 Oct 2026, evening, adk's session (mentor tests round 2, B7; §0). Before that: Akul's session (Telegram deployed, no code freeze).
+- **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
   the radar-gap fix and the PUB alert line. Merge fixes: the radar image cache is capped at 600
@@ -28,7 +29,7 @@
 **What was asked:** Akul's notes on Suneel's feedback. Test runoff-weighted rain, kriging scored on floods (mean + 1 SD), and optionally rain30 for Moderate. Pre-register each test first, at most 3 tests, run once on the 2020–2023 CV, budgets unchanged. **Full write-up: `docs/mentor_tests_2026-10.md`.**
 
 **Done:**
-- Pre-registration committed locally **before any run** (`538924b`, 19:22 SGT): methods, the adoption margin and the T3 gate.
+- Pre-registration committed (`538924b`, 19:22 SGT) **before any run**; branch pushed: methods, the adoption margin and the T3 gate.
   - Margin: event score ≥ baseline + 0.05, **and** one tier's paired 90% CI above 0, **and** the other tier loses ≤ 1 flood.
 - New code:
   - `built_up_land_pct` in `zone_static.csv`: built-up share of land pixels, water (WorldCover 80) left out. Existing columns unchanged; `STATIC_COLUMNS` unchanged.
@@ -39,13 +40,15 @@
 
 | Test | Event score | High | Moderate (false episodes / zone-yr) | Verdict |
 |---|---|---|---|---|
-| Baseline `rule_rain60` | 0.500 | 14/28 | 18/28 (4.52) | — |
-| T1 rain60 × runoff coefficient | 0.518 | 15/28 (+1, none lost) | 21/28 (10.03) | Not adopted: (a) fails |
-| T2 kriged mean + 1 SD | 0.446 | 14/28 (2 gained, 2 lost) | 21/28 (8.50) | Not adopted: (a) fails |
-| T3 rain30 for Moderate (gate: 3 rain30-only floods) | — | 14/28 (rain60) | 21/28 (8.74) | Meets its margin; see caveats |
+| Baseline `rule_rain60` | 0.500 | 14/28 (90% CI 36–64%) | 18/28 (50–79%; 4.52) | — |
+| T1 rain60 × runoff coefficient | 0.518 | 15/28 (39–68%; +1, none lost) | 21/28 (61–89%; 10.03) | Not adopted: (a) fails |
+| T2 kriged mean + 1 SD | 0.446 | 14/28 (36–64%; 2 gained, 2 lost) | 21/28 (61–89%; 8.50) | Not adopted: (a) fails |
+| T3 rain30 for Moderate (gate: 3 rain30-only floods) | — | 14/28 (rain60) | 21/28 (61–89%; 8.74) | Meets its margin; see caveats |
+
+Intervals are 90% bootstrap intervals over the 28 floods (wide, and they overlap); paired differences are in `docs/mentor_tests_2026-10.md`. In the JSON, T3's verdict reads "adopt": that means "meets its pre-registered margin", not promoted.
 
 **Caveats (why nothing is recommended for promotion):**
-- All three Moderate gains are the **same ~3 floods**, two of them on 2 Nov 2020. They come from spending more of the 11 Moderate budget: `rule_rain60`'s next looser cut-off breaks it (0.30% → 11.29).
+- All three Moderate gains are the **same size (+3 at Moderate), mostly the same floods** (both 2 Nov 2020 floods in every test; T1 and T3 add 2021-08-20 Tampines Ave 10, T2 adds 2021-08-24 Cashew Rd). They come from spending more of the 11 Moderate budget: `rule_rain60`'s next looser cut-off breaks it (0.30% → 11.29).
 - T3's answer was already visible in the 17 Oct results when it was written.
 - The hybrid's combined tier (High implies Moderate) is untested.
 
@@ -56,9 +59,11 @@
 - rain30 Moderate overlap (T3 gate).
 
 **Not tried (deferred):**
-- FABDEM bare-earth DEM plus a topographic wetness index (after Demo Day; licence UNVERIFIED, probably CC BY-NC-SA 4.0);
+- **Deferred (adk, 18 Oct): FABDEM bare-earth DEM plus a topographic wetness index, not before Demo Day.** Reasons: the round's 3-test cap is used; no standard engineering weight exists for elevation (unlike the runoff coefficient), so any rule would be arbitrary; Singapore's drainage is engineered (canals and drains), so a natural-terrain wetness index may not reflect where water goes; the FABDEM licence (probably CC BY-NC-SA 4.0) is unchecked, UNVERIFIED; with 28 floods a small gain would not be distinguishable; time is better spent on the deck, Q&A and rehearsals (social impact 30%, Databricks 30%, UX 20% vs data rigour 10%). It goes on the slide as a next step. Effort if revisited: about a day;
 - PUB drainage data (not open);
 - different runoff coefficients or SD multipliers. These would be new tests, so pre-register them first.
+
+**Code review (18 Oct, after the run):** an independent review found no bug that changes any result; one criterion-(c) code fix and two small notes are in `docs/mentor_tests_2026-10.md` ("Review notes"). T2's (c) now fails too, but it was already not adopted.
 
 **Open decision (team, B7):** keep `rule_rain60` (adk's recommendation) or pursue T3. If T3: pre-register and measure the combined tier first, then Akul registers it as `candidate`.
 
@@ -195,14 +200,15 @@ Branch `app-radar-gap-live-alerts`, cut from `65d7387`. Committed and pushed (br
    4. Alternative, kept but not deployed and paused: the separate 5-minute draft job `databricks/jobs/telegram_alerts_job.json` (288 runs a day). Keep it only as a fallback.
 
 **Open decisions:**
-- **Model sign-off (adk):** keep `rule_rain60` as champion (see B4.2 above). On 17 Oct the re-run on 88 labels agreed; the Moderate cut-off (0.30% or 0.53%) is open (17 Oct, later block has the table).
+- **Model sign-off (adk): settled 18 Oct.** `rule_rain60` stays; Moderate cut-off 0.53%, model version 3, signed off (B4.5). Original note: the Moderate cut-off (0.30% or 0.53%) was open (17 Oct, later block has the table).
 - **PUB alerts in Live mode (adk, built 17 Oct, `404c9bd`):** the official PUB alert for the selected area shows in the Zone Diagnostic panel and the Resident view. Team to confirm it stays (17 Oct, later block).
 - **Label target (team).** Web sources are nearly used up: 22 new verified rows (14 + 8) against a target of 60 (the Definition of Done says 100). Agree a realistic number and document the shortfall.
   - Leads not tried: the ERL paper's supplement (`erlad975csupp1.docx`, https://iopscience.iop.org/article/10.1088/1748-9326/ad975c). Its download page has a CAPTCHA, so a person has to download it in a normal browser; use only the 2022–23 rows.
   - The channel `t.me/sgflood`.
   - Wayback copies of PUB's X/Facebook posts from 2017–2021.
   - Hansard, through a browser.
-- **Kriging (team).** Keep IDW (recommended) or add kriging as an option before the freeze.
+- **Kriging (team): settled.** IDW kept. Also measured on floods in B7 T2 (18 Oct), not adopted. (Original wording: "before the freeze"; freeze dropped 18 Oct.)
+- **B7 (team, open):** keep `rule_rain60` (adk's recommendation), or pursue T3 (rain30 for Moderate) after pre-registering and measuring the combined tier (High implies Moderate).
 
 **B4 status (16 Oct, history): was paused until the 14 labels were verified. Done on 17 Oct: re-run on 88 verified labels, `rule_rain60` kept; the refit decision is open (17 Oct block).**
 - The plan was: (1) adk re-runs `select_candidates`; (2) retrain the champion only if the tier cut-offs change; (3) hand any candidate to Akul as soon as it is ready; (4) adk signs off before the freeze.
@@ -321,16 +327,16 @@ Streamlit app, live or as a replay of any day since 2017.
 
 ---
 
-## 2. What is built (on master; see §0 for adk's branch)
+## 2. What is built (on master; `mentor-tests-round2` is pending Akul's review, §0)
 
 | Area | State |
 |---|---|
-| Data | 60.8M NEA 5-min readings, 2017 to Sep 2026 (Parquet store). 88 verified flood events (58 in 2017–23 for training and cross-validation; 30 in 2024–26 as the test set), none unverified (on branch `rerun-88-labels`, pushed and waiting for Akul's review; master has 80 verified until it is merged). PUB Flood Prone Areas, URA MP2019 zones, LTA MRT station exits. |
-| Model | A Platt-calibrated **60-min rainfall rule** (`models/flood_model.joblib`). Moderate from 0.30% (≈29.5 mm in 60 min), High from 0.71% (≈44 mm). Test (2024 to Sep 2026, 30 floods, scored once): High 12/30 (40%, CI 27–53%), Moderate 21/30 (70%, CI 57–83%), median warning 10 / 15 min. The Moderate cut-off is open (0.30% or 0.53%; 17 Oct, later block). |
+| Data | 60.8M NEA 5-min readings, 2017 to Sep 2026 (Parquet store). 88 verified flood events (58 in 2017–23 for training and cross-validation; 30 in 2024–26 as the test set), none unverified (all on master since the 18 Oct merge). Static zone features include `built_up_land_pct` (18 Oct, B7). PUB Flood Prone Areas, URA MP2019 zones, LTA MRT station exits. |
+| Model | A Platt-calibrated **60-min rainfall rule** (`models/flood_model.joblib`). **Champion is model version 3** (since 18 Oct): Moderate from 0.53% (≈38 mm in 60 min), High from 0.71% (≈43 mm). The published test result (2024 to Sep 2026, 30 floods, scored once): High 12/30 (40%, CI 27–53%), Moderate 21/30 (70%, CI 57–83%), median warning 10 / 15 min, was measured with version 1 at 0.30%; it does not describe version 3. B7 mentor-test code (pending review, not in serving): `models/mentor_tests.py`, `features/krig_upper.py`, kriging variance in `spatial/kriging.py`. |
 | Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and 15-min PUB alert job** (§3b). See DEPLOYMENT.md. |
 | Radar | **Done, all of A1** (§3). |
 | App | Live mode (PUB live alerts, 5-min refresh) and Replay (two-step sidebar: choose a date, then simulate). Map switch **Risk of flood \| Rain radar**, with a joined timing row (**Now \| In 1 hour**, or **Now \| +30 \| +60 min**); one layer at a time; slim legend bars. Zone Diagnostic panel shows risk, a 2-line radar summary in radar view, and (Live mode, 17 Oct, `404c9bd`) the official PUB alert for the selected area. The separate Resident view (A9) has the "What to do" line; its switch sits top right. MRT stations at risk. Light/dark toggle, orange buttons. |
-| Tests/CI | ruff, mypy, format, and pytest in CI. On `app-radar-gap-live-alerts` (17 Oct, adk's session): 321 unit and 33 integration tests pass; ruff, format and mypy clean. (Earlier count, 16 Oct: about 290.) GitHub Actions on push. |
+| Tests/CI | ruff, mypy, format, and pytest in CI. On `mentor-tests-round2` (18 Oct, adk's session): 344 unit and 33 integration tests pass; ruff, format and mypy clean. (Earlier counts: 321 unit on 17 Oct, about 290 on 16 Oct.) GitHub Actions on push. |
 
 ---
 
@@ -376,7 +382,7 @@ The poller is paused, so two jobs keep the data growing (DEPLOYMENT.md §14):
 
 ## 4. Round 2 plan and ownership
 
-The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). Done by adk (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4 (re-run on 88 labels, 17 Oct), A5 (replay and Telegram bot; bot and channel created 17 Oct, not yet deployed), A7.2 (first pass), and A9 (its PUB alert line is `404c9bd`, 17 Oct).
+The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). Done by adk (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4 (re-run on 88 labels, 17 Oct), A5 (replay and Telegram bot; deployed 18 Oct as a poller task), A7.2 (first pass), A9 (its PUB alert line is `404c9bd`, 17 Oct), and B7 (mentor tests round 2, 18 Oct, pending Akul's review).
 
 **Ownership swap: proposed 15 Oct, accepted by adk 16 Oct** (the owners in §4b are updated):
 - **Akul takes everything Databricks:** A2 (app reads gold; done), A3 (poller ops), A4 (serve from UC),
@@ -408,16 +414,16 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 **Goal:** a live, Databricks-run flood risk system that is honest about its evidence, with at least one mentor suggestion implemented and measured.
 - **Scope cuts, in order:** (1) radar as a *risk input* (the forecast-risk layer, A1.6) if the go/no-go fails; the archive and rain-nowcast overlay are not cut. (2) Kriging, unless it is clearly better. (3) The Telegram bot.
 - **Never cut:** the app reading gold, the radar archive and nowcast overlay, the rehearsals, the fallback recordings, the limitations slide.
-- **Rules:** the test-set rule and the freeze are in `CLAUDE.md`. Finish all model and feature changes before the freeze (hard limit 23 Oct 18:00 SGT); after it, bug fixes only. Neither person's work should block the other's for more than half a day.
+- **Rules:** the test-set rule and the freeze are in `CLAUDE.md`. ~~Finish all model and feature changes before the freeze (hard limit 23 Oct 18:00 SGT); after it, bug fixes only.~~ (freeze dropped 18 Oct) Neither person's work should block the other's for more than half a day.
 
 **Order of work** (what depends on what; do each step as soon as its inputs are ready):
 1. Radar archive and daily archiver: done.
 2. Shared setup, label batch 1, second-user and `ai_query` tests: `ai_query` and Apps tested (§5); second user open; 14 label candidates drafted (all verified since).
 3. Radar go/no-go, static features, app reads gold: A2 and A6 done; B2 and B3 done (on master); radar **GO** (decided 17 Oct).
 4. Labels verified (88, done 17 Oct), then re-run candidate selection (done 17 Oct), then adk signs off. Nothing to register unless the team ships the refit (§0).
-5. Radar integration if go, and retrain if needed. Finish before the freeze (hard limit 23 Oct 18:00 SGT).
-6. Promote to `champion` after adk signs off and before the freeze.
-7. App and bot read gold. Live mode reads gold (`2ec4bfb`); the bot is not deployed yet (§0, "Waiting on Akul", item 5).
+5. Radar integration if go, and retrain if needed. ~~Finish before the freeze (hard limit 23 Oct 18:00 SGT).~~ (freeze dropped 18 Oct)
+6. Promote to `champion` after adk signs off (done 18 Oct). ~~Before the freeze~~ (freeze dropped 18 Oct).
+7. App and bot read gold. Live mode reads gold (`2ec4bfb`); the bot is deployed as a poller task (18 Oct, §0).
 8. Poller unpause for the run-up to the demo (48 h of clean runs, then pause), with `floodsense-flood-alerts` paused at the same time.
 9. Slides and architecture visuals, then two rehearsals, fallback recordings and the final workspace check.
 10. Demo Day: Tue 27 Oct.
@@ -429,7 +435,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | 0.1 | Agree freeze date and test-set rule; record in README "Evaluation protocol" | both | Done 18 Oct | README "Evaluation protocol" section (`fc82aa8`) |
 | 0.2 | `data/reference/zone_static.csv` contract (55 rows, sourced, no blanks). Columns: `ura_planning_area, built_up_pct, built_up_land_pct, elevation_m_mean, low_lying_pct, source_name, source_url, retrieved_at` (`built_up_land_pct` added 18 Oct for B7: class 50 share of non-water pixels). `low_lying_pct` = % of the zone's DEM pixels under 5 m | adk | Done | B2 (`3fdc66c`); `low_lying_pct` contract line added on `adk/review-followups` (merged; committed in `afaf60e`) |
 | 0.3 | Label-file schema | both | Done | Existing `flood_events.csv`; `verified_by` = verifier's initials, not the drafter |
-| 0.4 | Registry rule | both | Done | Alias `candidate` for candidates; only `champion` serves; promote before the freeze, only after adk signs off |
+| 0.4 | Registry rule | both | Done | Alias `candidate` for candidates; only `champion` serves; promote only after adk signs off (~~before the freeze~~: freeze dropped 18 Oct) |
 | 0.5 | Shared task board | both | Open | This section is the list |
 | 0.6 | Free Edition unknowns (second user, `ai_query`, Apps) | Akul | Done | `ai_query` works but invents facts; Apps stop up to 24 h after start; a second user is not needed after the 16 Oct swap |
 | 0.7 | Look at the other B2 team | Akul | Closed 16 Oct | Their entry isn't visible on Devpost |
@@ -450,13 +456,13 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | B4.2b | Candidate that uses static features; re-run LR and LightGBM | adk | Done; 88-label result on `rerun-88-labels` | On 88 labels the static features are mixed, not adopted (High 8/28 vs 14/28; Moderate 19/28 vs 18/28 at twice the false episodes); LR and LightGBM still behind |
 | B4.3 | Radar via A1.6, without retraining | adk | Done | Radar GO (17 Oct): the forecast risk uses the nowcast with the current model, no retraining |
 | B4.4 | Register the candidate with alias `candidate` | Akul | Done 18 Oct | The refit (Moderate 0.53%) is `workspace.floodsense.flood_model` **version 3, alias `candidate`**. Version 2 is the same model with a differently named file: superseded, do not promote. `champion` is still version 1 |
-| B4.5 | Freeze and set thresholds (before the freeze) | adk | Done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk signed off on 18 Oct** (relayed by Akul). The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
+| B4.5 | Freeze and set thresholds (~~before the freeze~~; freeze dropped 18 Oct) | adk | Done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk signed off on 18 Oct** (relayed by Akul). The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
 | B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the Resident view's "What to do" line to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
-| B7 | Mentor suggestions round 2: runoff-weighted rain, kriged mean + 1 SD, rain30 for Moderate (pre-registered, 2020–2023 CV) | adk | Done 18 Oct, decision open | `docs/mentor_tests_2026-10.md`; pre-registration `538924b`. T1 and T2 not adopted; T3 meets its margin but its gain is the same 3 floods at about twice the false Moderate episodes. Recommendation: keep `rule_rain60`. Team decision on T3 |
+| B7 | Mentor suggestions round 2: runoff-weighted rain, kriged mean + 1 SD, rain30 for Moderate (pre-registered, 2020–2023 CV) | adk | Done 18 Oct, decision open | `docs/mentor_tests_2026-10.md`; pre-registration `538924b`. T1 and T2 not adopted; T3 meets its margin but its gain is +3 floods at Moderate (mostly the same ones in every test) at about twice the false Moderate episodes. Headline counts (90% CI): baseline High 14/28 (36–64%), Moderate 18/28 (50–79%); T1 High 15/28 (39–68%), Moderate 21/28 (61–89%); T2 High 14/28 (36–64%), Moderate 21/28 (61–89%); T3 Moderate 21/28 (61–89%). Recommendation: keep `rule_rain60`. Team decision on T3. Deferred (adk, 18 Oct): bare-earth DEM, not before Demo Day (reasons in §0 B7). Review pending (Akul) |
 | B6 | Deck and metrics write-up | adk (Akul: architecture slide) | Open | B6.1 rates with raw counts and 90% intervals, plus false alarms per zone-year. B6.2 limitations slide: label count, test-set status, radar scope; tide is not built although some labels carry a `rain_tide` tag. B6.3 credit all datasets, libraries, models. B6.4 draft as soon as possible, both review, **deck saved as PDF in the repo**. Include the "mentor suggestions measured" slide (§6) |
-| J1 | Integration and demo flow | both | Open | J1.1 CI green, freeze and tag before the limit (23 Oct 18:00 SGT). J1.2 demo order: app live from gold, map with radar nowcast, Resident view's "What to do" line, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
-| J2 | Rehearsals and Q&A | both | Open | J2.1 rehearsal 1 (time it, note failures). J2.2 rehearsal 2 (every fallback works), once the freeze is done and the fallbacks exist. J2.3 Q&A answers (adk): why not full radar; false-alarm rate; how labels are verified; what happens during NEA downtime |
+| J1 | Integration and demo flow | both | Open | J1.1 CI green. ~~Freeze and tag before the limit (23 Oct 18:00 SGT)~~ (freeze dropped 18 Oct). J1.2 demo order: app live from gold, map with radar nowcast, Resident view's "What to do" line, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
+| J2 | Rehearsals and Q&A | both | Open | J2.1 rehearsal 1 (time it, note failures). J2.2 rehearsal 2 (every fallback works), once ~~the freeze is done and~~ the fallbacks exist (freeze dropped 18 Oct). J2.3 Q&A answers (adk): why not full radar; false-alarm rate; how labels are verified; what happens during NEA downtime |
 | J3 | Final workspace and submission | Akul (J3.1), adk (J3.2, J3.3) | Open | J3.1 pipeline, poller, app and model in the final workspace; check quota. J3.2 scan repo and deck for tokens, passwords, personal data. J3.3 submit deck and links before the deadline; keep a PDF copy; save the confirmation |
 
 **Dependency map** (handoffs between tracks):
@@ -468,7 +474,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | Radar go/no-go | A1 → B4.3 | Low | Retrain does not wait for it |
 | Candidate registered | B4.4 → A4 | Medium | A4 can use the current `champion` |
 | Gold live | A2/A3 → B6 | Low | Gold is live; the data.gov.sg fallback exists |
-| Feature freeze | both → J1 | Hard limit: 23 Oct 18:00 SGT | No changes after the freeze |
+| ~~Feature freeze~~ (dropped 18 Oct) | both → J1 | ~~Hard limit: 23 Oct 18:00 SGT~~ | ~~No changes after the freeze~~ |
 
 **Key design:** the app and the bot read gold, not the model directly, so adk can retrain without blocking Akul. Akul switches the `champion` alias only after adk signs off.
 
@@ -488,8 +494,8 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 - [x] The model is served from `champion` in Unity Catalog; the parity test passes or any difference is documented (A4).
 - [ ] The poller runs on schedule with no failures in the 48 hours before the demo (A3).
 - [ ] At least 100 new verified events (2017–2023 only, each with a source and a verifier other than the drafter), or the shortfall is documented. Today: 22 new verified (14 + 8), the shortfall is documented, not yet agreed as the final number.
-- [x] At least one mentor suggestion is measured (B3 kriging, B2.4 static features).
-- [ ] The measured mentor suggestion is on a slide (B6).
+- [x] At least one mentor suggestion is measured (B3 kriging, B2.4 static features, B7 round 2).
+- [ ] The measured mentor suggestion is on a slide (B6), including the round-2 table (B7).
 - [x] The radar archive is complete from 16 Jul, and the nowcast overlay is on the map. Akul to confirm 30 Sep is in the volume (§0, 17 Oct, later).
 - [x] Forecast risk (A1.6) is shown (GO, 17 Oct); its rain-nowcast skill result goes on a slide. No "experimental" label (UI rule).
 - [x] The A9 Resident view, with its "What to do" line, is on master (`1bfd0be`). The fold into the Zone panel (`1bd7ab6`) was reverted by `591f599`.
@@ -532,10 +538,10 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 3. **Radar for foresight** → **done** (§3).
 
 **Round 2 (18 Oct, B7; `docs/mentor_tests_2026-10.md`).** Akul's targeted versions, pre-registered and run once on 28 CV floods:
-- **Kriging scored on floods** (mean + 1 SD): event score 0.446 against 0.500. Not adopted.
-- **Runoff-weighted rain** (rational-method C from the built-up share of land): 0.518, with High 15/28 and Moderate 21/28. Below the +0.05 margin, so not adopted.
-- **rain30 for Moderate:** meets its margin (21/28 against 18/28 at 8.74 against 4.52 false episodes). It is the same 3 floods, bought with unused budget. Team decision; recommendation: keep `rule_rain60`.
-- **Bare-earth DEM** (FABDEM plus TWI): deferred past Demo Day.
+- **Kriging scored on floods** (mean + 1 SD): event score 0.446 against 0.500; High 14/28 (90% CI 36–64%), Moderate 21/28 (61–89%). Not adopted.
+- **Runoff-weighted rain** (rational-method C from the built-up share of land): 0.518, with High 15/28 (39–68%) and Moderate 21/28 (61–89%). Below the +0.05 margin, so not adopted.
+- **rain30 for Moderate:** meets its margin (21/28 (61–89%) against 18/28 (50–79%) at 8.74 against 4.52 false episodes). It is the same size of gain (+3), mostly the same floods as T1 and T2, bought with unused budget. Team decision; recommendation: keep `rule_rain60`.
+- **Bare-earth DEM** (FABDEM plus TWI): **not before Demo Day** (adk, 18 Oct). Round's 3-test cap used; no standard engineering weight for elevation; drainage in Singapore is engineered, so natural-terrain wetness may mislead; FABDEM licence unchecked (probably CC BY-NC-SA 4.0); with 28 floods a small gain would not show; time is better spent on the deck, Q&A and rehearsals. It goes on the slide as a next step; about a day of effort if revisited.
 
 ---
 

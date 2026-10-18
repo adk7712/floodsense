@@ -142,15 +142,17 @@ change" is the likely and acceptable result.
 
 ### What the results mean (read before acting on T3)
 
-1. **The Moderate gain is the same in all three tests, and it comes from using more of the false-alarm
-   budget.**
+1. **The Moderate gain is the same size in all three tests (+3), mostly the same floods, and it comes from
+   using more of the false-alarm budget.**
    - `rule_rain60`'s budget pick sits at 4.52 false Moderate episodes per zone-year. Its next looser
      threshold already breaks the budget: 0.30% gives 11.29, from
      `cutoff_comparison_2026-10-17.json`.
    - The three candidates reach 21/28 at 8.5–10.0 false episodes, so about twice the false Moderate
      alerts for 3 more floods.
-   - Two of the 3 gained floods are on the same day (2 Nov 2020), so the evidence is closer to 2
-     storms than 3 floods.
+   - The gained sets differ slightly: T1 and T3 gained 2020-11-02 Lorong Gambir, 2020-11-02 Mount
+     Vernon Rd and 2021-08-20 Tampines Ave 10; T2 gained the two 2020-11-02 floods and 2021-08-24
+     Cashew Rd. Both 2 Nov 2020 floods are gained in every test, so the evidence is closer to 2 storms
+     than 3 floods.
 2. **T3 is not independent evidence.** Its numbers (21/28 at 8.74) were already in the 17 Oct results
    when the test was written. The pre-registration fixed the margin but could not hide the answer.
 3. **The hybrid's live behaviour is untested.**
@@ -172,3 +174,39 @@ change" is the likely and acceptable result.
 - Promoting T3 is a team decision (B7 in the handoff). If the team wants it:
   1. Pre-register and measure the combined tier (High implies Moderate) first.
   2. Then Akul registers it as `candidate`.
+
+### Review notes (18 Oct, after the run)
+
+- An independent code review found **no bug that changes any result**. The kriging mean and variance
+  match a closed form (difference 6.6e-15). The kriged builder with IDW swapped in reproduces the
+  store's `rain_60m` exactly on 5 months. `built_up_land_pct` reproduces from the rasters.
+- **Criterion (c):** the code counted the net change in floods (baseline hits minus candidate hits),
+  while the pre-registration says floods **lost**. Fixed afterwards to count floods lost. Only T2
+  differs: its High gained 2 and lost 2, so (c) fails under the corrected reading. T2 was already not
+  adopted because (a) fails. The JSON from the run still shows the old net value
+  (`c_other_tier_loss_le_1: true` for T2).
+- **Step variance:** the variance used to scale the kriging SD is the population variance (ddof=0),
+  while the variogram was fitted on ddof=1 normalised semivariances. The pre-registration said "sample
+  variance". The effect is about 0.8% on the SD term, and the budget rule sets the threshold afterwards,
+  so conclusions do not change. Not re-run.
+- **Island-wide SD:** the kriged upper SD is island-wide on any wet step (normalised variance times the
+  variance across all gauges), so dry zones far from a storm still get a sizeable SD. Mean
+  `rain_60m_krig_upper` is about 5–6 mm against 1.7–2.3 mm for IDW. This matches the pre-registered
+  definition and probably explains T2's weak scores at strict budgets.
+- **JSON wording:** T3's verdict reads "adopt". That means "meets its pre-registered margin", not
+  promoted.
+
+### Deferred: bare-earth DEM (adk, 18 Oct)
+
+**Not before Demo Day.** Reasons:
+- The round's 3-test cap is used.
+- No standard engineering weight exists for elevation (unlike the runoff coefficient), so any rule
+  would be arbitrary.
+- Singapore's drainage is engineered (canals and drains), so a natural-terrain wetness index may not
+  reflect where water goes.
+- The FABDEM licence (probably CC BY-NC-SA 4.0) is unchecked, UNVERIFIED.
+- With 28 floods, a small gain would not be distinguishable.
+- Time is better spent on the deck, Q&A and rehearsals (social impact 30%, Databricks 30%, UX 20%
+  against data rigour 10%).
+
+It goes on the slide as a next step. Effort if revisited: about a day.
