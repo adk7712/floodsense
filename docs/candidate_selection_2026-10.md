@@ -373,3 +373,9 @@ probability first reaches each threshold. 2024–2026 were not scored.
   floods they catch fewer floods at High (8 against 14, 90% CI −36 to −7 points) and about the
   same at Moderate (19 against 18, −11 to +18 points) at twice the false episodes; the event
   score is 0.411 against 0.500. Say "mixed, not adopted".
+
+## Follow-up: mentor tests, round 2 (18 Oct, B7)
+
+Runoff-weighted rain, kriged upper rain and rain30-for-Moderate were pre-registered and scored once
+against `rule_rain60` on the same 28 floods. See `docs/mentor_tests_2026-10.md`. None replaces the
+champion.

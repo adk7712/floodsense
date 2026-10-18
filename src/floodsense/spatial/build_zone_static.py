@@ -8,6 +8,9 @@ Per URA planning area (Master Plan 2019 polygons):
   terrain index, not a survey-grade ground level.
 - ``low_lying_pct``: % of the zone's DEM pixels below ``LOW_LYING_THRESHOLD_M``.
 - ``built_up_pct``: % of the zone's valid ESA WorldCover 2021 pixels in class 50 (Built-up).
+- ``built_up_land_pct``: % of the zone's valid WorldCover land pixels in class 50, where land is
+  every valid pixel except class 80 (permanent water bodies). Pre-registered definition: it
+  differs from ``built_up_pct`` only by dropping water from the denominator.
 
 A pixel belongs to a zone when its centre lies inside the polygon. A zone with no valid pixel
 raises; nothing is filled in. The rasters (about 80 MB) are downloaded by hand into
@@ -44,6 +47,7 @@ WORLDCOVER_FILE = "ESA_WorldCover_10m_2021_v200_N00E102_Map.tif"
 # It is a descriptive feature threshold, not tuned against flood labels.
 LOW_LYING_THRESHOLD_M = 5.0
 WORLDCOVER_BUILT_UP_CLASS = 50
+WORLDCOVER_WATER_CLASS = 80
 WORLDCOVER_NODATA_CLASS = 0
 
 SOURCE_NAME = "Copernicus GLO-30 DEM; ESA WorldCover 2021 v200"
@@ -53,6 +57,7 @@ SOURCE_URL = (
 COLUMNS = [
     "ura_planning_area",
     "built_up_pct",
+    "built_up_land_pct",
     "elevation_m_mean",
     "low_lying_pct",
     "source_name",
@@ -121,11 +126,17 @@ def build(static_dir: Path = STATIC_DIR, retrieved_at: str | None = None) -> pd.
             lc = lc[lc != WORLDCOVER_NODATA_CLASS]
             if dem.size == 0 or lc.size == 0:
                 raise ValueError(f"{zone}: no valid pixels (DEM={dem.size}, WorldCover={lc.size})")
+            land = lc[lc != WORLDCOVER_WATER_CLASS]
+            if land.size == 0:
+                raise ValueError(f"{zone}: no WorldCover land pixels")
             rows.append(
                 {
                     "ura_planning_area": zone,
                     "built_up_pct": round(
                         100.0 * float(np.mean(lc == WORLDCOVER_BUILT_UP_CLASS)), 2
+                    ),
+                    "built_up_land_pct": round(
+                        100.0 * float(np.mean(land == WORLDCOVER_BUILT_UP_CLASS)), 2
                     ),
                     "elevation_m_mean": round(float(dem.mean()), 2),
                     "low_lying_pct": round(100.0 * float(np.mean(dem < LOW_LYING_THRESHOLD_M)), 2),

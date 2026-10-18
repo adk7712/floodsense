@@ -1,0 +1,816 @@
+{
+  "generated_at": "2026-10-18T11:26:43.922394+00:00",
+  "run_date": "2026-10-18",
+  "git_sha": "538924b",
+  "dirty": true,
+  "preregistration": {
+    "doc": "docs/mentor_tests_2026-10.md",
+    "last_commit": "538924b24640f26814d7312c752240ae0b667980 2026-10-18T19:22:29+08:00"
+  },
+  "data": {
+    "labels": "verified rows only (flood_events.load_flood_events default)",
+    "development_events": 58,
+    "test_years_scored": false
+  },
+  "budgets": {
+    "high": 2.5,
+    "moderate": 11.0
+  },
+  "margin": {
+    "event_score_margin": 0.05,
+    "tier_ci": "paired 90% bootstrap over floods, lower bound > 0",
+    "other_tier_max_loss": 1
+  },
+  "baseline": {
+    "event_score": 0.5,
+    "pr_auc": 0.010100676419207913,
+    "brier": 3.621260467751402e-05,
+    "ece": 5.1853073411808804e-05,
+    "calibration_method": "platt",
+    "thresholds": {
+      "moderate": 0.00531,
+      "high": 0.00706
+    },
+    "tiers": {
+      "high": {
+        "threshold": 0.00706,
+        "events": 28.0,
+        "hits": 14.0,
+        "hit_rate": 0.5,
+        "advance_hits": 7.0,
+        "advance_hit_rate": 0.25,
+        "actionable_hits": 6.0,
+        "actionable_hit_rate": 0.21428571428571427,
+        "median_lead_minutes": 45.0,
+        "episodes": 562.0,
+        "false_episodes": 548.0,
+        "episode_false_alarm_ratio": 0.9750889679715302,
+        "false_episodes_per_zone_year": 2.4909090909090907,
+        "false_alert_hours": 281.5833333333333,
+        "hit_rate_ci90": [
+          0.35714285714285715,
+          0.6428571428571429
+        ],
+        "outcomes": {
+          "2020-04-30-hougang-tampines-rd": true,
+          "2020-04-30-serangoon-lorong-gambir": false,
+          "2020-04-30-toa-payoh-lichi-ave": true,
+          "2020-06-23-bedok-new-upper-changi-rd": true,
+          "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+          "2020-06-23-tampines-upper-changi-rd": false,
+          "2020-11-02-hougang-hougang-ave-3": true,
+          "2020-11-02-serangoon-lorong-gambir": false,
+          "2020-11-02-toa-payoh-mount-vernon-rd": false,
+          "2021-01-01-pasir-ris-lorong-halus": false,
+          "2021-03-23-jurong-west-boon-lay-way": true,
+          "2021-04-17-jurong-east-unnamed-road": true,
+          "2021-04-17-bukit-timah-dunearn-rd": true,
+          "2021-07-12-bukit-timah-dunearn-rd": false,
+          "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+          "2021-08-20-tampines-tampines-ave-10": false,
+          "2021-08-24-bukit-timah-dunearn-rd": false,
+          "2021-08-24-bukit-panjang-cashew-rd": false,
+          "2021-08-30-hougang-hougang-ave-8": true,
+          "2021-08-30-punggol-punggol-way": true,
+          "2022-02-27-bedok-bedok-north-ave-3": false,
+          "2022-02-27-geylang-ubi-ave-3": false,
+          "2022-03-07-jurong-west-enterprise-rd": true,
+          "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+          "2023-07-20-bukit-timah-dunearn-rd": true,
+          "2023-11-28-jurong-west-boon-lay-way": true,
+          "2021-11-09-bukit-timah-kings-rd": false,
+          "2022-11-13-queenstown-stirling-rd": false
+        }
+      },
+      "moderate": {
+        "threshold": 0.00531,
+        "events": 28.0,
+        "hits": 18.0,
+        "hit_rate": 0.6428571428571429,
+        "advance_hits": 9.0,
+        "advance_hit_rate": 0.32142857142857145,
+        "actionable_hits": 7.0,
+        "actionable_hit_rate": 0.25,
+        "median_lead_minutes": 33.0,
+        "episodes": 1014.0,
+        "false_episodes": 995.0,
+        "episode_false_alarm_ratio": 0.9812623274161736,
+        "false_episodes_per_zone_year": 4.5227272727272725,
+        "false_alert_hours": 562.5833333333334,
+        "hit_rate_ci90": [
+          0.5,
+          0.7857142857142857
+        ],
+        "outcomes": {
+          "2020-04-30-hougang-tampines-rd": true,
+          "2020-04-30-serangoon-lorong-gambir": true,
+          "2020-04-30-toa-payoh-lichi-ave": true,
+          "2020-06-23-bedok-new-upper-changi-rd": true,
+          "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+          "2020-06-23-tampines-upper-changi-rd": true,
+          "2020-11-02-hougang-hougang-ave-3": true,
+          "2020-11-02-serangoon-lorong-gambir": false,
+          "2020-11-02-toa-payoh-mount-vernon-rd": false,
+          "2021-01-01-pasir-ris-lorong-halus": false,
+          "2021-03-23-jurong-west-boon-lay-way": true,
+          "2021-04-17-jurong-east-unnamed-road": true,
+          "2021-04-17-bukit-timah-dunearn-rd": true,
+          "2021-07-12-bukit-timah-dunearn-rd": false,
+          "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+          "2021-08-20-tampines-tampines-ave-10": false,
+          "2021-08-24-bukit-timah-dunearn-rd": false,
+          "2021-08-24-bukit-panjang-cashew-rd": false,
+          "2021-08-30-hougang-hougang-ave-8": true,
+          "2021-08-30-punggol-punggol-way": true,
+          "2022-02-27-bedok-bedok-north-ave-3": true,
+          "2022-02-27-geylang-ubi-ave-3": false,
+          "2022-03-07-jurong-west-enterprise-rd": true,
+          "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+          "2023-07-20-bukit-timah-dunearn-rd": true,
+          "2023-11-28-jurong-west-boon-lay-way": true,
+          "2021-11-09-bukit-timah-kings-rd": true,
+          "2022-11-13-queenstown-stirling-rd": false
+        }
+      }
+    },
+    "hits_at_reference_budgets": {
+      "1": {
+        "threshold": 0.0125,
+        "hits": 9.0,
+        "events": 28.0,
+        "hit_rate": 0.32142857142857145
+      },
+      "2": {
+        "threshold": 0.00939,
+        "hits": 11.0,
+        "events": 28.0,
+        "hit_rate": 0.39285714285714285
+      },
+      "5": {
+        "threshold": 0.00531,
+        "hits": 18.0,
+        "events": 28.0,
+        "hit_rate": 0.6428571428571429
+      },
+      "10": {
+        "threshold": 0.00531,
+        "hits": 18.0,
+        "events": 28.0,
+        "hit_rate": 0.6428571428571429
+      }
+    },
+    "oof_rows": 3311435,
+    "validation_years": [
+      2020,
+      2021,
+      2022,
+      2023
+    ]
+  },
+  "tests": {
+    "t1_runoff": {
+      "input": "rain_60m x C, C = 0.9 b + 0.3 (1 - b), b = built_up_land_pct / 100",
+      "runoff_coefficient": {
+        "min": 0.30582,
+        "max": 0.82944,
+        "by_zone": {
+          "BISHAN": 0.68574,
+          "BUKIT MERAH": 0.64824,
+          "BUKIT TIMAH": 0.62874,
+          "DOWNTOWN CORE": 0.72534,
+          "GEYLANG": 0.79338,
+          "KALLANG": 0.71442,
+          "MARINA EAST": 0.35574,
+          "MARINA SOUTH": 0.4071,
+          "MARINE PARADE": 0.66768,
+          "MUSEUM": 0.63114,
+          "NEWTON": 0.5556000000000001,
+          "NOVENA": 0.61104,
+          "ORCHARD": 0.75834,
+          "OUTRAM": 0.74298,
+          "QUEENSTOWN": 0.6634800000000001,
+          "RIVER VALLEY": 0.6781200000000001,
+          "ROCHOR": 0.82944,
+          "SINGAPORE RIVER": 0.77364,
+          "SOUTHERN ISLANDS": 0.44567999999999997,
+          "STRAITS VIEW": 0.43301999999999996,
+          "TANGLIN": 0.56328,
+          "TOA PAYOH": 0.72096,
+          "BEDOK": 0.72978,
+          "CHANGI": 0.5337000000000001,
+          "CHANGI BAY": 0.4605,
+          "PASIR RIS": 0.62214,
+          "PAYA LEBAR": 0.49956,
+          "TAMPINES": 0.66264,
+          "CENTRAL WATER CATCHMENT": 0.31986,
+          "LIM CHU KANG": 0.37073999999999996,
+          "MANDAI": 0.39414,
+          "NORTH-EASTERN ISLANDS": 0.30582,
+          "SEMBAWANG": 0.69618,
+          "SIMPANG": 0.30870000000000003,
+          "SUNGEI KADUT": 0.5661,
+          "WOODLANDS": 0.68622,
+          "YISHUN": 0.5833200000000001,
+          "ANG MO KIO": 0.6363000000000001,
+          "HOUGANG": 0.75468,
+          "PUNGGOL": 0.59346,
+          "SELETAR": 0.49368000000000006,
+          "SENGKANG": 0.65034,
+          "SERANGOON": 0.80802,
+          "BOON LAY": 0.76398,
+          "BUKIT BATOK": 0.6007800000000001,
+          "BUKIT PANJANG": 0.5599799999999999,
+          "CHOA CHU KANG": 0.74952,
+          "CLEMENTI": 0.72666,
+          "JURONG EAST": 0.6923400000000001,
+          "JURONG WEST": 0.7311,
+          "PIONEER": 0.8107200000000001,
+          "TENGAH": 0.34325999999999995,
+          "TUAS": 0.58962,
+          "WESTERN ISLANDS": 0.59478,
+          "WESTERN WATER CATCHMENT": 0.38634
+        }
+      },
+      "summary": {
+        "event_score": 0.5178571428571429,
+        "pr_auc": 0.026417762687706802,
+        "brier": 3.663352593506567e-05,
+        "ece": 9.15388330574725e-05,
+        "calibration_method": "platt",
+        "thresholds": {
+          "moderate": 0.00531,
+          "high": 0.0166
+        },
+        "tiers": {
+          "high": {
+            "threshold": 0.0166,
+            "events": 28.0,
+            "hits": 15.0,
+            "hit_rate": 0.5357142857142857,
+            "advance_hits": 7.0,
+            "advance_hit_rate": 0.25,
+            "actionable_hits": 6.0,
+            "actionable_hit_rate": 0.21428571428571427,
+            "median_lead_minutes": 45.0,
+            "episodes": 488.0,
+            "false_episodes": 473.0,
+            "episode_false_alarm_ratio": 0.9692622950819673,
+            "false_episodes_per_zone_year": 2.15,
+            "false_alert_hours": 260.9166666666667,
+            "hit_rate_ci90": [
+              0.39285714285714285,
+              0.6785714285714286
+            ],
+            "outcomes": {
+              "2020-04-30-hougang-tampines-rd": true,
+              "2020-04-30-serangoon-lorong-gambir": true,
+              "2020-04-30-toa-payoh-lichi-ave": true,
+              "2020-06-23-bedok-new-upper-changi-rd": true,
+              "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+              "2020-06-23-tampines-upper-changi-rd": false,
+              "2020-11-02-hougang-hougang-ave-3": true,
+              "2020-11-02-serangoon-lorong-gambir": false,
+              "2020-11-02-toa-payoh-mount-vernon-rd": false,
+              "2021-01-01-pasir-ris-lorong-halus": false,
+              "2021-03-23-jurong-west-boon-lay-way": true,
+              "2021-04-17-jurong-east-unnamed-road": true,
+              "2021-04-17-bukit-timah-dunearn-rd": true,
+              "2021-07-12-bukit-timah-dunearn-rd": false,
+              "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+              "2021-08-20-tampines-tampines-ave-10": false,
+              "2021-08-24-bukit-timah-dunearn-rd": false,
+              "2021-08-24-bukit-panjang-cashew-rd": false,
+              "2021-08-30-hougang-hougang-ave-8": true,
+              "2021-08-30-punggol-punggol-way": true,
+              "2022-02-27-bedok-bedok-north-ave-3": false,
+              "2022-02-27-geylang-ubi-ave-3": false,
+              "2022-03-07-jurong-west-enterprise-rd": true,
+              "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+              "2023-07-20-bukit-timah-dunearn-rd": true,
+              "2023-11-28-jurong-west-boon-lay-way": true,
+              "2021-11-09-bukit-timah-kings-rd": false,
+              "2022-11-13-queenstown-stirling-rd": false
+            }
+          },
+          "moderate": {
+            "threshold": 0.00531,
+            "events": 28.0,
+            "hits": 21.0,
+            "hit_rate": 0.75,
+            "advance_hits": 11.0,
+            "advance_hit_rate": 0.39285714285714285,
+            "actionable_hits": 9.0,
+            "actionable_hit_rate": 0.32142857142857145,
+            "median_lead_minutes": 25.0,
+            "episodes": 2228.0,
+            "false_episodes": 2207.0,
+            "episode_false_alarm_ratio": 0.9905745062836625,
+            "false_episodes_per_zone_year": 10.031818181818181,
+            "false_alert_hours": 1513.5833333333333,
+            "hit_rate_ci90": [
+              0.6071428571428571,
+              0.8928571428571429
+            ],
+            "outcomes": {
+              "2020-04-30-hougang-tampines-rd": true,
+              "2020-04-30-serangoon-lorong-gambir": true,
+              "2020-04-30-toa-payoh-lichi-ave": true,
+              "2020-06-23-bedok-new-upper-changi-rd": true,
+              "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+              "2020-06-23-tampines-upper-changi-rd": true,
+              "2020-11-02-hougang-hougang-ave-3": true,
+              "2020-11-02-serangoon-lorong-gambir": true,
+              "2020-11-02-toa-payoh-mount-vernon-rd": true,
+              "2021-01-01-pasir-ris-lorong-halus": false,
+              "2021-03-23-jurong-west-boon-lay-way": true,
+              "2021-04-17-jurong-east-unnamed-road": true,
+              "2021-04-17-bukit-timah-dunearn-rd": true,
+              "2021-07-12-bukit-timah-dunearn-rd": false,
+              "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+              "2021-08-20-tampines-tampines-ave-10": true,
+              "2021-08-24-bukit-timah-dunearn-rd": false,
+              "2021-08-24-bukit-panjang-cashew-rd": false,
+              "2021-08-30-hougang-hougang-ave-8": true,
+              "2021-08-30-punggol-punggol-way": true,
+              "2022-02-27-bedok-bedok-north-ave-3": true,
+              "2022-02-27-geylang-ubi-ave-3": false,
+              "2022-03-07-jurong-west-enterprise-rd": true,
+              "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+              "2023-07-20-bukit-timah-dunearn-rd": true,
+              "2023-11-28-jurong-west-boon-lay-way": true,
+              "2021-11-09-bukit-timah-kings-rd": true,
+              "2022-11-13-queenstown-stirling-rd": false
+            }
+          }
+        },
+        "hits_at_reference_budgets": {
+          "1": {
+            "threshold": 0.0391,
+            "hits": 9.0,
+            "events": 28.0,
+            "hit_rate": 0.32142857142857145
+          },
+          "2": {
+            "threshold": 0.0221,
+            "hits": 13.0,
+            "events": 28.0,
+            "hit_rate": 0.4642857142857143
+          },
+          "5": {
+            "threshold": 0.0125,
+            "hits": 18.0,
+            "events": 28.0,
+            "hit_rate": 0.6428571428571429
+          },
+          "10": {
+            "threshold": 0.0125,
+            "hits": 18.0,
+            "events": 28.0,
+            "hit_rate": 0.6428571428571429
+          }
+        },
+        "oof_rows": 3311435,
+        "validation_years": [
+          2020,
+          2021,
+          2022,
+          2023
+        ]
+      },
+      "verdict": {
+        "event_score": 0.5178571428571429,
+        "baseline_event_score": 0.5,
+        "tiers": {
+          "high": {
+            "candidate_hits": 15,
+            "baseline_hits": 14,
+            "floods": 28,
+            "difference": 0.03571428571428571,
+            "paired_ci90": [
+              0.0,
+              0.10714285714285715
+            ],
+            "gained": [
+              "2020-04-30-serangoon-lorong-gambir"
+            ],
+            "lost": [],
+            "candidate_false_episodes_per_zone_year": 2.15,
+            "baseline_false_episodes_per_zone_year": 2.4909090909090907
+          },
+          "moderate": {
+            "candidate_hits": 21,
+            "baseline_hits": 18,
+            "floods": 28,
+            "difference": 0.10714285714285714,
+            "paired_ci90": [
+              0.0357142857142857,
+              0.2142857142857143
+            ],
+            "gained": [
+              "2020-11-02-serangoon-lorong-gambir",
+              "2020-11-02-toa-payoh-mount-vernon-rd",
+              "2021-08-20-tampines-tampines-ave-10"
+            ],
+            "lost": [],
+            "candidate_false_episodes_per_zone_year": 10.031818181818181,
+            "baseline_false_episodes_per_zone_year": 4.5227272727272725
+          }
+        },
+        "criteria": {
+          "a_event_score": false,
+          "b_tier_ci_above_0": true,
+          "c_other_tier_loss_le_1": true
+        },
+        "adopted": false,
+        "result": "not distinguishable, kept the simpler rule"
+      }
+    },
+    "t2_krig_upper": {
+      "input": "sum over 12 steps of (kriged mean + 1 kriging SD), clipped at 0",
+      "summary": {
+        "event_score": 0.4464285714285714,
+        "pr_auc": 0.002060379001858101,
+        "brier": 3.62536636341663e-05,
+        "ece": 6.887650113715946e-05,
+        "calibration_method": "platt",
+        "thresholds": {
+          "moderate": 0.00226,
+          "high": 0.00399
+        },
+        "tiers": {
+          "high": {
+            "threshold": 0.00399,
+            "events": 28.0,
+            "hits": 14.0,
+            "hit_rate": 0.5,
+            "advance_hits": 8.0,
+            "advance_hit_rate": 0.2857142857142857,
+            "actionable_hits": 6.0,
+            "actionable_hit_rate": 0.21428571428571427,
+            "median_lead_minutes": 25.0,
+            "episodes": 471.0,
+            "false_episodes": 456.0,
+            "episode_false_alarm_ratio": 0.9681528662420382,
+            "false_episodes_per_zone_year": 2.0727272727272728,
+            "false_alert_hours": 243.5,
+            "hit_rate_ci90": [
+              0.35714285714285715,
+              0.6428571428571429
+            ],
+            "outcomes": {
+              "2020-04-30-hougang-tampines-rd": true,
+              "2020-04-30-serangoon-lorong-gambir": true,
+              "2020-04-30-toa-payoh-lichi-ave": true,
+              "2020-06-23-bedok-new-upper-changi-rd": true,
+              "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+              "2020-06-23-tampines-upper-changi-rd": true,
+              "2020-11-02-hougang-hougang-ave-3": true,
+              "2020-11-02-serangoon-lorong-gambir": false,
+              "2020-11-02-toa-payoh-mount-vernon-rd": false,
+              "2021-01-01-pasir-ris-lorong-halus": false,
+              "2021-03-23-jurong-west-boon-lay-way": true,
+              "2021-04-17-jurong-east-unnamed-road": true,
+              "2021-04-17-bukit-timah-dunearn-rd": true,
+              "2021-07-12-bukit-timah-dunearn-rd": false,
+              "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+              "2021-08-20-tampines-tampines-ave-10": false,
+              "2021-08-24-bukit-timah-dunearn-rd": false,
+              "2021-08-24-bukit-panjang-cashew-rd": false,
+              "2021-08-30-hougang-hougang-ave-8": false,
+              "2021-08-30-punggol-punggol-way": false,
+              "2022-02-27-bedok-bedok-north-ave-3": false,
+              "2022-02-27-geylang-ubi-ave-3": false,
+              "2022-03-07-jurong-west-enterprise-rd": true,
+              "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+              "2023-07-20-bukit-timah-dunearn-rd": true,
+              "2023-11-28-jurong-west-boon-lay-way": true,
+              "2021-11-09-bukit-timah-kings-rd": false,
+              "2022-11-13-queenstown-stirling-rd": false
+            }
+          },
+          "moderate": {
+            "threshold": 0.00226,
+            "events": 28.0,
+            "hits": 21.0,
+            "hit_rate": 0.75,
+            "advance_hits": 9.0,
+            "advance_hit_rate": 0.32142857142857145,
+            "actionable_hits": 8.0,
+            "actionable_hit_rate": 0.2857142857142857,
+            "median_lead_minutes": 30.5,
+            "episodes": 1890.0,
+            "false_episodes": 1869.0,
+            "episode_false_alarm_ratio": 0.9888888888888889,
+            "false_episodes_per_zone_year": 8.495454545454546,
+            "false_alert_hours": 1226.25,
+            "hit_rate_ci90": [
+              0.6071428571428571,
+              0.8928571428571429
+            ],
+            "outcomes": {
+              "2020-04-30-hougang-tampines-rd": true,
+              "2020-04-30-serangoon-lorong-gambir": true,
+              "2020-04-30-toa-payoh-lichi-ave": true,
+              "2020-06-23-bedok-new-upper-changi-rd": true,
+              "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+              "2020-06-23-tampines-upper-changi-rd": true,
+              "2020-11-02-hougang-hougang-ave-3": true,
+              "2020-11-02-serangoon-lorong-gambir": true,
+              "2020-11-02-toa-payoh-mount-vernon-rd": true,
+              "2021-01-01-pasir-ris-lorong-halus": false,
+              "2021-03-23-jurong-west-boon-lay-way": true,
+              "2021-04-17-jurong-east-unnamed-road": true,
+              "2021-04-17-bukit-timah-dunearn-rd": true,
+              "2021-07-12-bukit-timah-dunearn-rd": false,
+              "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+              "2021-08-20-tampines-tampines-ave-10": false,
+              "2021-08-24-bukit-timah-dunearn-rd": false,
+              "2021-08-24-bukit-panjang-cashew-rd": true,
+              "2021-08-30-hougang-hougang-ave-8": true,
+              "2021-08-30-punggol-punggol-way": true,
+              "2022-02-27-bedok-bedok-north-ave-3": true,
+              "2022-02-27-geylang-ubi-ave-3": false,
+              "2022-03-07-jurong-west-enterprise-rd": true,
+              "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+              "2023-07-20-bukit-timah-dunearn-rd": true,
+              "2023-11-28-jurong-west-boon-lay-way": true,
+              "2021-11-09-bukit-timah-kings-rd": true,
+              "2022-11-13-queenstown-stirling-rd": false
+            }
+          }
+        },
+        "hits_at_reference_budgets": {
+          "1": {
+            "threshold": 0.00531,
+            "hits": 6.0,
+            "events": 28.0,
+            "hit_rate": 0.21428571428571427
+          },
+          "2": {
+            "threshold": 0.00531,
+            "hits": 6.0,
+            "events": 28.0,
+            "hit_rate": 0.21428571428571427
+          },
+          "5": {
+            "threshold": 0.003,
+            "hits": 17.0,
+            "events": 28.0,
+            "hit_rate": 0.6071428571428571
+          },
+          "10": {
+            "threshold": 0.00226,
+            "hits": 21.0,
+            "events": 28.0,
+            "hit_rate": 0.75
+          }
+        },
+        "oof_rows": 3311435,
+        "validation_years": [
+          2020,
+          2021,
+          2022,
+          2023
+        ]
+      },
+      "verdict": {
+        "event_score": 0.4464285714285714,
+        "baseline_event_score": 0.5,
+        "tiers": {
+          "high": {
+            "candidate_hits": 14,
+            "baseline_hits": 14,
+            "floods": 28,
+            "difference": 0.0,
+            "paired_ci90": [
+              -0.1071428571428572,
+              0.10714285714285715
+            ],
+            "gained": [
+              "2020-04-30-serangoon-lorong-gambir",
+              "2020-06-23-tampines-upper-changi-rd"
+            ],
+            "lost": [
+              "2021-08-30-hougang-hougang-ave-8",
+              "2021-08-30-punggol-punggol-way"
+            ],
+            "candidate_false_episodes_per_zone_year": 2.0727272727272728,
+            "baseline_false_episodes_per_zone_year": 2.4909090909090907
+          },
+          "moderate": {
+            "candidate_hits": 21,
+            "baseline_hits": 18,
+            "floods": 28,
+            "difference": 0.10714285714285714,
+            "paired_ci90": [
+              0.0357142857142857,
+              0.2142857142857143
+            ],
+            "gained": [
+              "2020-11-02-serangoon-lorong-gambir",
+              "2020-11-02-toa-payoh-mount-vernon-rd",
+              "2021-08-24-bukit-panjang-cashew-rd"
+            ],
+            "lost": [],
+            "candidate_false_episodes_per_zone_year": 8.495454545454546,
+            "baseline_false_episodes_per_zone_year": 4.5227272727272725
+          }
+        },
+        "criteria": {
+          "a_event_score": false,
+          "b_tier_ci_above_0": true,
+          "c_other_tier_loss_le_1": true
+        },
+        "adopted": false,
+        "result": "not distinguishable, kept the simpler rule"
+      }
+    },
+    "t3_hybrid": {
+      "gate": {
+        "source": "models/candidates/selection_2026-10-17.json",
+        "rain30_moderate_hits": 21,
+        "rain60_moderate_hits": 18,
+        "caught_by_rain30_only": [
+          "2020-11-02-serangoon-lorong-gambir",
+          "2020-11-02-toa-payoh-mount-vernon-rd",
+          "2021-08-20-tampines-tampines-ave-10"
+        ],
+        "caught_by_rain60_only": [],
+        "run_t3": true
+      },
+      "rain30_summary": {
+        "event_score": 0.49107142857142855,
+        "pr_auc": 0.01048438208554648,
+        "brier": 3.685847270011778e-05,
+        "ece": 8.478160176340518e-05,
+        "calibration_method": "platt",
+        "thresholds": {
+          "moderate": 0.00939,
+          "high": 0.0294
+        },
+        "tiers": {
+          "high": {
+            "threshold": 0.0294,
+            "events": 28.0,
+            "hits": 11.0,
+            "hit_rate": 0.39285714285714285,
+            "advance_hits": 7.0,
+            "advance_hit_rate": 0.25,
+            "actionable_hits": 7.0,
+            "actionable_hit_rate": 0.25,
+            "median_lead_minutes": 26.0,
+            "episodes": 322.0,
+            "false_episodes": 311.0,
+            "episode_false_alarm_ratio": 0.9658385093167702,
+            "false_episodes_per_zone_year": 1.4136363636363636,
+            "false_alert_hours": 79.0,
+            "hit_rate_ci90": [
+              0.25,
+              0.5357142857142857
+            ],
+            "outcomes": {
+              "2020-04-30-hougang-tampines-rd": false,
+              "2020-04-30-serangoon-lorong-gambir": false,
+              "2020-04-30-toa-payoh-lichi-ave": true,
+              "2020-06-23-bedok-new-upper-changi-rd": true,
+              "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+              "2020-06-23-tampines-upper-changi-rd": false,
+              "2020-11-02-hougang-hougang-ave-3": true,
+              "2020-11-02-serangoon-lorong-gambir": false,
+              "2020-11-02-toa-payoh-mount-vernon-rd": false,
+              "2021-01-01-pasir-ris-lorong-halus": false,
+              "2021-03-23-jurong-west-boon-lay-way": true,
+              "2021-04-17-jurong-east-unnamed-road": false,
+              "2021-04-17-bukit-timah-dunearn-rd": false,
+              "2021-07-12-bukit-timah-dunearn-rd": false,
+              "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+              "2021-08-20-tampines-tampines-ave-10": false,
+              "2021-08-24-bukit-timah-dunearn-rd": false,
+              "2021-08-24-bukit-panjang-cashew-rd": false,
+              "2021-08-30-hougang-hougang-ave-8": true,
+              "2021-08-30-punggol-punggol-way": false,
+              "2022-02-27-bedok-bedok-north-ave-3": false,
+              "2022-02-27-geylang-ubi-ave-3": false,
+              "2022-03-07-jurong-west-enterprise-rd": true,
+              "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+              "2023-07-20-bukit-timah-dunearn-rd": true,
+              "2023-11-28-jurong-west-boon-lay-way": true,
+              "2021-11-09-bukit-timah-kings-rd": true,
+              "2022-11-13-queenstown-stirling-rd": false
+            }
+          },
+          "moderate": {
+            "threshold": 0.00939,
+            "events": 28.0,
+            "hits": 21.0,
+            "hit_rate": 0.75,
+            "advance_hits": 11.0,
+            "advance_hit_rate": 0.39285714285714285,
+            "actionable_hits": 9.0,
+            "actionable_hit_rate": 0.32142857142857145,
+            "median_lead_minutes": 30.0,
+            "episodes": 1945.0,
+            "false_episodes": 1923.0,
+            "episode_false_alarm_ratio": 0.9886889460154241,
+            "false_episodes_per_zone_year": 8.74090909090909,
+            "false_alert_hours": 704.5833333333334,
+            "hit_rate_ci90": [
+              0.6071428571428571,
+              0.8928571428571429
+            ],
+            "outcomes": {
+              "2020-04-30-hougang-tampines-rd": true,
+              "2020-04-30-serangoon-lorong-gambir": true,
+              "2020-04-30-toa-payoh-lichi-ave": true,
+              "2020-06-23-bedok-new-upper-changi-rd": true,
+              "2020-06-23-jurong-east-jurong-town-hall-rd": false,
+              "2020-06-23-tampines-upper-changi-rd": true,
+              "2020-11-02-hougang-hougang-ave-3": true,
+              "2020-11-02-serangoon-lorong-gambir": true,
+              "2020-11-02-toa-payoh-mount-vernon-rd": true,
+              "2021-01-01-pasir-ris-lorong-halus": false,
+              "2021-03-23-jurong-west-boon-lay-way": true,
+              "2021-04-17-jurong-east-unnamed-road": true,
+              "2021-04-17-bukit-timah-dunearn-rd": true,
+              "2021-07-12-bukit-timah-dunearn-rd": false,
+              "2021-07-12-sengkang-tpe-slip-road-punggol-rd": true,
+              "2021-08-20-tampines-tampines-ave-10": true,
+              "2021-08-24-bukit-timah-dunearn-rd": false,
+              "2021-08-24-bukit-panjang-cashew-rd": false,
+              "2021-08-30-hougang-hougang-ave-8": true,
+              "2021-08-30-punggol-punggol-way": true,
+              "2022-02-27-bedok-bedok-north-ave-3": true,
+              "2022-02-27-geylang-ubi-ave-3": false,
+              "2022-03-07-jurong-west-enterprise-rd": true,
+              "2022-12-11-sengkang-kpe-buangkok-east-dr": true,
+              "2023-07-20-bukit-timah-dunearn-rd": true,
+              "2023-11-28-jurong-west-boon-lay-way": true,
+              "2021-11-09-bukit-timah-kings-rd": true,
+              "2022-11-13-queenstown-stirling-rd": false
+            }
+          }
+        },
+        "hits_at_reference_budgets": {
+          "1": {
+            "threshold": 0.0391,
+            "hits": 7.0,
+            "events": 28.0,
+            "hit_rate": 0.25
+          },
+          "2": {
+            "threshold": 0.0294,
+            "hits": 11.0,
+            "events": 28.0,
+            "hit_rate": 0.39285714285714285
+          },
+          "5": {
+            "threshold": 0.0166,
+            "hits": 16.0,
+            "events": 28.0,
+            "hit_rate": 0.5714285714285714
+          },
+          "10": {
+            "threshold": 0.00939,
+            "hits": 21.0,
+            "events": 28.0,
+            "hit_rate": 0.75
+          }
+        },
+        "oof_rows": 3311435,
+        "validation_years": [
+          2020,
+          2021,
+          2022,
+          2023
+        ]
+      },
+      "verdict": {
+        "moderate": {
+          "candidate_hits": 21,
+          "baseline_hits": 18,
+          "floods": 28,
+          "difference": 0.10714285714285714,
+          "paired_ci90": [
+            0.0357142857142857,
+            0.2142857142857143
+          ],
+          "gained": [
+            "2020-11-02-serangoon-lorong-gambir",
+            "2020-11-02-toa-payoh-mount-vernon-rd",
+            "2021-08-20-tampines-tampines-ave-10"
+          ],
+          "lost": [],
+          "candidate_false_episodes_per_zone_year": 8.74090909090909,
+          "baseline_false_episodes_per_zone_year": 4.5227272727272725
+        },
+        "high": "rule_rain60's High, unchanged",
+        "criteria": {
+          "moderate_ci_above_0": true,
+          "within_budget": true
+        },
+        "adopted": true,
+        "result": "adopt"
+      }
+    }
+  }
+}

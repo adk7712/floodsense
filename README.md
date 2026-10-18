@@ -167,7 +167,7 @@ records. So the alerts can't be training labels yet. The Databricks poller archi
 
 ### Static zone features (`data/reference/zone_static.csv`)
 
-One row per planning area (55 rows): `built_up_pct`, `elevation_m_mean` and `low_lying_pct`, each row
+One row per planning area (55 rows): `built_up_pct`, `built_up_land_pct`, `elevation_m_mean` and `low_lying_pct`, each row
 carrying `source_name`, `source_url` and `retrieved_at`. Built by
 `uv run --extra static python -m floodsense.spatial.build_zone_static --retrieved-at <date>` from two
 rasters downloaded by hand into `data/raw/static/` (gitignored). A pixel counts for a zone when its
@@ -193,6 +193,14 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
     processed by ESA WorldCover consortium".
   - Citation: Zanaga, D. et al. (2022). ESA WorldCover 10 m 2021 v200. https://doi.org/10.5281/zenodo.7254221
   - Tile: `ESA_WorldCover_10m_2021_v200_N00E102_Map`.
+  - `built_up_land_pct` is class 50 as a share of **land** pixels: every valid pixel except
+    permanent water (class 80). It feeds the runoff-coefficient test (B7).
+- **Mentor tests, round 2 (B7, 18 Oct):** three pre-registered one-input rules, scored once on
+  the 2020–2023 cross-validation (`docs/mentor_tests_2026-10.md`, `floodsense.models.mentor_tests`):
+  - runoff-weighted rain (`rain_60m` × a rational-method coefficient from `built_up_land_pct`);
+  - kriged mean + 1 kriging SD (`floodsense.features.krig_upper`);
+  - rain30 for Moderate.
+  None is adopted for serving; `rule_rain60` stays champion.
 
 ### Flood events (`data/reference/flood_events.csv`)
 

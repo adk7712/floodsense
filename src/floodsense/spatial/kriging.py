@@ -17,15 +17,22 @@ Method
   on the shape of the variogram, not on its overall scale, so a normalised variogram can be
   fitted on steps that are disjoint from the validation steps. That keeps the comparison free of
   leakage from the held-out gauge.
+* Kriging variance: the system is ``[[Gamma, 1], [1', 0]] [lambda; mu] = [gamma0; 1]``, so the
+  ordinary-kriging variance is ``sigma2 = lambda' gamma0 + mu`` (this sign of ``mu`` goes with
+  this layout). It is in the variogram's units; ``sigma2 = 0`` at a gauge when the nugget is
+  zero. With a nugget the variogram still has ``gamma(0) = 0`` at a gauge (exact interpolation),
+  so the variance there is 0 too, while at any other point it is at least about the nugget.
 * The OK system is solved with a Lagrange multiplier (weights sum to 1). Negative predictions are
   clipped to 0 mm. Fields with fewer than two gauges, a singular system, or a constant field
   fall back to the mean of the gauges; the fallbacks are counted.
 """
 
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import numpy as np
+from scipy.linalg import LinAlgWarning, lu_factor, lu_solve
 from scipy.optimize import curve_fit
 
 FloatArray = np.ndarray
@@ -177,6 +184,25 @@ class OrdinaryKriger:
         self.last_weights = sol[:n]
         return float(max(float(sol[:n] @ values), 0.0))
 
+    def predict_with_variance_from_gamma(
+        self, gamma_obs: FloatArray, gamma_target: FloatArray, values: FloatArray
+    ) -> tuple[float, float]:
+        """
+        Like ``predict_from_gamma`` but also returns the kriging variance (normalised units).
+
+        ``sigma2 = lambda' gamma_target + mu``, clipped at 0. Fallback cases (fewer than 2
+        gauges, constant field, singular system) return variance 0. The mean is clipped >= 0.
+        """
+        mean = self.predict_from_gamma(gamma_obs, gamma_target, values)
+        if self.last_weights is None:
+            return mean, 0.0
+        n = len(values)
+        a = np.ones((n + 1, n + 1))
+        a[:n, :n] = gamma_obs
+        a[n, n] = 0.0
+        sol = np.linalg.solve(a, np.append(gamma_target, 1.0))
+        return mean, float(max(sol[:n] @ gamma_target + sol[n], 0.0))
+
     def predict(self, dist_obs: FloatArray, dist_target: FloatArray, values: FloatArray) -> float:
         """Predict one point from distances (km)."""
         return self.predict_from_gamma(
@@ -194,3 +220,104 @@ class OrdinaryKriger:
                 gamma[np.ix_(keep, keep)], gamma[keep, i], values[keep]
             )
         return out
+
+
+def haversine_matrix_km(
+    lat1: FloatArray, lon1: FloatArray, lat2: FloatArray, lon2: FloatArray
+) -> FloatArray:
+    """Pairwise great-circle distance (km), shape (len(lat1), len(lat2)); same R as the IDW code."""
+    p1, p2 = np.radians(lat1)[:, None], np.radians(lat2)[None, :]
+    dphi = p2 - p1
+    dlam = np.radians(lon2)[None, :] - np.radians(lon1)[:, None]
+    a = np.sin(dphi / 2.0) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dlam / 2.0) ** 2
+    return 6371.0 * 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+
+
+class KrigingUpperEngine:
+    """
+    Vectorised ordinary kriging of many time steps onto fixed targets, mean + k kriging SD.
+
+    Same interface as ``IDWMatrixEngine.interpolate_matrix``: ``station_values`` is (T, S) with
+    NaN for gauges that did not report; the result is (T, Z). For each step only reporting gauges
+    enter the system (missing is never read as 0). The kriging weights and normalised variance
+    depend only on *which* gauges report, so they are computed once per distinct reporting set
+    (one LU factorisation, all Z targets as right-hand sides) and reused for every step sharing it.
+
+    Per step: ``upper = max(mean, 0) + upper_sd * sqrt(max(sigma2_norm, 0) * var_step)`` where
+    ``var_step`` is the population variance (ddof=0) of that step's reporting gauge values, which
+    scales the normalised variogram to mm^2. Steps with all reporting gauges equal return that
+    constant (SD 0); with fewer than 2 gauges, the mean of the reporting gauges (SD 0); with none,
+    0 (as ``IDWMatrixEngine.interpolate_matrix``); a singular system falls back to the gauge mean.
+    """
+
+    def __init__(
+        self,
+        station_lat: FloatArray,
+        station_lon: FloatArray,
+        target_lat: FloatArray,
+        target_lon: FloatArray,
+        variogram: Variogram,
+        upper_sd: float = 1.0,
+    ):
+        self.variogram = variogram
+        self.upper_sd = upper_sd
+        self.gamma_ss = variogram.gamma(
+            haversine_matrix_km(station_lat, station_lon, station_lat, station_lon)
+        )
+        self.gamma_sz = variogram.gamma(
+            haversine_matrix_km(station_lat, station_lon, target_lat, target_lon)
+        )
+        self.n_targets = self.gamma_sz.shape[1]
+        self.n_singular_sets = 0
+
+    def _set_solution(self, idx: np.ndarray) -> tuple[FloatArray, FloatArray] | None:
+        """Weights (n, Z) and normalised variance (Z,) for one reporting set; None if singular."""
+        n = len(idx)
+        a = np.ones((n + 1, n + 1))
+        a[:n, :n] = self.gamma_ss[np.ix_(idx, idx)]
+        a[n, n] = 0.0
+        b = np.ones((n + 1, self.n_targets))
+        b[:n] = self.gamma_sz[idx]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", LinAlgWarning)
+            try:
+                sol = lu_solve(lu_factor(a, check_finite=False), b, check_finite=False)
+            except (np.linalg.LinAlgError, ValueError):
+                return None
+        if not np.all(np.isfinite(sol)):
+            return None
+        lam = sol[:n]
+        return lam, np.maximum((lam * b[:n]).sum(axis=0) + sol[n], 0.0)
+
+    def interpolate_matrix(self, station_values: FloatArray) -> FloatArray:
+        """Upper rain (mean + upper_sd * SD, clipped at 0) for every step: (T, S) -> (T, Z)."""
+        vals = np.asarray(station_values, dtype=np.float64)
+        n_steps = vals.shape[0]
+        out = np.zeros((n_steps, self.n_targets))
+        reporting = ~np.isnan(vals)
+        packed = np.packbits(reporting, axis=1)
+        _, first, inverse = np.unique(packed, axis=0, return_index=True, return_inverse=True)
+        inverse = np.asarray(inverse).ravel()
+        for g, f in enumerate(first):
+            rows = np.flatnonzero(inverse == g)
+            idx = np.flatnonzero(reporting[f])
+            n = len(idx)
+            if n == 0:
+                continue  # no gauge reporting: 0, as IDWMatrixEngine
+            v = vals[np.ix_(rows, idx)]  # (Tg, n)
+            if n < 2:
+                out[rows] = np.maximum(v[:, :1], 0.0)
+                continue
+            sol = self._set_solution(idx)
+            if sol is None:
+                self.n_singular_sets += 1
+                out[rows] = np.maximum(v.mean(axis=1, keepdims=True), 0.0)
+                continue
+            lam, sigma2 = sol
+            mean = np.maximum(v @ lam, 0.0)  # (Tg, Z)
+            sd = np.sqrt(sigma2[None, :] * v.var(axis=1)[:, None])
+            res = mean + self.upper_sd * sd
+            constant = np.ptp(v, axis=1) < 1e-12  # exact: constant field, SD 0
+            res[constant] = np.maximum(v[constant, :1], 0.0)
+            out[rows] = res
+        return np.maximum(out, 0.0)

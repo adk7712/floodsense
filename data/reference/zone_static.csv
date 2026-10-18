@@ -1,56 +1,56 @@
-ura_planning_area,built_up_pct,elevation_m_mean,low_lying_pct,source_name,source_url,retrieved_at
-BISHAN,63.95,19.03,2.96,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-BUKIT MERAH,56.94,18.87,11.54,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-BUKIT TIMAH,54.77,27.48,0.15,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-DOWNTOWN CORE,60.06,8.61,38.57,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-GEYLANG,81.79,7.77,25.74,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-KALLANG,62.39,6.74,36.8,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-MARINA EAST,7.04,5.23,46.77,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-MARINA SOUTH,13.95,5.2,47.77,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-MARINE PARADE,60.82,7.24,26.57,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-MUSEUM,55.18,22.3,2.52,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-NEWTON,42.6,20.37,2.34,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-NOVENA,51.68,18.65,4.27,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-ORCHARD,76.39,21.66,1.19,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-OUTRAM,73.69,16.53,3.12,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-QUEENSTOWN,59.76,17.54,19.82,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-RIVER VALLEY,62.9,19.64,1.48,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-ROCHOR,88.16,11.49,14.99,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SINGAPORE RIVER,69.97,9.66,19.24,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SOUTHERN ISLANDS,18.5,14.02,33.4,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-STRAITS VIEW,15.97,2.73,86.98,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-TANGLIN,43.78,22.57,1.26,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-TOA PAYOH,69.65,14.01,5.19,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-BEDOK,68.26,12.86,5.85,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-CHANGI,38.07,8.72,40.94,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-CHANGI BAY,24.95,7.66,34.83,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-PASIR RIS,49.88,12.81,13.4,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-PAYA LEBAR,32.33,21.84,0.2,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-TAMPINES,59.69,13.2,7.33,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-CENTRAL WATER CATCHMENT,2.68,41.66,0.01,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-LIM CHU KANG,10.45,11.91,18.92,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-MANDAI,15.68,33.19,0.09,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-NORTH-EASTERN ISLANDS,0.65,9.87,52.07,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SEMBAWANG,63.9,13.07,8.86,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SIMPANG,0.94,7.96,38.71,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SUNGEI KADUT,38.29,17.33,19.32,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-WOODLANDS,64.04,23.44,0.73,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-YISHUN,39.45,13.43,19.44,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-ANG MO KIO,56.05,24.3,0.07,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-HOUGANG,74.66,14.32,6.39,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-PUNGGOL,44.36,10.82,17.88,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SELETAR,30.1,8.34,22.59,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SENGKANG,56.77,14.9,4.08,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-SERANGOON,84.66,17.63,1.44,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-BOON LAY,76.16,10.09,13.75,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-BUKIT BATOK,49.94,38.16,0.2,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-BUKIT PANJANG,42.91,48.75,0.0,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-CHOA CHU KANG,74.58,20.82,1.27,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-CLEMENTI,69.03,13.65,8.24,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-JURONG EAST,52.38,7.2,36.72,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-JURONG WEST,71.59,13.73,2.6,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-PIONEER,83.52,9.78,9.17,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-TENGAH,7.2,22.0,0.21,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-TUAS,35.08,4.05,56.43,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-WESTERN ISLANDS,44.34,5.19,58.94,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
-WESTERN WATER CATCHMENT,12.53,19.66,14.57,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+ura_planning_area,built_up_pct,built_up_land_pct,elevation_m_mean,low_lying_pct,source_name,source_url,retrieved_at
+BISHAN,63.95,64.29,19.03,2.96,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+BUKIT MERAH,56.94,58.04,18.87,11.54,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+BUKIT TIMAH,54.77,54.79,27.48,0.15,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+DOWNTOWN CORE,60.06,70.89,8.61,38.57,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+GEYLANG,81.79,82.23,7.77,25.74,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+KALLANG,62.39,69.07,6.74,36.8,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+MARINA EAST,7.04,9.29,5.23,46.77,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+MARINA SOUTH,13.95,17.85,5.2,47.77,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+MARINE PARADE,60.82,61.28,7.24,26.57,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+MUSEUM,55.18,55.19,22.3,2.52,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+NEWTON,42.6,42.6,20.37,2.34,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+NOVENA,51.68,51.84,18.65,4.27,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+ORCHARD,76.39,76.39,21.66,1.19,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+OUTRAM,73.69,73.83,16.53,3.12,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+QUEENSTOWN,59.76,60.58,17.54,19.82,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+RIVER VALLEY,62.9,63.02,19.64,1.48,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+ROCHOR,88.16,88.24,11.49,14.99,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SINGAPORE RIVER,69.97,78.94,9.66,19.24,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SOUTHERN ISLANDS,18.5,24.28,14.02,33.4,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+STRAITS VIEW,15.97,22.17,2.73,86.98,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+TANGLIN,43.78,43.88,22.57,1.26,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+TOA PAYOH,69.65,70.16,14.01,5.19,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+BEDOK,68.26,71.63,12.86,5.85,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+CHANGI,38.07,38.95,8.72,40.94,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+CHANGI BAY,24.95,26.75,7.66,34.83,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+PASIR RIS,49.88,53.69,12.81,13.4,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+PAYA LEBAR,32.33,33.26,21.84,0.2,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+TAMPINES,59.69,60.44,13.2,7.33,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+CENTRAL WATER CATCHMENT,2.68,3.31,41.66,0.01,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+LIM CHU KANG,10.45,11.79,11.91,18.92,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+MANDAI,15.68,15.69,33.19,0.09,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+NORTH-EASTERN ISLANDS,0.65,0.97,9.87,52.07,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SEMBAWANG,63.9,66.03,13.07,8.86,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SIMPANG,0.94,1.45,7.96,38.71,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SUNGEI KADUT,38.29,44.35,17.33,19.32,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+WOODLANDS,64.04,64.37,23.44,0.73,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+YISHUN,39.45,47.22,13.43,19.44,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+ANG MO KIO,56.05,56.05,24.3,0.07,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+HOUGANG,74.66,75.78,14.32,6.39,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+PUNGGOL,44.36,48.91,10.82,17.88,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SELETAR,30.1,32.28,8.34,22.59,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SENGKANG,56.77,58.39,14.9,4.08,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+SERANGOON,84.66,84.67,17.63,1.44,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+BOON LAY,76.16,77.33,10.09,13.75,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+BUKIT BATOK,49.94,50.13,38.16,0.2,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+BUKIT PANJANG,42.91,43.33,48.75,0.0,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+CHOA CHU KANG,74.58,74.92,20.82,1.27,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+CLEMENTI,69.03,71.11,13.65,8.24,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+JURONG EAST,52.38,65.39,7.2,36.72,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+JURONG WEST,71.59,71.85,13.73,2.6,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+PIONEER,83.52,85.12,9.78,9.17,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+TENGAH,7.2,7.21,22.0,0.21,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+TUAS,35.08,48.27,4.05,56.43,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+WESTERN ISLANDS,44.34,49.13,5.19,58.94,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
+WESTERN WATER CATCHMENT,12.53,14.39,19.66,14.57,Copernicus GLO-30 DEM; ESA WorldCover 2021 v200,https://registry.opendata.aws/copernicus-dem/ ; https://doi.org/10.5281/zenodo.7254221,2026-10-16
