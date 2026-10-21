@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, committed and pushed, awaiting Akul's review). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -25,12 +25,14 @@
 
 ## 0. Latest sessions: 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
 
-### 21 Oct, latest (adk, with subagents): CI checks. Branch `ci-data-checks`, committed and pushed, awaiting Akul's review
+### 21 Oct, latest (adk, with subagents): CI checks. Branch `ci-data-checks`, pushed, CI green, awaiting Akul's review
 
-Cut from `stress-test-fixes` (e968a04). **Status: committed (adk said "commit") and pushed; awaiting Akul's review before master.** Built in adk's session; Akul reviews. Full description of every check, how to run it and what it misses: **§10**.
+Cut from `stress-test-fixes` (e968a04). **Status: committed (`5dc5686`, then `93ff915` and `135dd7f`) and pushed to `origin/ci-data-checks` (PR #2 into master). CI on `135dd7f`: `test` and gitleaks secret scan both pass. Awaiting Akul's review before master.** Built in adk's session; Akul reviews. Full description of every check, how to run it and what it misses: **§10**.
+
+**Label move (21 Oct, `93ff915` + `135dd7f`):** the reference-data check was failing on master's four 19 Oct candidates (rows 90–93 of `flood_events.csv`, blank `verified_by`). Master was merged into the branch, and those rows were moved unchanged to **`data/reference/flood_candidates.csv`** (4 rows, same columns, source notes intact). `flood_events.csv` now holds only the **88 verified** rows. The candidates stay out of training and scoring until adk opens each source and fills in `verified_by`; per rule 5, the person who verifies is not the drafter. Master still has the four rows: they come out of master when this branch merges.
 
 **Added (owner adk, reviewer Akul):**
-- **Reference-data validation** (`src/floodsense/checks/validate_reference.py`, `tests/test_validate_reference.py`). It fails on any blank label source field (5 fields) or a `zone_static.csv` that isn't 55 rows with filled source fields. It passes today: 88 label rows, 55 zone rows.
+- **Reference-data validation** (`src/floodsense/checks/validate_reference.py`, `tests/test_validate_reference.py`). It fails on any blank label source field (5 fields) or a `zone_static.csv` that isn't 55 rows with filled source fields. It passes today: 88 label rows, 55 zone rows. It checks `flood_events.csv` only, not `flood_candidates.csv`.
 - **Test-set guard** (`tests/test_test_set_guard.py`, 18 tests, about 19 s). It pins the budgets (2.5 and 11) and the year constants (2020 / 2023 / 2024). Sentinels check that 6 training and selection entry points never build, fit or score on 2024 or later. An AST tripwire covers `models/` and the kriging and label code. It was shown to fail when a pin changes and when `development()` is bypassed (all 6 entry points failed).
 - **Secret scan** (new `secrets` job in `ci.yml`, gitleaks-action v2, gitleaks 8.30.1). It is a gate. On push and PR it reportedly scans only the new commits (from memory, not checked against the action's docs); a manual run (Actions tab → CI → "Run workflow") is needed for the full history. **It has not run yet**: gitleaks isn't installed locally, and nothing is pushed. `.env` and `.env.*` are gitignored (`.gitignore:34-35`), and no `.env` file is tracked.
 - **Dependency checks** (`ci.yml`):
@@ -97,7 +99,7 @@ Cut from `alerts-wording-transport` (09b7638). Checks run: the default `uv run p
 2. **`drafted_by` column** in `flood_events.csv`: today "verifier is not the drafter" can't be checked from the file. Recommend: add it.
 3. **PUB "Issued HHMM"** is stored as an exact start: 23 rows whose notes say the clock time is PUB's "Issued" time (all `exact`), plus 2 rows that use a PUB post time reported in an article (`2023-11-28-jurong-west-boon-lay-way`, `2024-02-03-bukit-timah-dunearn-rd`). Counted on 21 Oct from the `notes` column of `data/reference/flood_events.csv`: the phrase "clock time is PUB's 'Issued' time" gives 23; the 2 article rows are named in their notes ("PUB's post time", "PUB post 'Issued 1827 hours'"). The flood began at or before that time, so Round 1 lead times are slightly short. A new precision value is more honest, but any re-score is a second look. Recommend: add a distinct precision value.
 4. **5 "exact" rows with a blank end time:** `2018-01-24-jurong-west-jalan-boon-lay`, `2018-01-24-outram-craig-rd`, `2018-05-26-orchard-kramat-lane`, `2024-11-22-toa-payoh-wan-tho-ave`, `2024-11-22-yishun-yishun-ave-7`. Confirm that is intended.
-5. **origin/master's 4 unverified 2017–23 labels** (`144750b`): adk to verify or reject; merging changes the 88 count.
+5. **The 4 unverified 2017–23 candidates** (`144750b`, now in `data/reference/flood_candidates.csv`): adk to open each source, fill in `verified_by` and move the row back into `flood_events.csv`, or reject it into `docs/flood_events_rejected.md`. Until then the verified count stays at 88.
 6. **CLAUDE.md freeze rule** vs README (freeze dropped 18 Oct): update CLAUDE.md.
 7. **Two results marked `dirty: true`** (`risk_multiple_2017_2023.json`, `mentor_tests_2026-10-18.json`): re-run on clean commits.
 8. **v3 model card:** `models/model_card.json` still describes v1.
