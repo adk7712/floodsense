@@ -39,6 +39,11 @@ models/candidates/*.joblib
 .streamlit/credentials.toml
 .streamlit/machine_id_v4
 
+# CI outputs (licence report and dependency audit; see docs/ROUND2_HANDOFF.md "CI checks")
+licenses.json
+licence_report.md
+requirements-audit.txt
+
 # Coverage / notebooks
 htmlcov/
 .coverage.*

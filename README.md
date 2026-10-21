@@ -362,6 +362,8 @@ not opened each dataset's own page, so the per-dataset line below is marked acco
 | rasterio (optional: static features) | BSD-3-Clause |
 | Dev only: pytest, ruff, mypy, pytest-cov, pre-commit, types-requests | MIT, MIT, MIT, MIT, MIT, Apache-2.0 |
 | Dev only: Playwright (e2e group) | Unverified (not installed when checked) |
+| CI only, not a project dependency: pip-audit 2.10.1, pip-licenses 5.5.5 | Apache Software License (classifier), MIT (package metadata, 21 Oct 2026) |
+| CI only: gitleaks 8.30.1 via `gitleaks/gitleaks-action@v2` | Unverified (not read at source) |
 
 **Models**
 
@@ -378,6 +380,18 @@ uv run mypy                  # type check
 uv run pre-commit install    # run ruff and file hygiene hooks on commit
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, format check, mypy and both pytest selections on every push and pull request.
+CI (`.github/workflows/ci.yml`) runs on every push and pull request. Gates:
+- the lock-file check (`uv lock --check`)
+- lint, format check and mypy
+- the reference-data check (`python -m floodsense.checks.validate_reference`)
+- both pytest selections, which include the test-set guard (`tests/test_test_set_guard.py`)
+- a gitleaks secret scan
+
+Informational only (never fail the build):
+- the coverage report
+- the dependency licence report (a CI artifact)
+- `pip-audit`
+
+Details, how to run each one locally, and what each misses are in `docs/ROUND2_HANDOFF.md` §10.
 
 Running on Databricks is described in `DEPLOYMENT.md`. `requirements.txt` is generated from `uv.lock` for Databricks Apps; do not edit it by hand. Regenerate it with the exact command in its header, which includes the required `radar` extra (it keeps OpenCV for the Databricks App's radar view): `uv export --no-hashes --no-dev --extra radar --format requirements-txt -o requirements.txt`.

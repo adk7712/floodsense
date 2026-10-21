@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 21 Oct 2026, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, committed and pushed, awaiting Akul's review). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -24,6 +24,34 @@
 ---
 
 ## 0. Latest sessions: 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 21 Oct, latest (adk, with subagents): CI checks. Branch `ci-data-checks`, committed and pushed, awaiting Akul's review
+
+Cut from `stress-test-fixes` (e968a04). **Status: committed (adk said "commit") and pushed; awaiting Akul's review before master.** Built in adk's session; Akul reviews. Full description of every check, how to run it and what it misses: **§10**.
+
+**Added (owner adk, reviewer Akul):**
+- **Reference-data validation** (`src/floodsense/checks/validate_reference.py`, `tests/test_validate_reference.py`). It fails on any blank label source field (5 fields) or a `zone_static.csv` that isn't 55 rows with filled source fields. It passes today: 88 label rows, 55 zone rows.
+- **Test-set guard** (`tests/test_test_set_guard.py`, 18 tests, about 19 s). It pins the budgets (2.5 and 11) and the year constants (2020 / 2023 / 2024). Sentinels check that 6 training and selection entry points never build, fit or score on 2024 or later. An AST tripwire covers `models/` and the kriging and label code. It was shown to fail when a pin changes and when `development()` is bypassed (all 6 entry points failed).
+- **Secret scan** (new `secrets` job in `ci.yml`, gitleaks-action v2, gitleaks 8.30.1). It is a gate. On push and PR it reportedly scans only the new commits (from memory, not checked against the action's docs); a manual run (Actions tab → CI → "Run workflow") is needed for the full history. **It has not run yet**: gitleaks isn't installed locally, and nothing is pushed. `.env` and `.env.*` are gitignored (`.gitignore:34-35`), and no `.env` file is tracked.
+- **Dependency checks** (`ci.yml`):
+  - `uv lock --check` is a gate.
+  - `pip-audit` is informational (`continue-on-error`). It finds **23 known vulnerabilities in 4 packages** (aiohttp, certifi, cryptography, pillow), not fixed (open decision 2 below).
+  - The licence report (`src/floodsense/checks/licence_report.py`, `tests/test_licence_report.py`) is uploaded as a CI artifact: 126 packages, 2 UNVERIFIED (huey, skops).
+- **Coverage** (`pytest --cov`, replaces the plain unit step): 70% total locally. Informational, no threshold.
+- `.gitignore`: the three CI output files (`licenses.json`, `licence_report.md`, `requirements-audit.txt`).
+- **No new project dependencies.** `pyproject.toml` and `uv.lock` are unchanged. The tools run only in CI through pinned `uvx` / `uv run --with` (licences in §10).
+
+**Open decisions (team):**
+1. **Freeze conflict.** CLAUDE.md rule 3 says features and the model freeze on 23 Oct, 18:00 SGT, with bug fixes only after that. This file (18 Oct, Akul) says the freeze is dropped. This work touches no model, feature, threshold or budget; it is test and CI tooling only. Decide (a) whether the freeze stands, then update CLAUDE.md or this file, and (b) whether CI changes count as "features" under it. If the freeze stands and CI counts, this branch must merge before 23 Oct 18:00.
+2. **Vulnerable packages.** Upgrade aiohttp (→3.14.4), certifi (→2026.10.19), cryptography (→49.0.0+) and pillow (→13.0.0), then make pip-audit a gate? Upgrading changes `uv.lock` and `requirements.txt`, so it needs a re-run of the app and the parity checks. Recommend: upgrade after Demo Day unless a fix is in a serving path. Not assessed which CVEs reach code we run.
+3. **UNVERIFIED licences:**
+   - **huey** 3.4.0: the metadata declares no licence; its bundled `licenses/LICENSE` begins with a copyright line and a permission grant, but the licence is not named.
+   - **skops** 0.16.0: the metadata says only "OSI Approved"; its bundled `licenses/LICENSE` first line reads "MIT License (MIT)".
+   - Both come in only through the `train` extra (mlflow). A person should read both files and record them in README credits.
+   - The project's own licence is still unchosen (README).
+4. **Radar uses 2026 data.** `radar/calibrate.py` and `radar/evaluate_nowcast.py` fit and score on 16 Jul–30 Sep 2026 radar data, which lies inside the 2024–2026 test window. These are radar data, not flood labels. Decide whether the radar results need a "second look" label under rule 2. The guard deliberately does not scan `radar/`.
+5. **Hardening, not done:** `mentor_tests.py::krig_upper_input` globs every `year=*` kriged partition. It is safe only because of a left-merge onto 2017–2023 keys and because `krig_upper` refuses 2024+. A cheap fix is to glob only years up to `last_training_year`.
+6. Whether gitleaks findings are redacted in the CI log is **not confirmed** from the action's docs. Check the first run's log format before relying on it.
 
 ### 21 Oct, later (adk, with subagents): stress test and fixes. Branch `stress-test-fixes`, NOT committed
 
@@ -434,7 +462,7 @@ Streamlit app, live or as a replay of any day since 2017.
 | Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and 15-min PUB alert job** (§3b). See DEPLOYMENT.md. |
 | Radar | **Done, all of A1** (§3). |
 | App | Live mode (PUB live alerts, 5-min refresh) and Replay (two-step sidebar: choose a date, then simulate). Map switch **Risk of flood \| Rain radar**, with a joined timing row (**Now \| In 1 hour**, or **Now \| +30 \| +60 min**); one layer at a time; slim legend bars. Zone Diagnostic panel shows risk, a 2-line radar summary in radar view, and (Live mode, 17 Oct, `404c9bd`) the official PUB alert for the selected area. The separate Resident view (A9) has the "What to do" line; its switch sits top right. MRT stations at risk. Light/dark toggle, orange buttons. |
-| Tests/CI | ruff, mypy, format, and pytest in CI. On `stress-test-fixes` (21 Oct, adk's session, uncommitted): 495 passed, 2 skipped, 3 deselected with the default `uv run pytest` (this includes the 55 Streamlit AppTest integration tests, 1 skipped); ruff, format and mypy clean. (Earlier counts, as then written: 366 unit and 43 integration on 21 Oct earlier, 344/33 on 18 Oct, 321 unit on 17 Oct, about 290 on 16 Oct.) GitHub Actions on push. |
+| Tests/CI | On `ci-data-checks` (21 Oct, pushed, awaiting review): CI gates on the lock check, ruff, format, mypy, the reference-data check, pytest (including the test-set guard) and a gitleaks secret scan; coverage, the licence report and pip-audit are informational (§10). Default `uv run pytest`: 528 passed, 2 skipped, 3 deselected (includes the 55 AppTest integration tests, 1 skipped); coverage 70%. (Earlier, as then written: ruff, mypy, format, and pytest in CI. On `stress-test-fixes` (21 Oct, adk's session, uncommitted): 495 passed, 2 skipped, 3 deselected with the default `uv run pytest` (this includes the 55 Streamlit AppTest integration tests, 1 skipped); ruff, format and mypy clean. (Earlier counts, as then written: 366 unit and 43 integration on 21 Oct earlier, 344/33 on 18 Oct, 321 unit on 17 Oct, about 290 on 16 Oct.) GitHub Actions on push.)|
 
 ---
 
@@ -698,3 +726,72 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
   - both themes must work; verify visually in dark mode
 - **Teammate's pushes:** go to a branch; the other person reviews before merging to master.
 - **Subagents:** Haiku for lookups and one-line edits, Sonnet for regular coding, and Opus only for the hardest planning or problem-solving. Give each agent its own files.
+
+---
+
+## 10. CI checks (added 21 Oct, branch `ci-data-checks`)
+
+CI is `.github/workflows/ci.yml` and runs on every push and pull request. It has two jobs: **`test`** and **`secrets`**. A failed step shows a red cross in the GitHub Actions tab, and the step's log gives the reason. Steps marked *informational* never fail the build: open the step log, or the run's summary page, to read them.
+
+| Check | Gate? | What it verifies | Files | Run locally | How a failure looks |
+|---|---|---|---|---|---|
+| Lockfile | Gate | `uv.lock` matches `pyproject.toml` | `ci.yml` | `uv lock --check` | Says the lock needs updating; fix with `uv lock` and commit the lock |
+| Ruff, format, mypy, pytest (integration) | Gate | Unchanged from before | `ci.yml`, `pyproject.toml` | See CLAUDE.md "Commands" | As before |
+| Reference data | Gate | `flood_events.csv`: at least one data row, and every row has non-blank `source_url`, `source_name`, `evidence_quote`, `time_precision`, `verified_by`, and none of these columns is missing. `zone_static.csv`: exactly 55 rows; `source_name`, `source_url`, `retrieved_at` present and non-blank. Reads UTF-8 with or without a BOM. Committed files only; no network | `src/floodsense/checks/validate_reference.py`, `tests/test_validate_reference.py` | `uv run python -m floodsense.checks.validate_reference` | Exit 1, one line per problem, e.g. `flood_events.csv row 3 (event_id X): blank verified_by`. Passing prints `OK: flood_events.csv (88 rows), zone_static.csv (55 rows)` |
+| Test-set guard | Gate (inside pytest) | See "Test-set guard" below | `tests/test_test_set_guard.py` | `uv run pytest tests/test_test_set_guard.py -v` | A failing test names the pinned field, the entry point and year ("train fitted on year 2025"), or the `file:line function` of a new code pattern |
+| Unit tests with coverage | Gate on tests; coverage **informational** | Same tests as before; also prints line coverage (70% total on 21 Oct). There is no `--cov-fail-under`: don't add one without a team decision | `ci.yml` | `uv run pytest --cov=floodsense --cov-report=term` | Only test failures fail the step. Coverage is the `TOTAL` line. About 60% slower than plain pytest (157 s vs 98 s locally) |
+| Licence report | Informational | Lists each installed package's declared licence (pip-licenses 5.5.5, `--from=mixed`). Marks `UNVERIFIED` wherever the licence is UNKNOWN, empty or vague ("OSI Approved", "Other/Proprietary", "Dual License", `LicenseRef-*`); never guesses | `src/floodsense/checks/licence_report.py`, `tests/test_licence_report.py`, `ci.yml` | `uv run --with pip-licenses==5.5.5 pip-licenses --from=mixed --format=json --with-urls > licenses.json` then `uv run python -m floodsense.checks.licence_report licenses.json --output licence_report.md` | Never fails the build (`continue-on-error`). An unreadable input (exit 2) or a pip-licenses failure shows as an orange warning on the step. Summary line in the run summary, e.g. `126 packages, 2 UNVERIFIED: huey, skops`; full table in the `licence-report` artifact |
+| Dependency audit | Informational (`continue-on-error`) | Known vulnerabilities (pip-audit 2.10.1, PyPI/OSV advisories) in the locked versions, all extras plus dev | `ci.yml` | `uv export --frozen --no-hashes --all-extras --group dev --no-emit-project -o requirements-audit.txt` then `uvx pip-audit==2.10.1 -r requirements-audit.txt --no-deps --disable-pip` | The step shows an orange warning, but the job stays green. 21 Oct: 23 vulnerabilities in aiohttp, certifi, cryptography and pillow (§0 decision 2). Remove `continue-on-error` to make it a gate |
+| Secret scan | Gate (`secrets` job) | gitleaks 8.30.1 (via `gitleaks/gitleaks-action@v2`) with `fetch-depth: 0`. On push and PR the action reportedly scans only the new commits (unconfirmed). For the **full history**, run it by hand: Actions tab → CI → "Run workflow" (`workflow_dispatch`). PR comments are off (`GITLEAKS_ENABLE_COMMENTS: false`), token read-only | `ci.yml` | Not installed on this Mac. With gitleaks installed: `gitleaks git -v --redact .` | Job fails and lists the file, commit and rule of each finding. Redaction in the action's log is unconfirmed (§0 decision 6). **Not yet run** |
+
+The output files `licenses.json`, `licence_report.md` and `requirements-audit.txt` are gitignored.
+
+### Test-set guard: what it does
+
+It works on the synthetic `data` fixture in `tests/conftest.py` (2018–2025), never on real 2024–2026 data.
+
+1. **Pins.** The `Settings` class defaults and a fresh `Settings(_env_file=None)`, built with every `FLOODSENSE_*` env var removed, must give `false_alarm_budget_high = 2.5`, `false_alarm_budget_moderate = 11.0`, `cv_first_validation_year = 2020`, `last_training_year = 2023` and `test_start_year = 2024`. `.env` is never opened.
+2. **Behavioural sentinel.** Six entry points run on the fixture: `training.train`, `select_candidates.run_selection`, `compare_cutoffs.run_comparison`, `prior_sensitivity.run_sensitivity`, `mentor_tests.run_tests` and `refit_champion.refit`. Each must stay within 2023 throughout. Spies record the latest year of:
+   - every `LabelledData` built (`__post_init__`);
+   - every frame scored (`FloodModel.raw_proba`);
+   - every dataset passed to `cross_validate`, `fit_candidate`, `fit_static_candidate` or `validation_years`, patched in every module that imports them.
+
+   Two further tests show that the spies do see 2024+ rows (`test_sentinel_can_fail`) and that `training.final_report` is the one place they are read (`test_final_report_is_the_only_reader`). Proof on 21 Oct: with `development()` patched to return everything, all 6 entry points failed.
+3. **AST tripwire** over `src/floodsense/models/*.py` (globbed, so new modules are included), `features/krig_upper.py`, `spatial/compare_interpolation.py` and `labels/policy.py`:
+   - (R1) no int literal 2024, 2025 or 2026;
+   - (R2) `test_start_year` used only in `LabelledData.development`, `final_report` and `assert_training_window`;
+   - (R3) direct Parquet reads (`read_parquet`, `pq.read_table`, or `glob` of a "parquet" pattern) only in `mentor_tests.krig_upper_input` and `krig_upper.build_month`.
+
+   Adding to an allow-list is a deliberate, reviewable change.
+
+It does **not** block legitimate 2017–2023 work, or the app, replay, serving and ingestion code, which may show any date. Those folders aren't scanned.
+
+### What the checks do NOT catch
+
+- **Test-set guard:**
+  - A year computed at run time (`last_training_year + 1`, `max(years)`), or `getattr(settings, "test_start_year")` (R2 only sees attribute access).
+  - String dates (`"2024-01-01"`, `pd.Timestamp("2025…")`, a CLI default `--end-year 2026`), or year filters inside pandas query or SQL strings.
+  - Reads through `open`, `pd.read_csv`, duckdb or polars, or from a module outside the scanned list.
+  - A new entry point in `models/` that isn't in the sentinel's parametrize list (the AST rules still scan it).
+  - Rows fed to an estimator as raw DataFrames or arrays, bypassing `LabelledData` and the spied functions.
+  - Anything under `databricks/` (jobs, pipelines, `register_model.py`), Databricks job env vars, or a developer's local `.env` overriding `FLOODSENSE_*` (only env-free values are pinned).
+  - `radar/` and `features/build_features.py`.
+  - People looking at 2024–2026 numbers (`final_report.json`, `--force`, app replays of test days). Rule 2 still depends on people.
+- **Reference data:**
+  - It checks only that fields are filled. It doesn't check that a URL works or says what the quote claims, that `time_precision` matches the source, or that `verified_by` is a different person from the drafter (the CSV has no drafter column).
+  - It doesn't check `docs/flood_events_rejected.md`.
+  - It doesn't check `zone_static.csv` zone names (`tests/test_zone_static.py` does).
+- **Secret scan:** only gitleaks' built-in rules. A secret in an unusual format, one in a gitignored file, or one already in the Databricks workspace is not seen.
+- **Dependency audit:** only advisories already published. `--no-deps` means the exported lock list is trusted as complete, and the project itself (`-e .`) is skipped. Informational for now.
+- **Licence report:** only what each package's metadata declares. A wrong or incomplete declaration (e.g. OpenCV's bundled libraries) isn't detected. It doesn't cover datasets, fonts, models or the tools that run only in CI (listed below).
+- **Coverage:** a number only. It doesn't say whether the tests are meaningful.
+
+### Tools used only in CI (no project dependency added)
+
+| Tool | Version | Licence | How confirmed |
+|---|---|---|---|
+| pip-audit | 2.10.1 | Apache Software License | Package metadata classifier, read 21 Oct |
+| pip-licenses | 5.5.5 | MIT | Package metadata `License-Expression`, read 21 Oct |
+| gitleaks | 8.30.1 | Unverified (not read at source) | — |
+| gitleaks/gitleaks-action | v2 | Unverified (not read at source). The action's terms may require a licence key for repos owned by an organisation; `adk7712/floodsense` is a personal repo. Check before relying on it | — |
+| actions/upload-artifact | v4 | Unverified (not read at source) | — |

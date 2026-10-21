@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -13,6 +14,8 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.12"
+      - name: Lockfile matches pyproject.toml
+        run: uv lock --check
       - name: Install dependencies
         run: uv sync --locked --all-extras --group dev
       - name: Ruff lint
@@ -21,7 +24,51 @@ jobs:
         run: uv run ruff format --check .
       - name: Mypy
         run: uv run mypy
-      - name: Pytest (unit)
-        run: uv run pytest
+      - name: Validate reference data (labels and zone sources)
+        run: uv run python -m floodsense.checks.validate_reference
+      # Coverage is informational only. Do not add --cov-fail-under without a team decision.
+      - name: Pytest (unit, with coverage report; informational, no threshold)
+        run: uv run pytest --cov=floodsense --cov-report=term
       - name: Pytest (integration)
         run: uv run pytest -m "integration and not network"
+      - name: Licence report (informational)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          uv run --with pip-licenses==5.5.5 pip-licenses --from=mixed --format=json --with-urls > licenses.json
+          uv run python -m floodsense.checks.licence_report licenses.json --output licence_report.md | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload licence report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: licence-report
+          path: licence_report.md
+          if-no-files-found: warn
+      # Informational until the team decides to upgrade the 4 flagged packages.
+      # Remove continue-on-error to make it a gate.
+      - name: Dependency audit (informational)
+        continue-on-error: true
+        run: |
+          uv export --frozen --no-hashes --all-extras --group dev --no-emit-project -o requirements-audit.txt
+          uvx pip-audit==2.10.1 -r requirements-audit.txt --no-deps --disable-pip
+
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # On push/pull_request gitleaks-action reportedly scans only the pushed/PR
+    # commit range; run this workflow by hand (workflow_dispatch) for full history.
+    # Gate: fails on any finding. Findings are meant to be redacted in the log
+    # (gitleaks-action redacts by default; not confirmed from its README).
+    # The repo's .gitignore already excludes .env and .env.*.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_ENABLE_COMMENTS: false
