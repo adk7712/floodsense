@@ -37,5 +37,6 @@ HELP_TEXT = (
     f"You can follow up to {MAX_AREAS_PER_CHAT} areas. Alerts follow the same rules as the "
     "FloodSense channel: a message only when the risk rises, and at most one per area per hour "
     "(a rise from Moderate to High is let through).\n\n"
+    "The bot checks for messages on a schedule, so replies and alerts can take up to 30 minutes.\n\n"
     f"{HONESTY_LINE}\n\n{PRIVACY_NOTE}"
 )

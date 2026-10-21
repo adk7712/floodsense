@@ -36,7 +36,12 @@ gold; it can differ from what the app displayed at the time if the champion has 
 history, or in a gap in gauge data, come out as `no_score_data`.
 
 Also not measured: false alarms (nothing scores the hours with Moderate/High but no PUB alert), alerts
-PUB did not publish, and the 2024-2026 test-set rule is not touched (this uses live 2026 data only).
+PUB did not publish.
+
+**Test set (CLAUDE.md rule 2).** This uses live data from Oct 2026 onward, which is inside the
+2024–2026 test window. It is never used to choose or tune the model. Any rate it shows is a
+**"second look"**, not the tested result (agreed by both, 22 Oct; the same treatment as the radar
+results, decision 4).
 
 ## Current numbers
 
