@@ -243,3 +243,25 @@ needs a browser. Not yet tried: Shin Min Daily News / NewspaperSG for 2022–23,
 - 2017-04-27 Hougang Avenue 1, between Hougang Ave 1 and Hougang Ave 3 (towards KPE and Tampines Link), https://www.stomp.sg/singapore-seen/singapore/workers-wade-through-shin-deep-water-after-heavy-rain-causes-flood-at-kovan : Stomp reader video only (Stomper Ray); no PUB or news corroboration found; year not stated in the body (page metadata only).
 - 2018-11-12 Woodlands Avenue 2 towards Seletar Expressway (SLE), https://www.stomp.sg/singapore-seen/stompers-experience-flash-floods-in-woodlands-during-heavy-rain : Stomp reader videos only (incl. a reader's screen grab of PUB's MyWaters camera); no PUB or news report of a flood on Woodlands Ave 2 on 12 Nov 2018 found; year not in the page text (metadata only).
 - 2022-11-07 Bukit Timah Expressway (BKE) road shoulder near Kranji Exit 8, https://www.stomp.sg/singapore-seen/car-drives-through-floodwater-on-bke-can-go-kayaking-on-highway-in-future : Real flood (Mothership, https://mothership.sg/2022/11/bke-flooded-drains-blocked/), but the BKE shoulder near Kranji Exit 8 lies within about 10 m of the Sungei Kadut, Mandai and Woodlands boundaries and no source gives a direction or km, so no single planning area can be assigned.
+
+## Third search, 19 Oct 2026 (Akul's session, six search agents)
+
+Leads found but not added as rows (4 others were added as unverified candidates):
+
+Same storm and same planning area as an existing row (folded here, not given a row):
+- 2018-01-08 Upper Changi Road in front of Changi Fire Station, https://mothership.sg/2018/01/golden-mercedes-woman-flood-singapore/ : TAMPINES (OneMap), same event as the existing 2018-01-08 TAMPINES row.
+- 2020-06-23 Opera Estate, https://mothership.sg/2020/06/bus-flooded/ and https://www.malaymail.com/news/singapore/2020/06/23/flash-floods-reported-in-many-areas-of-singapore-after-heavy-rain-today/1878107 : BEDOK (OneMap), same event as the existing 2020-06-23 BEDOK row.
+- 2021-08-24 Bukit Timah Road near King Albert Park, Eng Kong, Toh Yi, https://mothership.sg/2021/08/bukit-timah-flooded/ : all BUKIT TIMAH (OneMap), same event as the existing 2021-08-24 Dunearn Road row.
+- 2022-02-27 Block 122 Bedok Reservoir Road, https://mustsharenews.com/flash-floods-eastern-singapore/ : BEDOK, same event as the existing 2022-02-27 BEDOK row.
+- 2021-04-17 Bukit Timah Canal between Rifle Range Road and Jalan Kampong Chantek, https://www.mse.gov.sg/latest-news/oral-reply-to-pq-on-flood-control/ : a canal section, same event and planning area as the existing 2021-04-17 BUKIT TIMAH row.
+
+Already rejected earlier (found again):
+- 2018-01-08 Arumugam Road (NCCS copy of the 5 Feb 2018 parliamentary reply): see the 16 Oct entry; same event as the GEYLANG row.
+- 2020-06-23 Upper Changi Road East (Mothership, from Roads.sg): community road-watch list, not PUB; see the 16 Oct entry.
+
+Not a road flood, or source too weak:
+- 2018-04-23 Stevens Road to Balmoral Road, https://www.theonlinecitizen.com/2018/04/23/heavy-rain-with-thunder-and-gusty-wind-hit-singapore-on-monday-afternoon : a single member-of-the-public tweet (@edmw1) quoted in the article; no news or PUB confirmation.
+- 2021-08-24 Bukit Timah mountain bike trail, https://mothership.sg/2021/08/bukit-timah-mountain-bike-trail-flood/ : a trail in the nature reserve, cyclists' photos only.
+- 2023-12-25 Bishan St 12 HDB outdoor carpark, https://www.pub.gov.sg/Resources/News-Room/Clarifications : a carpark, consistent with earlier carpark rejections; no time given.
+
+Searched with nothing new: t.me/s/sgflood (a gaming community chat from 2024, not a flood channel); Hansard (search is browser-only); Reddit (blocks automated access); PUB press releases 2017–2023; a sample of 80 archived PUB tweets (alerts only); Met Service weather reviews (none found). CNA, Straits Times, TODAY, AsiaOne and Stomp archives rarely came up in search, so a person searching those sites by storm date may still find more.
