@@ -92,8 +92,8 @@ class FloodEvent(BaseModel):
     )
     timestamp_start: datetime = Field(..., description="When flooding began, normalised to SGT")
     timestamp_end: datetime | None = Field(None, description="End/clearance timestamp if available")
-    time_precision: Literal["exact", "approx_15min", "approx_hour", "day_only"] = Field(
-        default="approx_hour", description="How precisely the source gives the start time"
+    time_precision: Literal["exact", "approx_15min", "approx_hour", "day_only", "pub_issued"] = (
+        Field(default="approx_hour", description="How precisely the source gives the start time")
     )
     location_raw: str = Field(
         ..., description="Raw text location, e.g. 'Dunearn Road near Sime Darby Centre'"
@@ -111,6 +111,7 @@ class FloodEvent(BaseModel):
         default="", description="Sentence from the source naming place and time"
     )
     verified_by: str = Field(default="", description="Who opened the source and confirmed the row")
+    drafted_by: str = Field(default="", description="Who drafted the row; never the verifier")
     notes: str = Field(default="")
     geocoding_confidence: float = Field(
         default=1.0, ge=0.0, le=1.0, description="Confidence score of polygon mapping"

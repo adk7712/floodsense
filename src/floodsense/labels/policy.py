@@ -39,6 +39,9 @@ PRECISION_HALF_WIDTH = {
     "exact": timedelta(0),
     "approx_15min": timedelta(minutes=15),
     "approx_hour": timedelta(minutes=60),
+    # PUB's "Issued" clock time: the flood began at or before it. Labelled like exact until the team
+    # decides on a window (22 Oct), so no label or score changes.
+    "pub_issued": timedelta(0),
 }
 # Events without a stated precision (the legacy hand-typed list) are treated as approximate.
 DEFAULT_PRECISION = "approx_hour"

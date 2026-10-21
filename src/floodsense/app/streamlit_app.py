@@ -1621,6 +1621,8 @@ elif replay_days.store_available():
         f"`{view_time:%d %b %Y %H:%M} SGT`"
     )
     history_note = "Features include the 72 hours of real readings before the day."
+    if second_look := replay_days.second_look_note(replay_day):
+        history_note = f"{second_look} {history_note}"
     if view.step_share < replay_days.SPARSE_SHARE:
         replay_warning = (
             f"NEA's record for this day is patchy: only {view.step_share:.0%} of 5-minute steps "
@@ -2416,7 +2418,13 @@ with context_col, st.container(border=True):
                     "time not reported"
                     if e.time_precision == "day_only"
                     else f"{e.timestamp_start:%H:%M}"
-                    + ("" if e.time_precision == "exact" else " (approx.)")
+                    + (
+                        ""
+                        if e.time_precision == "exact"
+                        else " (PUB alert time)"
+                        if e.time_precision == "pub_issued"
+                        else " (approx.)"
+                    )
                 )
                 lines.append(
                     f"- **{when}** · {e.ura_planning_area.title()}: {e.location_raw} "

@@ -6,7 +6,9 @@ Events live in ``settings.flood_events_file`` (``data/reference/flood_events.csv
     event_id            unique, e.g. "2021-04-17-bukit-timah-dunearn"
     timestamp_start     ISO 8601 with offset, e.g. 2021-04-17T14:15:00+08:00 (when flooding began)
     timestamp_end       same format, or empty if unknown
-    time_precision      exact | approx_15min | approx_hour | day_only  (how precise the start is)
+    time_precision      exact | approx_15min | approx_hour | day_only | pub_issued  (how precise the
+                        start is; pub_issued = the clock time is PUB's "Issued" time, so the flood
+                        began at or before it. Labelled like exact for now)
     location_raw        place as written in the source
     ura_planning_area   one of the 55 keys in URA_PLANNING_AREAS (upper case)
     severity            Minor | Moderate | Severe
@@ -15,6 +17,8 @@ Events live in ``settings.flood_events_file`` (``data/reference/flood_events.csv
     source_name         e.g. "PUB press release", "The Straits Times", "CNA"
     evidence_quote      a sentence copied from the source that names the place and the time
     verified_by         who opened source_url and confirmed the row; empty = not yet checked
+    drafted_by          who drafted the row (initials, as in verified_by), or "unrecorded" for rows
+                        from before 16 Oct whose drafter was not written down; never the verifier
     notes               optional
 
 One row per (event, planning area): a storm that flooded two planning areas is two rows.
@@ -47,6 +51,7 @@ EVENT_COLUMNS = [
     "source_name",
     "evidence_quote",
     "verified_by",
+    "drafted_by",
     "notes",
 ]
 RECORD_START = pd.Timestamp("2017-01-01T00:00:00+08:00")
@@ -71,6 +76,8 @@ def _row_problems(row: pd.Series) -> list[str]:
         problems.append("source_url is not an http(s) URL")
     if not row["evidence_quote"].strip():
         problems.append("no evidence_quote")
+    if row["verified_by"].strip() and row["drafted_by"].strip() == row["verified_by"].strip():
+        problems.append("drafted_by and verified_by are the same person")
     for col in ("timestamp_start", "timestamp_end"):
         if row[col] and not row[col].endswith("+08:00"):
             problems.append(f"{col} must carry the +08:00 offset")
@@ -120,6 +127,7 @@ def load_flood_events(
             source_name=r.source_name,
             evidence_quote=r.evidence_quote,
             verified_by=r.verified_by,
+            drafted_by=r.drafted_by,
             notes=r.notes,
         )
         for r in df.itertuples(index=False)

@@ -82,6 +82,17 @@ def default_time(features: pd.DataFrame) -> pd.Timestamp:
     return pd.Timestamp(by_step.idxmax())
 
 
+def second_look_note(day: date) -> str | None:
+    """A caption for a day in the held-out test years (2024 on), else None. The test was scored
+    once, with version 1; replaying such a day with today's model is a "second look"."""
+    if day.year < settings.test_start_year:
+        return None
+    return (
+        f"{day.year} is in the held-out test period, which was scored once. Replaying it with "
+        'the current model is a "second look", not a test result.'
+    )
+
+
 def events_on(day: date, events: Sequence[FloodEvent]) -> list[FloodEvent]:
     """Reported floods that started on ``day`` (SGT), in time order."""
     return sorted(

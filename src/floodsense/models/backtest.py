@@ -45,7 +45,7 @@ from floodsense.models.scoring import default_thresholds, predict_probabilities
 
 logger = logging.getLogger("FloodSense.Backtest")
 
-PRECISIONS = ("exact", "approx_15min", "approx_hour", "day_only")
+PRECISIONS = ("exact", "approx_15min", "approx_hour", "day_only", "pub_issued")
 TIMELINE_ZONES = 8
 DAYS_PER_YEAR = 365.25
 

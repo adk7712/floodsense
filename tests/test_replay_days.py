@@ -88,3 +88,11 @@ def test_day_features_carry_a_coverage_flag_for_gaps():
     assert "none" in set(patchy["coverage"])
     # the hour after a gap is "partial", not "ok"
     assert "partial" in set(patchy["coverage"])
+
+
+def test_second_look_note_only_for_test_years():
+    assert rd.second_look_note(date(2023, 12, 31)) is None
+    assert rd.second_look_note(date(2021, 4, 17)) is None
+    for day in (date(2024, 1, 1), date(2026, 9, 30)):
+        note = rd.second_look_note(day)
+        assert note is not None and "second look" in note and str(day.year) in note

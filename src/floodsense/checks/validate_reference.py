@@ -5,8 +5,9 @@ FloodSense - offline check of the committed reference CSVs (run in CI).
 
 Fails (exit 1) and lists every problem if:
   * ``flood_events.csv`` has a missing column or a blank source_url, source_name, evidence_quote,
-    time_precision or verified_by (CLAUDE.md rule 5; unlike ``load_flood_events``, which keeps
-    blank-verified rows as "unverified", this check rejects them);
+    time_precision, verified_by or drafted_by (CLAUDE.md rule 5; unlike ``load_flood_events``, which
+    keeps blank-verified rows as "unverified", this check rejects them), or a row whose drafter is
+    also its verifier;
   * ``zone_static.csv`` has a missing column, a blank source_name, source_url or retrieved_at,
     or is not exactly 55 data rows.
 """
@@ -24,6 +25,7 @@ FLOOD_EVENTS_REQUIRED = [
     "evidence_quote",
     "time_precision",
     "verified_by",
+    "drafted_by",
 ]
 ZONE_STATIC_REQUIRED = ["source_name", "source_url", "retrieved_at"]
 ZONE_STATIC_ROWS = 55
@@ -51,6 +53,10 @@ def validate_flood_events(path: Path) -> list[str]:
             if not row.get(col, "").strip():
                 eid = row.get("event_id", "").strip() or "?"
                 problems.append(f"{name} row {n} (event_id {eid}): blank {col}")
+        verifier = row.get("verified_by", "").strip()
+        if verifier and row.get("drafted_by", "").strip() == verifier:
+            eid = row.get("event_id", "").strip() or "?"
+            problems.append(f"{name} row {n} (event_id {eid}): drafted_by is the verifier")
     return problems
 
 

@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -23,13 +23,108 @@
 
 ---
 
-## 0. Latest sessions: 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 22 Oct (Akul): team decisions on adk's open items. Branch `akul/decisions-22oct`, not pushed
+
+Built on `ci-data-checks` (5dc5686) with master (`de6e72d`) merged in, so adk's three branches and
+these changes can be reviewed and merged together. Akul agreed each recommendation below on 22 Oct.
+Items marked "adk" still need adk's agreement or action.
+
+| # | Decision | Done here |
+|---|---|---|
+| 1 | Keep `rule_rain60` (version 3); T3 is not pursued before Demo Day | Recorded |
+| 2 | Resident wording: tier + action + time window, **no "N times" multiple** to residents; a hedged "over 100 times the risk of an ordinary rainy hour, based on 8 past floods" only on a slide, if at all. Turn on `RISK_WORDING_DRAFT` once both have read the strings (**adk**) | Flag still off |
+| 3 | "Second look" caption on any replay of a 2024–2026 day (storm buttons and the 30 Sep 2026 radar day) | `replay_days.second_look_note`, shown with the replay caption; test added |
+| 4 | Radar results (Jul–Sep 2026 data): no "second look" label, but say plainly they use 2026 radar, never flood labels | README "Radar" line |
+| 5 | Vulnerable packages: upgrade after Demo Day; name them in the limitations | Recorded |
+| 6 | Bot with an incomplete gold step: keep sending nothing | Recorded |
+| 7 | Drop the "Why" column in both views | Kept as adk built it; phone and dark checked (below) |
+| 8 | Freeze items: closed (no freeze since 18 Oct; CLAUDE.md rule 3 already says so) | Recorded |
+| 9 | `drafted_by` column | Added after `verified_by`: adk 14 (the 16 Oct batch, `fef4165`), Akul9 12 (Akul's sessions, from the notes), `unrecorded` 66 (Round 1 rows; drafter not written down). Loader and `validate_reference` reject a row whose drafter is its verifier |
+| 10 | PUB "Issued" times: new precision `pub_issued` (25 rows, 23 in 2024–2026). Labelled like `exact`, so no label or score changes; not re-scored | CSV, schema, label policy, backtest, app ("PUB alert time"), README |
+| 11 | 5 "exact" rows with no end time: probably intended (**adk** to confirm) | Asked |
+| 12 | Label target: accept 26 new verified (14 + 8 + 4) as final; on the limitations slide | Recorded |
+| 13 | Training 0-fill: keep, and say it is training only | README wording |
+| 14 | Model card for version 3 | `models/model_card_v3.json`, built from the refit summary; `model_card.json` stays the v1 record |
+| 15 | `dirty: true` results: re-run on clean commits if adk has time (**adk**) | Asked |
+| 16 | Project licence: MIT. huey and skops read: both are the MIT text | `LICENSE`; README credits |
+| 17 | Data-age warning (Definition of Done) | Checked in the app (below) |
+
+**App check, 22 Oct (this branch, local, reading gold):**
+- The stale warning shows ("Data is 4 days old…"; gold's newest row is 18 Oct 03:40 SGT). Ticks the
+  Definition of Done item.
+- The 22 Nov 2024 replay shows the second-look caption.
+- The transport table has Station, Risk, Chance, Planning area (no "Why"). At 375 px in dark theme
+  the page doesn't overflow (scrollWidth 374 = clientWidth); the table scrolls sideways inside its
+  box, so "Planning area" is off to the right on a phone.
+- The Light/Dark switch works (checked by clicking the switch itself).
+
+**Databricks compute came back on 22 Oct.** The 15-min alerts job resumed at 03:30 SGT (runs at
+03:30 and 03:45 succeeded), and the app's gold read started the warehouse (RUNNING, HEALTHY at
+about 03:50). Gap: no job runs from 21 Oct 01:15 to 22 Oct 03:15 SGT. The daily archiver missed
+its 21 Oct and 22 Oct 03:00 runs, but each run archives the last 3 days, so the 23 Oct 03:00 run
+covers 20–22 Oct and closes the gap by itself (check it on 23 Oct). Cause still not confirmed.
+
+
+**Done:**
+- **19 Oct label search (2017–2023 only):** 4 new flood candidates added at the end of
+  `data/reference/flood_events.csv` (`144750b`): 2017-04-18 Mount Elizabeth (Newton), 2018-04-23
+  Gilstead Rd (Novena), 2020-08-14 Craig Rd (Outram), 2022-03-07 Cemetery Central (Western Water
+  Catchment). Leads not used are logged in `docs/flood_events_rejected.md` ("Third search, 19 Oct
+  2026"). **adk second-checked all 4 and verified them** (relayed by Akul, 22 Oct; `verified_by` =
+  adk). **Verified labels: 92** (62 in 2017–2023, 30 of them in the 2020–2023 folds; 30 in
+  2024–2026; 35 planning areas). The champion (version 3) was fitted on the 88; it is not refitted.
+  README still says 88 in places (the 88 that set the thresholds is correct there; the count of
+  verified events at README line 199 is now out of date).
+- **Model ideas sent to adk** (two messages): runoff-weighted rain, kriging judged on flood
+  detection, a bare-ground DEM, combining 30- and 60-min rain. adk owns the model work and decides
+  what to try; nothing was run on Akul's side.
+- **Benchmark of official flood services** (Singapore, Japan, Hong Kong, Malaysia, Taiwan, Korea, UK,
+  US, Australia, EU): none we found gives a per-area chance of a flood in the next hour. They
+  report floods as they happen or warn about rain. Feature picks and demo notes are in Akul's
+  personal to-do list (not in git).
+- **PUB water-level sensors:** data.gov.sg has station locations only (about 328 drain and canal
+  stations, Open Data Licence), no readings.
+
+**Problem, 21 Oct:** the local app could not read gold. The SQL warehouse returned "BadRequest"
+and stayed STOPPED, so the app fell back to data.gov.sg.
+**Read-only checks, 22 Oct 03:20 SGT:** the problem is wider than the warehouse. **No job has run
+since 21 Oct 01:00 SGT.** `floodsense-flood-alerts` (every 15 min) and `floodsense-daily-archiver`
+(03:00) are both UNPAUSED, but they have no run records after that time, not even failed or
+skipped ones. That is about 100 missed alert runs and the 21 Oct archive (and the 22 Oct one, so
+far). The last runs all succeeded. The warehouse is STOPPED (auto-stop 10 min, which is normal
+when idle), the pipeline is IDLE (last update 17 Oct), and the App is STOPPED. The login works.
+Likely cause: compute for the whole workspace is blocked (the daily cap, or an account-level
+limit), but it has lasted more than a day, so that is unconfirmed. Next: look for a banner or
+message in the workspace UI. Starting the warehouse or a job uses compute, so ask first. **The
+radar and gauge archive has a gap from 21 Oct** until this is fixed. **Update: compute came back at
+03:30 SGT on 22 Oct** (see the 22 Oct block above).
+
+**Waiting on adk:** review of `fc82aa8`, `ba360db`, `0b8c729` and `144750b` (pushed straight to master);
+B6 deck; J2.3 Q&A answers.
+
+**Next for Akul:**
+1. Find out why the warehouse won't start (read-only checks first).
+2. Extra features, in order: action wording with a time window; postal-code lookup; links to PUB's
+   sensors and SMS sign-up; live scorecard against PUB; alert subscriptions per area. The Resident
+   view is adk's (A9), so wording changes there are agreed with adk.
+3. About 24 Oct, A3: unpause the poller, pause `floodsense-flood-alerts`, add a failure email,
+   48 h of clean runs.
+4. Before rehearsals: start and redeploy the Databricks App; refresh gold with a poller run.
+5. Before submission: remove or strip this file (it has the warehouse ID).
+
+**State on 22 Oct:** master at `de6e72d` (local, not pushed). Champion is model version 3
+(Moderate 0.53%, High 0.71%), signed off by adk. No code freeze; the test-set rule still holds.
+Poller paused (it runs Telegram as its third task), Databricks App stopped; the daily archiver and
+`floodsense-flood-alerts` are scheduled but have not run since 21 Oct 01:00 SGT (above).
+
 
 ### 21 Oct, latest (adk, with subagents): CI checks. Branch `ci-data-checks`, pushed, CI green, awaiting Akul's review
 
 Cut from `stress-test-fixes` (e968a04). **Status: committed (`5dc5686`, then `93ff915` and `135dd7f`) and pushed to `origin/ci-data-checks` (PR #2 into master). CI on `135dd7f`: `test` and gitleaks secret scan both pass. Awaiting Akul's review before master.** Built in adk's session; Akul reviews. Full description of every check, how to run it and what it misses: **§10**.
 
-**Label move (21 Oct, `93ff915` + `135dd7f`):** the reference-data check was failing on master's four 19 Oct candidates (rows 90–93 of `flood_events.csv`, blank `verified_by`). Master was merged into the branch, and those rows were moved unchanged to **`data/reference/flood_candidates.csv`** (4 rows, same columns, source notes intact). `flood_events.csv` now holds only the **88 verified** rows. The candidates stay out of training and scoring until adk opens each source and fills in `verified_by`; per rule 5, the person who verifies is not the drafter. Master still has the four rows: they come out of master when this branch merges.
+**Superseded 22 Oct:** master verified all four (adk, drafted by Akul9; 92 verified). The 22 Oct merge took master's `flood_events.csv` and removed `flood_candidates.csv`, whose 4 rows were duplicates with the same sources. History follows. **Label move (21 Oct, `93ff915` + `135dd7f`):** the reference-data check was failing on master's four 19 Oct candidates (rows 90–93 of `flood_events.csv`, blank `verified_by`). Master was merged into the branch, and those rows were moved unchanged to **`data/reference/flood_candidates.csv`** (4 rows, same columns, source notes intact). `flood_events.csv` now holds only the **88 verified** rows. The candidates stay out of training and scoring until adk opens each source and fills in `verified_by`; per rule 5, the person who verifies is not the drafter. Master still has the four rows: they come out of master when this branch merges.
 
 **Added (owner adk, reviewer Akul):**
 - **Reference-data validation** (`src/floodsense/checks/validate_reference.py`, `tests/test_validate_reference.py`). It fails on any blank label source field (5 fields) or a `zone_static.csv` that isn't 55 rows with filled source fields. It passes today: 88 label rows, 55 zone rows. It checks `flood_events.csv` only, not `flood_candidates.csv`.
@@ -99,7 +194,7 @@ Cut from `alerts-wording-transport` (09b7638). Checks run: the default `uv run p
 2. **`drafted_by` column** in `flood_events.csv`: today "verifier is not the drafter" can't be checked from the file. Recommend: add it.
 3. **PUB "Issued HHMM"** is stored as an exact start: 23 rows whose notes say the clock time is PUB's "Issued" time (all `exact`), plus 2 rows that use a PUB post time reported in an article (`2023-11-28-jurong-west-boon-lay-way`, `2024-02-03-bukit-timah-dunearn-rd`). Counted on 21 Oct from the `notes` column of `data/reference/flood_events.csv`: the phrase "clock time is PUB's 'Issued' time" gives 23; the 2 article rows are named in their notes ("PUB's post time", "PUB post 'Issued 1827 hours'"). The flood began at or before that time, so Round 1 lead times are slightly short. A new precision value is more honest, but any re-score is a second look. Recommend: add a distinct precision value.
 4. **5 "exact" rows with a blank end time:** `2018-01-24-jurong-west-jalan-boon-lay`, `2018-01-24-outram-craig-rd`, `2018-05-26-orchard-kramat-lane`, `2024-11-22-toa-payoh-wan-tho-ave`, `2024-11-22-yishun-yishun-ave-7`. Confirm that is intended.
-5. **The 4 unverified 2017–23 candidates** (`144750b`, now in `data/reference/flood_candidates.csv`): adk to open each source, fill in `verified_by` and move the row back into `flood_events.csv`, or reject it into `docs/flood_events_rejected.md`. Until then the verified count stays at 88.
+5. ~~**The 4 unverified 2017–23 candidates**~~ (done 22 Oct on master: all 4 verified by adk; `flood_candidates.csv` removed in the merge) (`144750b`, now in `data/reference/flood_candidates.csv`): adk to open each source, fill in `verified_by` and move the row back into `flood_events.csv`, or reject it into `docs/flood_events_rejected.md`. Until then the verified count stays at 88.
 6. **CLAUDE.md freeze rule** vs README (freeze dropped 18 Oct): update CLAUDE.md.
 7. **Two results marked `dirty: true`** (`risk_multiple_2017_2023.json`, `mentor_tests_2026-10-18.json`): re-run on clean commits.
 8. **v3 model card:** `models/model_card.json` still describes v1.
@@ -780,7 +875,7 @@ It does **not** block legitimate 2017–2023 work, or the app, replay, serving a
   - `radar/` and `features/build_features.py`.
   - People looking at 2024–2026 numbers (`final_report.json`, `--force`, app replays of test days). Rule 2 still depends on people.
 - **Reference data:**
-  - It checks only that fields are filled. It doesn't check that a URL works or says what the quote claims, that `time_precision` matches the source, or that `verified_by` is a different person from the drafter (the CSV has no drafter column).
+  - It checks only that fields are filled. It doesn't check that a URL works or says what the quote claims, that `time_precision` matches the source. (Since 22 Oct it does check `drafted_by` is filled and differs from `verified_by`, but it can't tell whether the names are honest.)
   - It doesn't check `docs/flood_events_rejected.md`.
   - It doesn't check `zone_static.csv` zone names (`tests/test_zone_static.py` does).
 - **Secret scan:** only gitleaks' built-in rules. A secret in an unusual format, one in a gitignored file, or one already in the Databricks workspace is not seen.

@@ -26,6 +26,7 @@ def _write(path: Path, cols: list[str], rows: list[dict[str, str]]) -> Path:
 def _event(**over: str) -> dict[str, str]:
     row = {c: "x" for c in EV_COLS}
     row["event_id"] = "ev1"
+    row["drafted_by"] = "y"
     row.update(over)
     return row
 
@@ -91,3 +92,8 @@ def test_bom_prefixed_files_pass(tmp_path: Path) -> None:
 def test_header_only_flood_events_fails(tmp_path: Path) -> None:
     p = _write(tmp_path / "e.csv", EV_COLS, [])
     assert validate_flood_events(p) == ["e.csv has no data rows"]
+
+
+def test_drafter_cannot_be_the_verifier(tmp_path: Path) -> None:
+    p = _write(tmp_path / "e.csv", EV_COLS, [_event(verified_by="ab", drafted_by="ab")])
+    assert validate_flood_events(p) == ["e.csv row 2 (event_id ev1): drafted_by is the verifier"]

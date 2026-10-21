@@ -23,8 +23,8 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 >     alarm episodes per zone-year
 >
 >   Details and 90% intervals are in `models/final_report.json` and `models/model_card.json`, which
->   describe version 1 only (kept as `models/archive/flood_model_v1_2026-10-01.joblib`); a model card
->   for version 3 (the served model) is still open. The current model hasn't been scored on the
+>   describe version 1 only (kept as `models/archive/flood_model_v1_2026-10-01.joblib`). The card for
+>   version 3 (the served model) is `models/model_card_v3.json`. The current model hasn't been scored on the
 >   test years; doing so would be a "second look".
 > - **Databricks** (Free Edition, `DEPLOYMENT.md`):
 >   - a Lakeflow pipeline (bronze → silver → gold) is built to score every zone every 5 minutes with
@@ -44,7 +44,9 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 > - **Radar** (data.gov.sg rain areas, archived daily from 16 Jul 2026): colours calibrated to mm/h
 >   against NEA gauges (`docs/radar_calibration.md`), and an optical-flow nowcast that beats
 >   persistence (`docs/radar_nowcast_result.md`). The app shows it as a map overlay (now, +30, +60
->   min) and as "risk in 1 hour".
+>   min) and as "risk in 1 hour". The calibration and nowcast were fitted and scored on Jul–Sep 2026
+>   radar data, which falls in the 2024–2026 test years. They use radar images and gauge rain only,
+>   never flood labels, and nothing in the flood model was tuned on them (team decision, 22 Oct).
 > - **Telegram alerts:** a bot that posts when a zone's risk rises (`floodsense.alerts`), with a
 >   replay mode. On Databricks it runs as the poller job's third task (`DEPLOYMENT.md` §22), so it
 >   posts only while the poller runs; no real alert has been posted yet.
@@ -151,7 +153,9 @@ uv run python -m floodsense.data.build_rainfall_store gapfill    # -> readings/y
   step didn't report, and interpolation re-weights over the gauges that did. But in training and
   feature building (`features/zone_features.py`, `spatial/idw_matrix.py`) a 5-minute step where **no**
   gauge reported is filled as 0 mm, so a full outage looks dry and pulls the next hour's rolling
-  sums down. Training keeps this 0-fill (team decision). Serving does not hide it
+  sums down. Training keeps this 0-fill (team decision, confirmed 22 Oct): it applies to the
+  training and feature-building code only, and changing it would be a model change. Serving never
+  shows missing rain as dry
   (`src/floodsense/serving/coverage.py`):
   - A 5-minute step with fewer than `MIN_REPORTING_STATIONS` gauges reporting shows "No data" and
     its tier is withheld. The value is 20 (`src/floodsense/common/config.py`), derived from the
@@ -229,12 +233,17 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
 
 ### Flood events (`data/reference/flood_events.csv`)
 
-88 verified flood reports (one row per place and time, so one storm can have several rows), 2017 to Sep 2026, across 33 planning areas: 58 in 2017–2023 (training and
-cross-validation) and 30 in 2024–2026 (the test set). No row is waiting for its second check. Each
+92 verified flood reports (one row per place and time, so one storm can have several rows), 2017 to Sep 2026, across 35 planning areas: 62 in 2017–2023 (training and
+cross-validation; 30 of them in 2020–2023) and 30 in 2024–2026 (the test set). No row is waiting for its second check. The current model (version 3) was fitted on the first 88; the 4 rows verified on 22 Oct are not in it. Each
 row has:
 - a `source_url` and `source_name`
 - an `evidence_quote` copied from the source, naming the place and time
-- a `time_precision` (`exact`, `approx_15min`, `approx_hour` or `day_only`)
+- a `time_precision` (`exact`, `approx_15min`, `approx_hour`, `day_only` or `pub_issued`). `pub_issued`
+  (25 rows, 23 of them in 2024–2026) means the time is PUB's "Issued" time, so the flood began at or
+  before it and the Round 1 warning times are, if anything, slightly short. It is labelled exactly
+  like `exact`, so no label or score changed; nothing was re-scored (team decision, 22 Oct)
+- a `drafted_by` (who drafted the row, never the same as `verified_by`; `unrecorded` for the 66 rows
+  from before 16 Oct whose drafter was not written down)
 
 Candidates can be drafted by a person or an LLM. A person then opens each source, checks the quote, place and time, and signs the row in `verified_by`. `load_flood_events()` returns only signed rows, so an unchecked row never becomes a label. Reports examined and excluded are listed with reasons in `docs/flood_events_rejected.md`.
 
@@ -317,7 +326,8 @@ Agreed by the team for Round 2 (DAISI Challenge 2026). These rules hold until De
 Every dataset, library and model we use, with its licence as recorded. "Unverified" means we have not
 read the licence for that item.
 
-A licence for this project's own code has not been chosen yet (team decision).
+This project's own code is under the MIT licence (`LICENSE`; team decision, 22 Oct 2026). The
+data, libraries and models below keep their own licences.
 
 **Datasets**
 
@@ -358,6 +368,7 @@ not opened each dataset's own page, so the per-dataset line below is marked acco
 | Shapely | BSD 3-Clause |
 | databricks-sdk | Apache Software License (classifier; no licence text in the metadata) |
 | mlflow, mlflow-skinny (optional: training, serving) | Apache Software License (classifier) |
+| huey 3.4.0, skops 0.16.0 (installed only with mlflow, through the `train` extra) | MIT (the bundled `licenses/LICENSE` text of each is the MIT licence; huey's names no licence in its metadata. Read 22 Oct 2026) |
 | opencv-python-headless (optional: radar) | Apache 2.0 (the metadata does not cover OpenCV's bundled third-party libraries; unverified) |
 | rasterio (optional: static features) | BSD-3-Clause |
 | Dev only: pytest, ruff, mypy, pytest-cov, pre-commit, types-requests | MIT, MIT, MIT, MIT, MIT, Apache-2.0 |

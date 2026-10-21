@@ -331,7 +331,13 @@ def test_event_fields_use_allowed_values(events_csv):
     assert set(events_csv["ura_planning_area"]) <= set(URA_PLANNING_AREAS)
     assert set(events_csv["severity"]) <= {"Minor", "Moderate", "Severe"}
     assert set(events_csv["cause"]) <= {"rain", "rain_tide", "other"}
-    assert set(events_csv["time_precision"]) <= {"exact", "approx_15min", "approx_hour", "day_only"}
+    assert set(events_csv["time_precision"]) <= {
+        "exact",
+        "approx_15min",
+        "approx_hour",
+        "day_only",
+        "pub_issued",
+    }
     assert not events_csv.duplicated(["event_id", "ura_planning_area"]).any()
 
 
