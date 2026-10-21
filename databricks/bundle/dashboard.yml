@@ -1,0 +1,9 @@
+# AI/BI dashboard "FloodSense – Live Flood Risk" (live id 01f1c168d5ba1a44819705ab969bf3ea).
+# After binding, the next deploy overwrites the live draft with the committed .lvdash.json.
+resources:
+  dashboards:
+    live_risk:
+      display_name: "FloodSense – Live Flood Risk"
+      file_path: ../dashboards/floodsense_live_risk.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      parent_path: /Users/${workspace.current_user.userName}

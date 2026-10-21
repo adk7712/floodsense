@@ -1,0 +1,42 @@
+{
+  "name": "floodsense-pub-scorecard",
+  "description": "Daily: for every PUB flash-flood alert since 6 Oct 2026, what FloodSense showed for that planning area in the hour before (rescored from rainfall_readings_silver with the champion model). Writes workspace.floodsense.pub_scorecard. Live monitoring, not an accuracy result. Created PAUSED: not deployed yet.",
+  "tags": {
+    "project": "floodsense",
+    "track": "DAISI-B2",
+    "role": "monitoring"
+  },
+  "max_concurrent_runs": 1,
+  "schedule": {
+    "quartz_cron_expression": "0 30 6 * * ?",
+    "timezone_id": "Asia/Singapore",
+    "pause_status": "PAUSED"
+  },
+  "environments": [
+    {
+      "environment_key": "scorecard",
+      "spec": {
+        "client": "2",
+        "dependencies": [
+          "/Volumes/workspace/floodsense/artifacts/wheels/floodsense-0.1.0-py3-none-any.whl",
+          "scikit-learn==1.9.1",
+          "mlflow-skinny"
+        ]
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "pub_scorecard",
+      "environment_key": "scorecard",
+      "spark_python_task": {
+        "python_file": "/Workspace/Users/<your-login>/floodsense/pub_scorecard.py",
+        "parameters": [
+          "--since",
+          "2026-10-06"
+        ]
+      },
+      "timeout_seconds": 900
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+# Databricks App `floodsense` (OPT-IN: not listed in `include` in databricks.yml).
+# Live app id 933a4397-9418-4a08-a0af-3fe7b3acfffe. Resources mirror databricks/app/app.json.
+# The run command and env vars come from /app.yaml at the repo root, as they do today.
+# Caveat: with this file included, `bundle deploy` syncs the whole repo to the bundle's folder
+# (it ignores databricks/app/sync_exclude.txt), so the current `databricks sync` flow in
+# DEPLOYMENT.md section 16 is the simpler way to ship app code.
+resources:
+  apps:
+    floodsense_app:
+      name: floodsense
+      description: "FloodSense: next-hour flash-flood risk for Singapore's 55 planning areas. Live risk from the floodsense pipeline's gold table, replay of any day since 2017, rain radar nowcast."
+      source_code_path: ../..
+      resources:
+        - name: sql-warehouse
+          description: Runs the Live-mode query on flood_risk_predictions_gold.
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: data-gov-key
+          description: data.gov.sg API key for the live fallback, radar and PUB alerts.
+          secret:
+            scope: floodsense
+            key: data_gov_api_key
+            permission: READ
+        - name: gold
+          description: The table Live mode reads.
+          uc_securable:
+            securable_full_name: workspace.floodsense.flood_risk_predictions_gold
+            securable_type: TABLE
+            permission: SELECT
+        - name: radar
+          description: Archived NEA radar frames, so Replay doesn't fetch them from data.gov.sg.
+          uc_securable:
+            securable_full_name: workspace.floodsense.radar
+            securable_type: VOLUME
+            permission: READ_VOLUME

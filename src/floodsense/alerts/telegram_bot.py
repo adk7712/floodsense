@@ -57,7 +57,16 @@ Live mode (reads the Databricks gold table):
 Usage:
     python -m floodsense.alerts.telegram_bot replay --date 2021-04-17 [--dry-run] [--speed N]
     python -m floodsense.alerts.telegram_bot live [--dry-run] [--interval-seconds 300]
-        [--once] [--state-file PATH] [--max-age-minutes 30]
+        [--once] [--state-file PATH] [--max-age-minutes 30] [--subscriptions-file PATH]
+
+Per-area subscriptions (``--subscriptions-file``): people message the bot /subscribe <area>,
+/unsubscribe <area>, /unsubscribe all, /list, /start or /help. Each live cycle first reads new
+messages with ``getUpdates`` (the last handled update id is kept in the subscriptions file, so no
+message is handled twice), then sends every alert the detector produces to the zone's subscribers
+as well as to the channel. The rules are the detector's, not copies: rises only, the same
+one-per-zone-per-hour limit, "No data" never alerts, no all-clear on missing data. A subscriber
+send never blocks or retracts the channel alert; a chat that blocked the bot (HTTP 403) is
+dropped. Without the flag the bot behaves exactly as before. Email sign-up is not built.
 """
 
 import argparse
@@ -76,6 +85,11 @@ import pandas as pd
 import requests
 
 from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
+from floodsense.alerts.subscriptions import (
+    JsonSubscriptionStore,
+    SubscriptionStore,
+    process_updates,
+)
 from floodsense.common.config import MIN_REPORTING_STATIONS, settings
 from floodsense.common.timeutil import to_sgt
 from floodsense.data.replay import load_replay
@@ -327,6 +341,58 @@ class TelegramSender:
             raise RuntimeError(f"Telegram rejected the message (HTTP {resp.status_code})")
 
 
+class TelegramSendError(RuntimeError):
+    """A Bot API call failed. Carries the HTTP status (None if no response); never the token."""
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+class TelegramApi:
+    """``getUpdates`` and ``sendMessage`` for subscriptions. ``post`` is injectable for tests.
+    Never logs or prints the token; errors name only the class or HTTP status."""
+
+    def __init__(
+        self,
+        token: str | None = None,
+        timeout: float = 15.0,
+        post: Callable[..., requests.Response] | None = None,
+    ) -> None:
+        self._token = token if token is not None else os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        if not self._token:
+            raise RuntimeError("TELEGRAM_BOT_TOKEN must be set (in .env or the environment).")
+        self._timeout = timeout
+        self._post = post
+
+    def _call(self, method: str, payload: dict[str, object]) -> object:
+        post = self._post or requests.post
+        try:
+            resp = post(
+                f"{TELEGRAM_API}/bot{self._token}/{method}", json=payload, timeout=self._timeout
+            )
+        except requests.RequestException as exc:
+            raise TelegramSendError(f"Telegram request failed ({type(exc).__name__})") from None
+        if resp.status_code != 200:
+            raise TelegramSendError(
+                f"Telegram rejected {method} (HTTP {resp.status_code})", resp.status_code
+            )
+        try:
+            return resp.json().get("result")
+        except (ValueError, AttributeError):
+            raise TelegramSendError(f"Telegram sent an unreadable {method} reply") from None
+
+    def get_updates(self, offset: int | None) -> list[Mapping[str, object]]:
+        payload: dict[str, object] = {"timeout": 0, "allowed_updates": ["message"]}
+        if offset is not None:
+            payload["offset"] = offset
+        result = self._call("getUpdates", payload)
+        return [u for u in result if isinstance(u, dict)] if isinstance(result, list) else []
+
+    def send_message(self, chat_id: int, text: str) -> None:
+        self._call("sendMessage", {"chat_id": chat_id, "text": text})
+
+
 SECRET_SCOPE = "floodsense"
 SECRET_KEYS = {"TELEGRAM_BOT_TOKEN": "telegram_bot_token", "TELEGRAM_CHAT_ID": "telegram_chat_id"}
 
@@ -523,6 +589,69 @@ def run_cycle(
     return problems
 
 
+def process_commands(
+    store: SubscriptionStore,
+    api: TelegramApi,
+    *,
+    now: Callable[[], datetime] | None = None,
+) -> int:
+    """Read new bot messages, apply the commands, save, then send the replies. Returns the number
+    of problems; never raises. The store is saved before replying so no update is handled twice."""
+    when = now() if now is not None else datetime.now(settings.tzinfo)
+    last = store.last_update_id()
+    try:
+        updates = api.get_updates(None if last is None else last + 1)
+    except Exception as exc:
+        logger.error("Could not read bot messages (%s)", _error_text(exc))
+        return 1
+    if not updates:
+        return 0
+    replies = process_updates(store, updates, when)
+    try:
+        store.save()
+    except OSError as exc:
+        logger.error("Could not save subscriptions (%s); replies not sent", type(exc).__name__)
+        return 1
+    problems = 0
+    for chat_id, text in replies:
+        try:
+            api.send_message(chat_id, text)
+        except Exception as exc:
+            problems += 1
+            logger.error("Reply failed (%s)", _error_text(exc))
+    return problems
+
+
+def subscriber_emitter(
+    channel_emit: Callable[[Alert], None], store: SubscriptionStore, api: TelegramApi
+) -> Callable[[Alert], None]:
+    """Send each alert to the channel first, then privately to that zone's subscribers.
+
+    A channel failure raises (the detector retracts and retries, subscribers not yet messaged).
+    A subscriber failure is logged only; HTTP 403 (the chat blocked the bot) drops that chat."""
+
+    def emit(alert: Alert) -> None:
+        channel_emit(alert)
+        dropped = False
+        for chat_id in store.chats_for(alert.zone):
+            try:
+                api.send_message(chat_id, alert.text)
+            except TelegramSendError as exc:
+                logger.error("Subscriber send failed (%s)", exc)
+                if exc.status == 403:
+                    store.remove_all(chat_id)
+                    dropped = True
+            except Exception as exc:
+                logger.error("Subscriber send failed (%s)", type(exc).__name__)
+        if dropped:
+            try:
+                store.save()
+            except OSError as exc:
+                logger.error("Could not save subscriptions (%s)", type(exc).__name__)
+
+    return emit
+
+
 def run_live(
     provider: LatestRiskProvider,
     emit: Callable[[Alert], None],
@@ -534,6 +663,7 @@ def run_live(
     max_age: timedelta | None = None,
     now: Callable[[], datetime] | None = None,
     sleep: Callable[[float], None] = time.sleep,
+    pre_cycle: Callable[[], int] | None = None,
 ) -> int:
     """Poll ``provider`` and emit alerts; survives bad cycles. Returns the total problem count.
 
@@ -546,6 +676,8 @@ def run_live(
     polls = 0
     while max_polls is None or polls < max_polls:
         polls += 1
+        if pre_cycle is not None:  # e.g. handle subscription commands before alerts go out
+            problems += pre_cycle()
         problems += run_cycle(det, provider, emit, state_path=state_path, max_age=max_age, now=now)
         if max_polls is None or polls < max_polls:
             sleep(interval_seconds)
@@ -573,6 +705,10 @@ def _emitter(dry_run: bool) -> Callable[[Alert], None]:
         print(f"sent: {alert.zone} {alert.tier} {alert.timestamp:%H:%M}")
 
     return send
+
+
+def _commands_hook(store: SubscriptionStore, api: TelegramApi) -> Callable[[], int]:
+    return lambda: process_commands(store, api, now=lambda: datetime.now(settings.tzinfo))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -604,6 +740,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=DEFAULT_MAX_AGE.total_seconds() / 60,
         help="ignore a newest gold step older than this",
     )
+    li.add_argument(
+        "--subscriptions-file",
+        type=Path,
+        default=None,
+        help="JSON file for per-area subscriptions; turns subscriptions on (default: off). "
+        "Locally use data/processed/telegram_subscriptions.json (gitignored).",
+    )
     li.add_argument("--interval-seconds", type=float, default=300.0)
     li.add_argument("--all-clear", action="store_true")
     args = parser.parse_args(argv)
@@ -628,6 +771,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 count += 1
             print(f"{count} alert(s) for {args.date}", file=sys.stderr)
         else:
+            pre_cycle: Callable[[], int] | None = None
+            if args.subscriptions_file is not None and not args.dry_run:
+                store = JsonSubscriptionStore(args.subscriptions_file)
+                api = TelegramApi()
+                emit = subscriber_emitter(emit, store, api)
+                pre_cycle = _commands_hook(store, api)
             problems = run_live(
                 gold_latest_risk,
                 emit,
@@ -637,6 +786,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 state_path=None if args.dry_run else args.state_file,
                 max_age=timedelta(minutes=args.max_age_minutes),
                 now=lambda: datetime.now(settings.tzinfo),
+                pre_cycle=pre_cycle,
             )
             if args.once and problems:
                 return 1
