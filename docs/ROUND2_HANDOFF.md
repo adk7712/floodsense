@@ -25,7 +25,47 @@
 
 ## 0. Latest sessions: 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
 
-### 19–22 Oct (Akul): done, waiting, next
+### 22 Oct (Akul): team decisions on adk's open items. Branch `akul/decisions-22oct`, not pushed
+
+Built on `ci-data-checks` (5dc5686) with master (`de6e72d`) merged in, so adk's three branches and
+these changes can be reviewed and merged together. Akul agreed each recommendation below on 22 Oct.
+Items marked "adk" still need adk's agreement or action.
+
+| # | Decision | Done here |
+|---|---|---|
+| 1 | Keep `rule_rain60` (version 3); T3 is not pursued before Demo Day | Recorded |
+| 2 | Resident wording: tier + action + time window, **no "N times" multiple** to residents; a hedged "over 100 times the risk of an ordinary rainy hour, based on 8 past floods" only on a slide, if at all. Turn on `RISK_WORDING_DRAFT` once both have read the strings (**adk**) | Flag still off |
+| 3 | "Second look" caption on any replay of a 2024–2026 day (storm buttons and the 30 Sep 2026 radar day) | `replay_days.second_look_note`, shown with the replay caption; test added |
+| 4 | Radar results (Jul–Sep 2026 data): no "second look" label, but say plainly they use 2026 radar, never flood labels | README "Radar" line |
+| 5 | Vulnerable packages: upgrade after Demo Day; name them in the limitations | Recorded |
+| 6 | Bot with an incomplete gold step: keep sending nothing | Recorded |
+| 7 | Drop the "Why" column in both views | Kept as adk built it; phone and dark checked (below) |
+| 8 | Freeze items: closed (no freeze since 18 Oct; CLAUDE.md rule 3 already says so) | Recorded |
+| 9 | `drafted_by` column | Added after `verified_by`: adk 14 (the 16 Oct batch, `fef4165`), Akul9 12 (Akul's sessions, from the notes), `unrecorded` 66 (Round 1 rows; drafter not written down). Loader and `validate_reference` reject a row whose drafter is its verifier |
+| 10 | PUB "Issued" times: new precision `pub_issued` (25 rows, 23 in 2024–2026). Labelled like `exact`, so no label or score changes; not re-scored | CSV, schema, label policy, backtest, app ("PUB alert time"), README |
+| 11 | 5 "exact" rows with no end time: probably intended (**adk** to confirm) | Asked |
+| 12 | Label target: accept 26 new verified (14 + 8 + 4) as final; on the limitations slide | Recorded |
+| 13 | Training 0-fill: keep, and say it is training only | README wording |
+| 14 | Model card for version 3 | `models/model_card_v3.json`, built from the refit summary; `model_card.json` stays the v1 record |
+| 15 | `dirty: true` results: re-run on clean commits if adk has time (**adk**) | Asked |
+| 16 | Project licence: MIT. huey and skops read: both are the MIT text | `LICENSE`; README credits |
+| 17 | Data-age warning (Definition of Done) | Checked in the app (below) |
+
+**App check, 22 Oct (this branch, local, reading gold):**
+- The stale warning shows ("Data is 4 days old…"; gold's newest row is 18 Oct 03:40 SGT). Ticks the
+  Definition of Done item.
+- The 22 Nov 2024 replay shows the second-look caption.
+- The transport table has Station, Risk, Chance, Planning area (no "Why"). At 375 px in dark theme
+  the page doesn't overflow (scrollWidth 374 = clientWidth); the table scrolls sideways inside its
+  box, so "Planning area" is off to the right on a phone.
+- The Light/Dark switch works (checked by clicking the switch itself).
+
+**Databricks compute came back on 22 Oct.** The 15-min alerts job resumed at 03:30 SGT (runs at
+03:30 and 03:45 succeeded), and the app's gold read started the warehouse (RUNNING, HEALTHY at
+about 03:50). Gap: no job runs from 21 Oct 01:15 to 22 Oct 03:15 SGT. The daily archiver missed
+its 21 Oct and 22 Oct 03:00 runs, but each run archives the last 3 days, so the 23 Oct 03:00 run
+covers 20–22 Oct and closes the gap by itself (check it on 23 Oct). Cause still not confirmed.
+
 
 **Done:**
 - **19 Oct label search (2017–2023 only):** 4 new flood candidates added at the end of
@@ -58,7 +98,8 @@ when idle), the pipeline is IDLE (last update 17 Oct), and the App is STOPPED. T
 Likely cause: compute for the whole workspace is blocked (the daily cap, or an account-level
 limit), but it has lasted more than a day, so that is unconfirmed. Next: look for a banner or
 message in the workspace UI. Starting the warehouse or a job uses compute, so ask first. **The
-radar and gauge archive has a gap from 21 Oct** until this is fixed.
+radar and gauge archive has a gap from 21 Oct** until this is fixed. **Update: compute came back at
+03:30 SGT on 22 Oct** (see the 22 Oct block above).
 
 **Waiting on adk:** review of `fc82aa8`, `ba360db`, `0b8c729` and `144750b` (pushed straight to master);
 B6 deck; J2.3 Q&A answers.
@@ -73,10 +114,10 @@ B6 deck; J2.3 Q&A answers.
 4. Before rehearsals: start and redeploy the Databricks App; refresh gold with a poller run.
 5. Before submission: remove or strip this file (it has the warehouse ID).
 
-**State on 22 Oct:** master at `144750b`, pushed. Champion is model version 3 (Moderate 0.53%,
-High 0.71%), signed off by adk. No code freeze; the test-set rule still holds. Poller paused (it
-runs Telegram as its third task), Databricks App stopped; the daily archiver and
-`floodsense-flood-alerts` (every 15 min) are running.
+**State on 22 Oct:** master at `de6e72d` (local, not pushed). Champion is model version 3
+(Moderate 0.53%, High 0.71%), signed off by adk. No code freeze; the test-set rule still holds.
+Poller paused (it runs Telegram as its third task), Databricks App stopped; the daily archiver and
+`floodsense-flood-alerts` are scheduled but have not run since 21 Oct 01:00 SGT (above).
 
 
 ### 21 Oct, latest (adk, with subagents): CI checks. Branch `ci-data-checks`, committed and pushed, awaiting Akul's review

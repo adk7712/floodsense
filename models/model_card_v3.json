@@ -1,0 +1,48 @@
+{
+  "model": "workspace.floodsense.flood_model",
+  "version": 3,
+  "alias": "champion",
+  "promoted": "2026-10-18 (Akul); signed off by adk 2026-10-18",
+  "candidate": "rule_rain60",
+  "what_changed_from_v1": "Same rule_rain60 model, refitted on the 58 verified 2017-2023 floods (v1: 36). The budget rule (unchanged: 2.5 false High, 11 false Moderate episodes per zone-year) now puts Moderate at 0.531% instead of 0.30%; High stays at 0.706%.",
+  "thresholds": {
+    "moderate": 0.00531,
+    "high": 0.00706
+  },
+  "thresholds_percent": {
+    "moderate": 0.531,
+    "high": 0.706
+  },
+  "rain_60m_mm_equivalent": {
+    "moderate": 37.65,
+    "high": 43.150000000000006
+  },
+  "calibration_method": "platt",
+  "budgets": {
+    "high": 2.5,
+    "moderate": 11.0
+  },
+  "training": {
+    "rows": 5480033,
+    "from": "2017-01-01 12:25:00+08:00",
+    "to": "2023-12-31 23:40:00+08:00",
+    "verified_events_2017_to_2023": 58,
+    "validation_years": [
+      2020,
+      2021,
+      2022,
+      2023
+    ],
+    "oof_event_score": 0.5
+  },
+  "test_years_scored": false,
+  "test_result_note": "The published 2024-2026 test result (High 12/30, Moderate 21/30 at 0.30%) was measured once with version 1 and does not describe version 3. Scoring version 3 on 2024-2026 would be a 'second look'.",
+  "source": {
+    "refit_summary": "models/candidates/rule_rain60_refit_2026-10-17.json",
+    "refit_git_sha": "33e9484",
+    "refit_dirty": false,
+    "generated_at": "2026-10-16T19:28:08.628165+00:00",
+    "registry_facts": "docs/ROUND2_HANDOFF.md section 4b (B4.4, B4.5) and DEPLOYMENT.md section 21"
+  },
+  "v1_card": "models/model_card.json (written by floodsense.models.train; kept as the record of the tested model)"
+}

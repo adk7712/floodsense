@@ -137,9 +137,9 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 - **Promoting a model to `champion`** is done for version 3 (promoted 18 Oct, adk signed off 18 Oct;
   section 21). Gold serves whatever the alias points to (section 17), so any later promotion is
   a matter of moving the alias.
-- **A model card for version 3.** `models/model_card.json` still describes version 1 (Moderate
-  0.30%, git `cac91ca`); a version 3 card is open (the file is read and written by code, so it has
-  not been moved or edited).
+- **Model card for version 3:** done 22 Oct as `models/model_card_v3.json`, built from the refit
+  summary. `models/model_card.json` still describes version 1 (Moderate 0.30%, git `cac91ca`); it
+  is written by the training code, so it is kept as the record of the tested model.
 - **A version 3 parity export** (section 17): the committed Databricks replay export was produced
   by version 1. Re-exporting needs a Databricks run, which is paused to save free-plan credits.
 
