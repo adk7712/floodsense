@@ -18,6 +18,7 @@ OWN_PACKAGE = "floodsense"
 STATUS_DECLARED = "as declared in package metadata"
 STATUS_UNVERIFIED = "UNVERIFIED"
 STATUS_OWN = "own package, no licence declared"
+STATUS_OWN_DECLARED = "own package, as declared in pyproject.toml"
 
 
 def _norm(name: str) -> str:
@@ -49,7 +50,7 @@ def build_rows(packages: list[dict[str, Any]]) -> list[tuple[str, str, str, str,
             continue
         licence = str(pkg.get("License") or "").strip()
         if _norm(name) == OWN_PACKAGE:
-            status = STATUS_OWN
+            status = STATUS_OWN if _is_unverified(licence) else STATUS_OWN_DECLARED
         elif _is_unverified(licence):
             status = STATUS_UNVERIFIED
         else:
