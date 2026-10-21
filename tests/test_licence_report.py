@@ -28,6 +28,11 @@ def test_rows_sorted_skipped_and_statuses() -> None:
     assert status["floodsense"] == lr.STATUS_OWN
 
 
+def test_own_package_with_declared_licence() -> None:
+    rows = lr.build_rows([{"Name": "floodsense", "Version": "0.1", "License": "MIT", "URL": ""}])
+    assert rows[0][4] == lr.STATUS_OWN_DECLARED
+
+
 def test_summary_line() -> None:
     assert lr.summary(lr.build_rows(PKGS)) == "5 packages, 3 UNVERIFIED: alpha, beta, gamma"
 
