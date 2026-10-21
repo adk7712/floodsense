@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, committed and pushed, awaiting Akul's review). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, committed and pushed, awaiting Akul's review). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -23,7 +23,61 @@
 
 ---
 
-## 0. Latest sessions: 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 19–22 Oct (Akul): done, waiting, next
+
+**Done:**
+- **19 Oct label search (2017–2023 only):** 4 new flood candidates added at the end of
+  `data/reference/flood_events.csv` (`144750b`): 2017-04-18 Mount Elizabeth (Newton), 2018-04-23
+  Gilstead Rd (Novena), 2020-08-14 Craig Rd (Outram), 2022-03-07 Cemetery Central (Western Water
+  Catchment). Leads not used are logged in `docs/flood_events_rejected.md` ("Third search, 19 Oct
+  2026"). **adk second-checked all 4 and verified them** (relayed by Akul, 22 Oct; `verified_by` =
+  adk). **Verified labels: 92** (62 in 2017–2023, 30 of them in the 2020–2023 folds; 30 in
+  2024–2026; 35 planning areas). The champion (version 3) was fitted on the 88; it is not refitted.
+  README still says 88 in places (the 88 that set the thresholds is correct there; the count of
+  verified events at README line 199 is now out of date).
+- **Model ideas sent to adk** (two messages): runoff-weighted rain, kriging judged on flood
+  detection, a bare-ground DEM, combining 30- and 60-min rain. adk owns the model work and decides
+  what to try; nothing was run on Akul's side.
+- **Benchmark of official flood services** (Singapore, Japan, Hong Kong, Malaysia, Taiwan, Korea, UK,
+  US, Australia, EU): none we found gives a per-area chance of a flood in the next hour. They
+  report floods as they happen or warn about rain. Feature picks and demo notes are in Akul's
+  personal to-do list (not in git).
+- **PUB water-level sensors:** data.gov.sg has station locations only (about 328 drain and canal
+  stations, Open Data Licence), no readings.
+
+**Problem, 21 Oct:** the local app could not read gold. The SQL warehouse returned "BadRequest"
+and stayed STOPPED, so the app fell back to data.gov.sg.
+**Read-only checks, 22 Oct 03:20 SGT:** the problem is wider than the warehouse. **No job has run
+since 21 Oct 01:00 SGT.** `floodsense-flood-alerts` (every 15 min) and `floodsense-daily-archiver`
+(03:00) are both UNPAUSED, but they have no run records after that time, not even failed or
+skipped ones. That is about 100 missed alert runs and the 21 Oct archive (and the 22 Oct one, so
+far). The last runs all succeeded. The warehouse is STOPPED (auto-stop 10 min, which is normal
+when idle), the pipeline is IDLE (last update 17 Oct), and the App is STOPPED. The login works.
+Likely cause: compute for the whole workspace is blocked (the daily cap, or an account-level
+limit), but it has lasted more than a day, so that is unconfirmed. Next: look for a banner or
+message in the workspace UI. Starting the warehouse or a job uses compute, so ask first. **The
+radar and gauge archive has a gap from 21 Oct** until this is fixed.
+
+**Waiting on adk:** review of `fc82aa8`, `ba360db`, `0b8c729` and `144750b` (pushed straight to master);
+B6 deck; J2.3 Q&A answers.
+
+**Next for Akul:**
+1. Find out why the warehouse won't start (read-only checks first).
+2. Extra features, in order: action wording with a time window; postal-code lookup; links to PUB's
+   sensors and SMS sign-up; live scorecard against PUB; alert subscriptions per area. The Resident
+   view is adk's (A9), so wording changes there are agreed with adk.
+3. About 24 Oct, A3: unpause the poller, pause `floodsense-flood-alerts`, add a failure email,
+   48 h of clean runs.
+4. Before rehearsals: start and redeploy the Databricks App; refresh gold with a poller run.
+5. Before submission: remove or strip this file (it has the warehouse ID).
+
+**State on 22 Oct:** master at `144750b`, pushed. Champion is model version 3 (Moderate 0.53%,
+High 0.71%), signed off by adk. No code freeze; the test-set rule still holds. Poller paused (it
+runs Telegram as its third task), Databricks App stopped; the daily archiver and
+`floodsense-flood-alerts` (every 15 min) are running.
+
 
 ### 21 Oct, latest (adk, with subagents): CI checks. Branch `ci-data-checks`, committed and pushed, awaiting Akul's review
 
