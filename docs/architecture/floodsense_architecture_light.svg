@@ -18,7 +18,7 @@
 <rect x="30" y="460" width="245" height="108" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
 <text x="46" y="487" font-size="17" font-weight="700" fill="#0F172A">In the repo</text>
 <text x="46" y="510" font-size="14" fill="#475569">URA 2019 planning areas (55)</text>
-<text x="46" y="530" font-size="14" fill="#475569">80 verified flood events</text>
+<text x="46" y="530" font-size="14" fill="#475569">88 verified flood events</text>
 <text x="46" y="550" font-size="14" fill="#475569">LTA MRT station exits</text>
 <text x="30" y="612" font-size="13" font-weight="700" letter-spacing="1.2" fill="#475569">MODEL TRAINING</text>
 <rect x="30" y="627" width="245" height="128" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
@@ -38,7 +38,7 @@
 <rect x="330" y="212" width="250" height="86" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
 <text x="346" y="239" font-size="17" font-weight="700" fill="#0F172A">Rainfall poller</text>
 <text x="346" y="262" font-size="14" fill="#475569">Every 30 min near the demo</text>
-<text x="346" y="282" font-size="14" fill="#475569">Lands data, runs pipeline</text>
+<text x="346" y="282" font-size="14" fill="#475569">Lands data, pipeline, Telegram</text>
 <rect x="330" y="312" width="250" height="86" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
 <text x="346" y="339" font-size="17" font-weight="700" fill="#0F172A">Flood-alert saver</text>
 <text x="346" y="362" font-size="14" fill="#475569">Every 15 min</text>
@@ -87,10 +87,11 @@
 <rect x="1230" y="310" width="330" height="86" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
 <text x="1246" y="337" font-size="17" font-weight="700" fill="#0F172A">AI/BI dashboard</text>
 <text x="1246" y="360" font-size="14" fill="#475569">Live risk by zone, from gold</text>
-<rect x="1230" y="418" width="330" height="86" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5" stroke-dasharray="6 5"/>
+<rect x="1230" y="418" width="330" height="106" rx="10" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
 <text x="1246" y="445" font-size="17" font-weight="700" fill="#0F172A">Telegram alerts</text>
 <text x="1246" y="468" font-size="14" fill="#475569">Posts when a zone&#x27;s risk rises</text>
-<text x="1246" y="488" font-size="14" fill="#475569">Built; goes live with the poller</text>
+<text x="1246" y="488" font-size="14" fill="#475569">Runs with the poller task</text>
+<text x="1246" y="508" font-size="14" fill="#475569">Poller paused until demo</text>
 <rect x="330" y="700" width="1230" height="140" rx="12" fill="#FFFFFF" stroke="#C3CDDB" stroke-width="1.5"/>
 <text x="350" y="730" font-size="13" font-weight="700" letter-spacing="1.2" fill="#E8331C">UNITY CATALOG · WORKSPACE.FLOODSENSE</text>
 <rect x="350" y="752" width="92" height="34" rx="17" fill="#F6F8FB" stroke="#C3CDDB"/><text x="396" y="774" font-size="14" fill="#0F172A" text-anchor="middle">4 volumes</text>

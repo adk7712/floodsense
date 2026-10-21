@@ -69,7 +69,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-from floodsense.alerts.messages import ADVICE, DISCLAIMER
+from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
 from floodsense.common.config import settings
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
@@ -106,14 +106,15 @@ def format_message(zone: str, tier: str, when: datetime) -> str:
     name = display_name(zone)
     if tier == "Low":
         return (
-            f"FloodSense all-clear: {name} is back to Low flood risk as of {stamp}.\n\n{DISCLAIMER}"
+            f"FloodSense all-clear: {name} is back to Low flood risk as of {stamp}.\n\n"
+            f"{DISCLAIMER} {HONESTY_LINE}"
         )
     return (
         f"FloodSense {tier.upper()} flood risk: {name}\n"
         f"Time: {stamp}\n"
         f"Flash flood possible in the next hour.\n\n"
         f"What to do: {ADVICE[tier]}\n\n"
-        f"{DISCLAIMER}"
+        f"{DISCLAIMER} {HONESTY_LINE}"
     )
 
 

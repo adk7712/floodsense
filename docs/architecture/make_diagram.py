@@ -135,7 +135,7 @@ def diagram(t: dict[str, str]) -> str:
             245,
             108,
             "In the repo",
-            ["URA 2019 planning areas (55)", "80 verified flood events", "LTA MRT station exits"],
+            ["URA 2019 planning areas (55)", "88 verified flood events", "LTA MRT station exits"],
             t,
         )
     )
@@ -175,7 +175,7 @@ def diagram(t: dict[str, str]) -> str:
             250,
             86,
             "Rainfall poller",
-            ["Every 30 min near the demo", "Lands data, runs pipeline"],
+            ["Every 30 min near the demo", "Lands data, pipeline, Telegram"],
             t,
         )
     )
@@ -278,11 +278,14 @@ def diagram(t: dict[str, str]) -> str:
             1230,
             418,
             330,
-            86,
+            106,
             "Telegram alerts",
-            ["Posts when a zone's risk rises", "Built; goes live with the poller"],
+            [
+                "Posts when a zone's risk rises",
+                "Runs with the poller task",
+                "Poller paused until demo",
+            ],
             t,
-            dashed=True,
         )
     )
 

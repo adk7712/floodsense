@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from floodsense.alerts import telegram_bot as tb
+from floodsense.alerts.messages import HONESTY_LINE
 from floodsense.serving.gold import GoldUnavailable
 
 SGT = timezone(timedelta(hours=8))
@@ -103,7 +104,17 @@ def test_message_has_zone_tier_time_advice_and_disclaimer(tier: str) -> None:
     assert "13:05" in text and "17 Apr 2021" in text and "SGT" in text
     assert tb.ADVICE[tier] in text
     assert "complements, and does not replace, PUB" in text
+    assert HONESTY_LINE in text
     assert "underpasses" in tb.ADVICE["High"] and "PUB" in tb.ADVICE["Moderate"]
+
+
+def test_all_clear_message_has_honesty_line() -> None:
+    text = tb.format_message("BEDOK", "Low", datetime(2021, 4, 17, 13, 5, tzinfo=SGT))
+    assert "all-clear" in text
+    assert HONESTY_LINE in text
+    assert HONESTY_LINE == (
+        "FloodSense is not an official warning; alerts can be late or missed; follow PUB."
+    )
 
 
 def test_sender_posts_to_bot_api_without_network(caplog: pytest.LogCaptureFixture) -> None:

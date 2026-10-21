@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-20T18:33:15.787480+00:00",
+  "git_sha": "ebebffa",
+  "dirty": true,
+  "script": "docs/results/risk_multiple_2017_2023.py",
+  "years_used": [
+    2017,
+    2023
+  ],
+  "test_years_read": false,
+  "model": {
+    "path": "models/flood_model.joblib",
+    "candidate": "rule_rain60",
+    "model_git_sha": "6792823",
+    "calibration": "platt",
+    "thresholds": {
+      "moderate": 0.00531,
+      "high": 0.00706
+    },
+    "thresholds_pct": {
+      "moderate": 0.531,
+      "high": 0.706
+    },
+    "rain_60m_mm_equivalent": {
+      "moderate": 37.65,
+      "high": 43.150000000000006
+    }
+  },
+  "definition": {
+    "unit": "zone x 5-minute step passing the active-rain gate (>= 0.2 mm in last 120 min)",
+    "outcome": "label_prob: P(a verified flood starts in the zone within 60 min); in-flood rows excluded; soft labels count fractionally",
+    "base": "mean outcome over all gated steps, 55 zones pooled",
+    "tier": "mean outcome over steps the champion puts in the tier (moderate = [moderate, high), high = >= high)",
+    "N": "tier rate / base rate (unit-free)",
+    "zone_hours": "steps / 12"
+  },
+  "rows": {
+    "feature_rows_2017_2023": 5480033,
+    "failing_gate": 0,
+    "missing_rain_60m_dropped": 0,
+    "in_flood_excluded": 2878,
+    "used": 5477155,
+    "events_loaded": 88,
+    "events_2017_2023": 58,
+    "events_without_rows": []
+  },
+  "bootstrap": {
+    "method": "percentile; resample SGT calendar days (sensitivity: 7-day blocks)",
+    "B": 4000,
+    "seed": 20261021,
+    "interval": "90%"
+  },
+  "display_rule": "'about N times' only if hi/lo <= 2.0 (day-block 90% CI); else 'at least L times' with L = floor(lower bound) if L >= 2; else withhold",
+  "headline_period": "2017_2023",
+  "periods": {
+    "2017_2023": {
+      "days": 2091,
+      "base": {
+        "steps": 5477155,
+        "zone_hours": 456429.6,
+        "flood_steps": 290.57,
+        "rate_per_step_pct": 0.0053,
+        "floods_with_a_positive_step": 42
+      },
+      "tiers": {
+        "moderate": {
+          "steps": 4088,
+          "zone_hours": 340.7,
+          "flood_steps": 6.07,
+          "rate_per_step_pct": 0.1484,
+          "mean_calibrated_prob_pct": 0.6052,
+          "floods_with_a_positive_step": 6,
+          "days_with_tier_steps": 355,
+          "days_with_tier_flood_steps": 6,
+          "N": 27.97,
+          "ci90_day_blocks": [
+            10.58,
+            49.39
+          ],
+          "ci90_week_blocks": [
+            10.54,
+            50.73
+          ],
+          "boot_share_N_below_1": 0.0025,
+          "display": {
+            "show": true,
+            "phrase": "at least 10 times",
+            "rule": "lower 90% bound"
+          }
+        },
+        "high": {
+          "steps": 3921,
+          "zone_hours": 326.8,
+          "flood_steps": 48.1,
+          "rate_per_step_pct": 1.2267,
+          "mean_calibrated_prob_pct": 0.9885,
+          "floods_with_a_positive_step": 8,
+          "days_with_tier_steps": 233,
+          "days_with_tier_flood_steps": 8,
+          "N": 231.24,
+          "ci90_day_blocks": [
+            116.79,
+            359.0
+          ],
+          "ci90_week_blocks": [
+            118.69,
+            367.57
+          ],
+          "boot_share_N_below_1": 0.0,
+          "display": {
+            "show": true,
+            "phrase": "at least 116 times",
+            "rule": "lower 90% bound"
+          }
+        },
+        "moderate_or_higher": {
+          "steps": 8009,
+          "zone_hours": 667.4,
+          "flood_steps": 54.17,
+          "rate_per_step_pct": 0.6763,
+          "mean_calibrated_prob_pct": 0.7928,
+          "floods_with_a_positive_step": 8,
+          "days_with_tier_steps": 355,
+          "days_with_tier_flood_steps": 8,
+          "N": 127.49,
+          "ci90_day_blocks": [
+            64.79,
+            199.15
+          ],
+          "ci90_week_blocks": [
+            65.15,
+            205.64
+          ],
+          "boot_share_N_below_1": 0.0,
+          "display": {
+            "show": true,
+            "phrase": "at least 64 times",
+            "rule": "lower 90% bound"
+          }
+        }
+      }
+    },
+    "2017_2019_clean": {
+      "days": 878,
+      "base": {
+        "steps": 2167089,
+        "zone_hours": 180590.8,
+        "flood_steps": 144.18,
+        "rate_per_step_pct": 0.0067,
+        "floods_with_a_positive_step": 22
+      },
+      "tiers": {
+        "moderate": {
+          "steps": 1107,
+          "zone_hours": 92.2,
+          "flood_steps": 2.0,
+          "rate_per_step_pct": 0.1807,
+          "mean_calibrated_prob_pct": 0.6035,
+          "floods_with_a_positive_step": 2,
+          "days_with_tier_steps": 127,
+          "days_with_tier_flood_steps": 2,
+          "N": 27.16,
+          "ci90_day_blocks": [
+            0.0,
+            63.2
+          ],
+          "ci90_week_blocks": [
+            0.0,
+            65.2
+          ],
+          "boot_share_N_below_1": 0.137,
+          "display": {
+            "show": false,
+            "phrase": null,
+            "rule": "interval reaches 0 or is undefined"
+          }
+        },
+        "high": {
+          "steps": 927,
+          "zone_hours": 77.2,
+          "flood_steps": 9.0,
+          "rate_per_step_pct": 0.9709,
+          "mean_calibrated_prob_pct": 1.0048,
+          "floods_with_a_positive_step": 2,
+          "days_with_tier_steps": 73,
+          "days_with_tier_flood_steps": 2,
+          "N": 145.93,
+          "ci90_day_blocks": [
+            0.0,
+            336.37
+          ],
+          "ci90_week_blocks": [
+            0.0,
+            342.06
+          ],
+          "boot_share_N_below_1": 0.137,
+          "display": {
+            "show": false,
+            "phrase": null,
+            "rule": "interval reaches 0 or is undefined"
+          }
+        },
+        "moderate_or_higher": {
+          "steps": 2034,
+          "zone_hours": 169.5,
+          "flood_steps": 11.0,
+          "rate_per_step_pct": 0.5408,
+          "mean_calibrated_prob_pct": 0.7864,
+          "floods_with_a_positive_step": 2,
+          "days_with_tier_steps": 127,
+          "days_with_tier_flood_steps": 2,
+          "N": 81.29,
+          "ci90_day_blocks": [
+            0.0,
+            186.9
+          ],
+          "ci90_week_blocks": [
+            0.0,
+            191.71
+          ],
+          "boot_share_N_below_1": 0.137,
+          "display": {
+            "show": false,
+            "phrase": null,
+            "rule": "interval reaches 0 or is undefined"
+          }
+        }
+      }
+    },
+    "2020_2023_cut_selection_years": {
+      "days": 1213,
+      "base": {
+        "steps": 3310066,
+        "zone_hours": 275838.8,
+        "flood_steps": 146.39,
+        "rate_per_step_pct": 0.0044,
+        "floods_with_a_positive_step": 20
+      },
+      "tiers": {
+        "moderate": {
+          "steps": 2981,
+          "zone_hours": 248.4,
+          "flood_steps": 4.07,
+          "rate_per_step_pct": 0.1364,
+          "mean_calibrated_prob_pct": 0.6058,
+          "floods_with_a_positive_step": 4,
+          "days_with_tier_steps": 228,
+          "days_with_tier_flood_steps": 4,
+          "N": 30.85,
+          "ci90_day_blocks": [
+            6.25,
+            64.65
+          ],
+          "ci90_week_blocks": [
+            7.41,
+            63.14
+          ],
+          "boot_share_N_below_1": 0.0205,
+          "display": {
+            "show": true,
+            "phrase": "at least 6 times",
+            "rule": "lower 90% bound"
+          }
+        },
+        "high": {
+          "steps": 2994,
+          "zone_hours": 249.5,
+          "flood_steps": 39.1,
+          "rate_per_step_pct": 1.3059,
+          "mean_calibrated_prob_pct": 0.9835,
+          "floods_with_a_positive_step": 6,
+          "days_with_tier_steps": 160,
+          "days_with_tier_flood_steps": 6,
+          "N": 295.3,
+          "ci90_day_blocks": [
+            139.58,
+            492.25
+          ],
+          "ci90_week_blocks": [
+            135.84,
+            490.61
+          ],
+          "boot_share_N_below_1": 0.0018,
+          "display": {
+            "show": true,
+            "phrase": "at least 139 times",
+            "rule": "lower 90% bound"
+          }
+        },
+        "moderate_or_higher": {
+          "steps": 5975,
+          "zone_hours": 497.9,
+          "flood_steps": 43.17,
+          "rate_per_step_pct": 0.7225,
+          "mean_calibrated_prob_pct": 0.795,
+          "floods_with_a_positive_step": 6,
+          "days_with_tier_steps": 228,
+          "days_with_tier_flood_steps": 6,
+          "N": 163.36,
+          "ci90_day_blocks": [
+            75.45,
+            274.35
+          ],
+          "ci90_week_blocks": [
+            73.85,
+            276.32
+          ],
+          "boot_share_N_below_1": 0.0018,
+          "display": {
+            "show": true,
+            "phrase": "at least 75 times",
+            "rule": "lower 90% bound"
+          }
+        }
+      }
+    }
+  }
+}

@@ -437,6 +437,7 @@ def test_resident_view_renders_plain_language_and_hides_the_analyst_page():
     assert "Your area" in text and "What to do" in text
     assert "flash flood" in text and "(Singapore time)" in text
     assert "complements, and does not replace, PUB's flood alerts" in text
+    assert "not an official warning; alerts can be late or missed; follow PUB." in text
     assert "Replay of past data: showing 12:15, 17 Apr 2021" in text
     for jargon in ("probability", "calibrated", "IDW", "(experimental)"):
         assert jargon.lower() not in text.lower()
@@ -564,3 +565,47 @@ def test_no_pub_alert_line_in_replay(pub_alert):
     at.run(timeout=60)
     assert not at.exception
     assert _alert_lines(at) == []
+
+
+# --- Shareable ?area= link -----------------------------------------------------------------
+def _linked(slug: str | None, view: str | None = None) -> AppTest:
+    at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Replay Storm"
+    at.session_state["replay_stage"] = "simulate"
+    if view:
+        at.session_state["view"] = view
+    if slug is not None:
+        at.query_params["area"] = slug
+    at.run(timeout=60)
+    assert not at.exception
+    return at
+
+
+@pytest.mark.parametrize("view", [None, "Resident view"])
+@pytest.mark.parametrize("slug", ["bukit-merah", "Bukit-Merah"])
+def test_area_link_selects_the_area(slug, view):
+    assert _linked(slug, view).session_state["zone"] == "BUKIT MERAH"
+
+
+@pytest.mark.parametrize("slug", ["no-such-place", "", "   "])
+def test_bad_area_link_falls_back_to_the_default(slug):
+    assert _linked(slug).session_state["zone"] == "BUKIT TIMAH"
+
+
+def test_no_area_link_uses_the_default():
+    assert _linked(None).session_state["zone"] == "BUKIT TIMAH"
+
+
+def test_area_link_does_not_override_a_later_choice():
+    at = _linked("bukit-merah")
+    at.session_state["zone"] = "BEDOK"
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["zone"] == "BEDOK"
+
+
+def test_transport_table_pins_the_selected_area_first_even_when_low():
+    at = _linked("bedok")
+    table = next(m.value for m in at.markdown if "<thead>" in m.value)
+    first_row = table.split("<tbody>")[1].split("</tr>")[0]
+    assert "Bedok" in first_row and "Low" in first_row

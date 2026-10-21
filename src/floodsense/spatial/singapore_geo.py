@@ -87,6 +87,15 @@ URA_PLANNING_AREAS: dict[str, dict] = {
 }
 
 
+def area_from_slug(slug: object) -> str | None:
+    """The planning area for a share-link slug ("bukit-merah" -> "BUKIT MERAH"), else None.
+    Case and surrounding spaces are ignored; empty or unknown values give None."""
+    if not isinstance(slug, str):
+        return None
+    wanted = slug.strip().lower()
+    return next((a for a in URA_PLANNING_AREAS if a.lower().replace(" ", "-") == wanted), None)
+
+
 def load_station_snapshot(path: Path | None = None) -> dict[str, dict]:
     """
     NEA rainfall stations from the reference snapshot of data.gov.sg station metadata.

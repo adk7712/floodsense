@@ -142,6 +142,46 @@ def stations_at_risk(
     return out.drop_duplicates("station").drop(columns="order").reset_index(drop=True)
 
 
+def pin_zone_stations(
+    at_risk: pd.DataFrame,
+    zone: str | None,
+    zone_risk: pd.DataFrame,
+    exits: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """
+    The ``stations_at_risk`` table with the selected area's stations first and flagged.
+
+    Adds a ``selected`` column. Stations with an exit in ``zone`` come first (most urgent first,
+    then by name); the rest keep their order. A station of the area that is not at risk (the area
+    is Low) is added with the area's own tier and probability, which stays NaN if it is missing.
+    """
+    out = at_risk.copy()
+    out["selected"] = False
+    if not zone:
+        return out
+    exits = load_station_exits() if exits is None else exits
+    in_zone = set(exits.loc[exits["zone"] == zone, "station"])
+    out["selected"] = out["station"].isin(in_zone) | (out["zone"] == zone)
+    known = zone_risk[zone_risk["ura_planning_area"] == zone]
+    extra = sorted(in_zone - set(out["station"]))
+    if extra and not known.empty:
+        tier, prob = known.iloc[0]["risk_tier"], known.iloc[0]["flood_probability"]
+        added = pd.DataFrame(
+            {
+                "station": extra,
+                "zone": zone,
+                "tier": tier,
+                "probability": float(prob) if pd.notna(prob) else float("nan"),
+                "reason": f"{zone.title()} is at {tier} risk",
+                "selected": True,
+            }
+        )
+        out = added if out.empty else pd.concat([out, added], ignore_index=True)
+    out["_first"] = ~out["selected"]
+    out = out.sort_values("_first", kind="stable")
+    return out.drop(columns="_first").reset_index(drop=True)
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"

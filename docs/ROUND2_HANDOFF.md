@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 18 Oct 2026, evening, adk's session (mentor tests round 2, B7; §0). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 21 Oct 2026, adk's session (alerts wording, transport table, area link; §0, branch `alerts-wording-transport`, uncommitted). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -23,7 +23,28 @@
 
 ---
 
-## 0. Latest sessions: 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 21 Oct (adk, with subagents): alerts wording, transport table, area link. Branch `alerts-wording-transport`, NOT committed
+
+Checks run: 366 unit and 43 integration tests pass; ruff, format and mypy clean.
+
+**Built:**
+- **T1** honesty line "FloodSense is not an official warning; alerts can be late or missed; follow PUB." (`HONESTY_LINE`, `alerts/messages.py`) in the Telegram alert and all-clear footers and the Resident footer. Copy change, needs review.
+- **T3** transport table: the selected area's stations are pinned to the top and highlighted, even when Low (`pin_zone_stations`, `data/transport.py`, used in the app layer). The "Why" column is gone (Analyst view too). Not checked at phone width or in dark theme.
+- **T4** architecture diagram: 88 events; Telegram runs as a poller task. SVG and PNG regenerated.
+- **T5** `?area=<slug>` link (`area_from_slug`, `spatial/singapore_geo.py`): unknown or empty values fall back to the default; AppTest tests.
+
+**Drafted, behind a flag, NOT in use (needs adk's sign-off):**
+- **T2** Resident risk wording: `RISK_WORDING_DRAFT = False` in `app/resident_view.py` (verb + time window per tier). PUB-style "avoid ... for at least one hour" is not drafted (no sourced wording). The "N times the usual flood risk for a rainy hour" figure is computed from 2017–2023 only (`docs/results/risk_multiple_2017_2023.{py,json,md}`): High about 231 times (90% CI 117–359, 8 floods), Moderate about 28 times (11–49, 6 floods). **Recommendation: do not show "about N"**; the flag, if turned on, shows High only as "at least 116 times". The baseline counts drizzle and is pooled across zones, so "here" is not supported.
+
+**Specified, NOT built:** **T6** postal-code lookup via OneMap (`docs/onemap_postal_lookup_spec.md`). All terms unverified; build only after the licence and token checks.
+
+**Analysed, no code change:**
+- **Kriging claim:** that "+1 SD" caused 8.50 vs 4.52 false Moderate episodes per zone-year is **untested**. No kriged-mean-only run exists. The budget rule moved the operating point (T1 and T3 reach 21/28 at 10.03 and 8.74). Don't write "kriging did no better on floods"; only mean + 1 SD was scored. A test that would settle it (kriged mean alone, 2017–2023 CV) needs a new pre-registration.
+- **Why each model lost, as evidence / inference / untested hypotheses:** `docs/model_failure_hypotheses.md`. It also lists doc discrepancies (static-feature explanation vs the saved High fa of 1.39; "experimental" wording in `docs/radar_nowcast_result.md`; the 80-label LightGBM result has no saved file).
+
+**Open for the team:** adk signs off T2 wording and figure; decide whether the Analyst view should lose "Why"; check the table at phone width and dark theme; confirm the freeze drop and update CLAUDE.md; OneMap terms; ask adk where the 2.5 and 11 budgets came from.
 
 ### 18 Oct, evening (adk): mentor suggestions, round 2 (B7). Branch `mentor-tests-round2`, pushed for Akul's review
 
@@ -448,7 +469,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | A6 | Databricks App | Akul | Done | `f02fc15`. A6.2 fresh-browser test: open. A6.3 Apps auto-stop after 24 h (§5): restart before rehearsals and the demo. Fallback if it fails: run Streamlit locally, show the App as roadmap |
 | A7 | LLM-drafted flood candidates | adk | Partly | A7.1 `ai_query` works but invents facts (§5). A7.2 **2017–2023 only**, never 2024–2026 before the freeze: first pass done (14 candidates, all verified 16 Oct; 122 rejections, `fef4165`). A7.3 post batches with an ID, hand to Akul. A7.4 rejections in `docs/flood_events_rejected.md`. The "6 batches" target is not met (§0 label target) |
 | A8 | Governance (A8.1) and Asset Bundles (A8.2) | Akul | A8.1 done 16 Oct (DEPLOYMENT.md §18); A8.2 stretch | A8.1 descriptions and tags on every table, volume and model. A8.2 Asset Bundles is a stretch, only once the freeze work is done |
-| A9 | Resident / town-council view | adk | Done; PUB line built 17 Oct (`404c9bd`) | `1bfd0be`. Team decision 16 Oct: keep the separate Resident view (adk's fold into the Zone panel, `1bd7ab6`, was reverted); its switch sits top right, left of the Light/Dark toggle. Low wording: "No action suggested". **17 Oct:** PUB alert for the selected area in Live mode, in the Zone panel and the Resident view (`show_pub_alerts`; `404c9bd` on `app-radar-gap-live-alerts`). |
+| A9 | Resident / town-council view | adk | Done; PUB line built 17 Oct (`404c9bd`); 21 Oct: honesty line added, T2 wording drafted behind a flag (§0) | `1bfd0be`. Team decision 16 Oct: keep the separate Resident view (adk's fold into the Zone panel, `1bd7ab6`, was reverted); its switch sits top right, left of the Light/Dark toggle. Low wording: "No action suggested". **17 Oct:** PUB alert for the selected area in Live mode, in the Zone panel and the Resident view (`show_pub_alerts`; `404c9bd` on `app-radar-gap-live-alerts`). |
 | B1 | Label verification (B1.1–B1.4) | Akul verifies, adk drafts | Done for now (shortfall) | 88 verified, 0 unverified (17 Oct). 14 rows signed off by Akul 16 Oct; 11 drafted by Akul's side, of which adk verified 8 and rejected 3 on 17 Oct. New verified rows: 14 + 8 = 22 against the target of **60**; shortfall documented, web sources nearly used up. Set `time_precision` to match the source; run `load_flood_events()` after each batch |
 | B2 | Static zone features | adk | Done | `3fdc66c`. Sources: Copernicus GLO-30, ESA WorldCover; licences in README. PUB drainage capacity and catchments: not openly available, unverified |
 | B3 | Kriging vs IDW | adk | Done | `1fc34b1`, `docs/kriging_vs_idw.md`. Decision rule: add kriging only if clearly better. Recommendation: keep IDW; team to confirm |

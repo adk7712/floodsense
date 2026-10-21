@@ -16,3 +16,5 @@ ADVICE = {
     ),
 }
 DISCLAIMER = "FloodSense complements, and does not replace, PUB's flood alerts."
+# COPY CHANGE FOR REVIEW (T1): honesty line shown with the disclaimer (Telegram footer, Resident view).
+HONESTY_LINE = "FloodSense is not an official warning; alerts can be late or missed; follow PUB."

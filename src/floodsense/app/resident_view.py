@@ -8,13 +8,15 @@ always agree.
 """
 
 import html
+import json
 from collections.abc import Callable, Mapping
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from floodsense.alerts.messages import ADVICE, DISCLAIMER
+from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
 from floodsense.ingestion.flood_alerts import FloodAlert
 
 # The same wording as the Telegram alerts and the zone panel (alerts/messages.py).
@@ -26,7 +28,42 @@ RISK_NOW = {
 }
 FORECAST_CAVEAT = "Forecast from radar; flood accuracy not yet tested."
 
+# DRAFT wording (T2), off until adk signs off the wording and the figure. COPY CHANGE FOR REVIEW.
+# Each tier gets a verb and a time window. PUB-style "avoid ... for at least one hour" is left
+# out: no sourced PUB wording has been checked yet, so it is UNVERIFIED and not drafted here.
+RISK_WORDING_DRAFT = False
+DRAFT_TIER_LINE = {
+    "High": "Flooding is likelier than usual in the next hour. Act now.",
+    "Moderate": "Flooding is possible in the next hour. Prepare now.",
+}
+RISK_MULTIPLE_FILE = (
+    Path(__file__).resolve().parents[3] / "docs/results/risk_multiple_2017_2023.json"
+)
+
 TierStyle = Callable[[str, bool], tuple[str, str, str]]
+
+
+def risk_multiple_line(tier: str, path: Path = RISK_MULTIPLE_FILE) -> str | None:
+    """The "N times the usual flood risk for a rainy hour" line, from the 2017–2023 figures.
+
+    Reads the saved result (``docs/results/risk_multiple_2017_2023.py``) and shows its own
+    ``display.phrase`` only when its rule allows it; None for Low, a missing file or a hidden
+    figure. 2017–2023 data only (never the 2024–2026 test set)."""
+    # High only: the Moderate figure is not recommended (docs/results/risk_multiple_2017_2023.md).
+    if tier != "High":
+        return None
+    try:
+        data = json.loads(path.read_text())
+        entry = data["periods"][data["headline_period"]]["tiers"][tier.lower()]
+        display = entry["display"]
+        return (
+            f"{str(display['phrase']).capitalize()} the usual flood risk for a rainy hour "
+            "(Singapore-wide, from 2017–2023 floods)."
+            if display["show"]
+            else None
+        )
+    except (OSError, KeyError, ValueError, TypeError):
+        return None
 
 
 def _tier_of(table: pd.DataFrame, zone: str) -> str:
@@ -94,6 +131,12 @@ def render_resident_view(
 
     show_pub_alerts(pub_alerts, zone)
 
+    if RISK_WORDING_DRAFT and tier in DRAFT_TIER_LINE:
+        st.markdown(f"**{DRAFT_TIER_LINE[tier]}**")
+        multiple = risk_multiple_line(tier)
+        if multiple:
+            st.caption(multiple)
+
     if risk_in_1h is not None:
         tier_1h = _tier_of(risk_in_1h, zone)
         _, border_1h, colour_1h = tier_style(tier_1h, is_dark)
@@ -118,7 +161,7 @@ def render_resident_view(
     st.markdown(
         f'<div class="fs-res-foot" style="color:{tokens["text_muted"]};">'
         f"{'Replay of past data: showing' if is_replay else 'Latest data from'} {stamp}.<br>"
-        f"{DISCLAIMER}</div>",
+        f"{DISCLAIMER} {HONESTY_LINE}</div>",
         unsafe_allow_html=True,
     )
     return zone

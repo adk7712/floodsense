@@ -3,7 +3,7 @@ from datetime import datetime
 import pandas as pd
 
 from floodsense.common.config import settings
-from floodsense.data.transport import load_station_exits, stations_at_risk
+from floodsense.data.transport import load_station_exits, pin_zone_stations, stations_at_risk
 from floodsense.ingestion.flood_alerts import FloodAlert
 
 
@@ -57,3 +57,41 @@ def test_station_inside_a_pub_alert_circle_is_flagged():
     out = stations_at_risk(_zone_risk(**{"BUKIT TIMAH": "Low"}), [alert])
     assert "Beauty World MRT" in set(out["station"])
     assert set(out["tier"]) == {"PUB alert"}
+
+
+def _exits():
+    return pd.DataFrame(
+        {
+            "station": ["A MRT", "B MRT", "C MRT"],
+            "latitude": [1.3, 1.3, 1.3],
+            "longitude": [103.8, 103.8, 103.8],
+            "zone": ["BEDOK", "TAMPINES", "TAMPINES"],
+        }
+    )
+
+
+def test_selected_low_area_stations_are_pinned_with_their_tier():
+    risk = _zone_risk(**{"BEDOK": "High", "TAMPINES": "Low"})
+    base = stations_at_risk(risk, exits=_exits())
+    assert list(base["station"]) == ["A MRT"]  # unchanged: only at-risk stations
+    out = pin_zone_stations(base, "TAMPINES", risk, _exits())
+    assert list(out["station"]) == ["B MRT", "C MRT", "A MRT"]
+    assert list(out["selected"]) == [True, True, False]
+    assert list(out["tier"][:2]) == ["Low", "Low"]
+
+
+def test_pinning_keeps_a_missing_probability_missing():
+    risk = _zone_risk(**{"TAMPINES": "Low"})
+    risk["flood_probability"] = float("nan")
+    out = pin_zone_stations(stations_at_risk(risk, exits=_exits()), "TAMPINES", risk, _exits())
+    assert out["probability"].isna().all()
+
+
+def test_pinning_a_risky_area_puts_it_first_and_no_zone_changes_nothing():
+    risk = _zone_risk(**{"BEDOK": "Moderate", "TAMPINES": "High"})
+    base = stations_at_risk(risk, exits=_exits())
+    assert list(base["station"])[0] != "A MRT"
+    out = pin_zone_stations(base, "BEDOK", risk, _exits())
+    assert out["station"].iloc[0] == "A MRT" and out["selected"].tolist() == [True, False, False]
+    none = pin_zone_stations(base, None, risk, _exits())
+    assert list(none["station"]) == list(base["station"]) and not none["selected"].any()

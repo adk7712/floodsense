@@ -30,7 +30,7 @@ from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data.flood_events import load_flood_events
 from floodsense.data.replay import load_replay
 from floodsense.data.transport import SOURCE_NAME as MRT_SOURCE
-from floodsense.data.transport import stations_at_risk
+from floodsense.data.transport import pin_zone_stations, stations_at_risk
 from floodsense.features.zone_features import (
     compute_zone_feature_table,
     newest_complete_step,
@@ -43,7 +43,11 @@ from floodsense.models.scoring import default_thresholds, score_zone_features
 from floodsense.radar.decode import COLOUR_SCALE
 from floodsense.radar.live import RadarView, forecast_features, radar_view
 from floodsense.serving.gold import GoldUnavailable, latest_zone_risk, warehouse_id
-from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, load_station_snapshot
+from floodsense.spatial.singapore_geo import (
+    URA_PLANNING_AREAS,
+    area_from_slug,
+    load_station_snapshot,
+)
 
 st.set_page_config(
     page_title="FloodSense | Urban Drainage Intelligence",
@@ -1182,6 +1186,12 @@ st.sidebar.markdown("---")
 # Replay has two steps in the sidebar: choose a date ("choose"), then simulate it ("simulate",
 # with the area and time controls). Streamlit drops a widget's value while the widget is hidden,
 # so re-store the values of the widgets the other step hides.
+# A shared link (?area=bukit-merah) picks the area once per session; later choices win.
+if not st.session_state.get("_area_link_applied"):
+    st.session_state["_area_link_applied"] = True
+    _linked_area = area_from_slug(st.query_params.get("area"))
+    if _linked_area:
+        st.session_state["zone"] = _linked_area
 st.session_state.setdefault("zone", "BUKIT TIMAH")
 st.session_state.setdefault("replay_stage", "choose")
 for _key in list(st.session_state):
@@ -1975,12 +1985,14 @@ with st.container(border=True):
             + (" or near an active PUB flood alert" if mode == "Live Feed" else "")
             + " right now."
         )
-    elif at_risk is not None:
-        counts = at_risk["tier"].value_counts()
-        t_cols = st.columns(3)
-        t_cols[0].metric("Stations in High areas", int(counts.get("High", 0)))
-        t_cols[1].metric("Stations in Moderate areas", int(counts.get("Moderate", 0)))
-        t_cols[2].metric("Stations near a PUB alert", int(counts.get("PUB alert", 0)))
+    if at_risk is not None:
+        if not at_risk.empty:
+            counts = at_risk["tier"].value_counts()
+            t_cols = st.columns(3)
+            t_cols[0].metric("Stations in High areas", int(counts.get("High", 0)))
+            t_cols[1].metric("Stations in Moderate areas", int(counts.get("Moderate", 0)))
+            t_cols[2].metric("Stations near a PUB alert", int(counts.get("PUB alert", 0)))
+        shown = pin_zone_stations(at_risk, selected_zone, df_results)
 
         # An HTML table rather than st.dataframe: the dataframe is drawn on a canvas that the
         # page's light/dark styling can't reach.
@@ -1993,24 +2005,26 @@ with st.container(border=True):
                 f'padding:1px 8px; border-radius:9999px; font-weight:600;">{html.escape(tier)}</span>'
             )
 
-        cell = f"padding:7px 10px; border-bottom:1px solid {c_border_subtle};"
+        cell = f"padding:7px 10px; border-bottom:1px solid {c_border_subtle}; white-space:nowrap;"
         head = (
             f"position:sticky; top:0; background:{c_subtle}; color:{c_muted}; "
             f"text-align:left; font-weight:600; {cell}"
         )
+        # The selected area's stations are pinned to the top and tinted (also when it is Low).
+        pick = f"background:{c_accent_muted}; font-weight:600;"
         rows_html = "".join(
             "<tr>"
-            f'<td style="{cell}">{html.escape(str(r.station))}</td>'
-            f'<td style="{cell}">{html.escape(str(r.zone).title())}</td>'
-            f'<td style="{cell}">{_tier_chip(str(r.tier))}</td>'
-            f'<td style="{cell}">{"" if pd.isna(r.probability) else f"{r.probability:.2%}"}</td>'
-            f'<td style="{cell} color:{c_muted};">{html.escape(str(r.reason))}</td>'
+            f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.station))}</td>'
+            f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
+            f'<td style="{cell} {pick if r.selected else ""}">{_tier_chip(str(r.tier))}</td>'
+            f'<td style="{cell} {pick if r.selected else ""}">'
+            f"{'' if pd.isna(r.probability) else f'{r.probability:.2%}'}</td>"
             "</tr>"
-            for r in at_risk.itertuples(index=False)
+            for r in shown.itertuples(index=False)
         )
-        headers = ["Station", "Planning area", "Risk", "Chance of flood (next hour)", "Why"]
+        headers = ["Station", "Planning area", "Risk", "Chance (next hour)"]
         st.markdown(
-            f'<div style="max-height:380px; overflow-y:auto; border:1px solid {c_border}; '
+            f'<div style="max-height:380px; overflow:auto; border:1px solid {c_border}; '
             f'border-radius:10px; background:{c_surface};">'
             f'<table style="width:100%; border-collapse:collapse; font-size:0.85rem; '
             f"font-family:'Inter', sans-serif; color:{c_main}; margin:0;\">"
@@ -2021,8 +2035,8 @@ with st.container(border=True):
         )
     st.caption(
         f"Stations with an exit in a planning area rated Moderate or High, or within an active PUB "
-        f"alert circle (exit locations: {MRT_SOURCE}). This shows exposure, not observed "
-        "service disruptions."
+        f"alert circle, plus the selected area's stations at any tier (exit locations: "
+        f"{MRT_SOURCE}). This shows exposure, not observed service disruptions."
         + (
             " Today's station list is used for every replay, so stations that opened after the "
             "replayed day can appear."
