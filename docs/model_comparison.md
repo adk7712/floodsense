@@ -12,10 +12,15 @@ run for this page.
   last 60 minutes. It turns that into a chance of a reported flood in the next hour.
   - The live copy is **version 3**, registered as `champion` in Databricks Unity Catalog.
   - It warns at **Moderate** from about 38 mm of rain in an hour, and at **High** from about 43 mm.
-- **Why this one:** nothing we tried beat it under rules we fixed before looking at the results.
-  - It has the highest overall score (0.500).
+- **Why this one:** no alternative has replaced it under rules we fixed before looking at the results.
+  - Only T3 (rain30 for Moderate) met its pre-registered margin (+3 floods at Moderate, 90% CI +4 to
+    +21 percentage points, at 8.74 false Moderate episodes per zone-year against a budget of 11); it
+    is not in use and awaits a team decision. T1 (0.518) and T2 (0.446) did not meet theirs. A post-hoc
+    static run (prior SD 0.1, chosen after seeing the data) scored 0.509, slightly above the
+    rule's 0.500. At 10 false alerts per zone-year, rule_rain30 caught 21 of 28 validation floods,
+    LightGBM 19, the registered static candidate (rule_rain60_static) 19, and the rule 18.
   - It is also the simplest model, and the easiest to explain to a resident.
-- **How strong the evidence is:** weak, in both directions. We test on only 28 past floods, so every
+- **How strong the evidence is:** weak, in both directions. We validate on only 28 past floods (2020–2023), so every
   result has an uncertainty of about ±15 percentage points.
   - A model has to beat the rule by a clear margin before we switch.
   - Several alternatives came close but did not clear that margin.
@@ -51,7 +56,7 @@ run for this page.
   - 58 of the floods are from 2017–2023 and are used to build and compare models.
   - 30 are from 2024 to Sep 2026. They are kept aside as a one-time final test.
 - **Cross-validation:** each model is trained on earlier years and tested on the next year, for
-  2020, 2021, 2022 and 2023 in turn. That gives **28 test floods**.
+  2020, 2021, 2022 and 2023 in turn. That gives **28 validation floods**. (They are not the held-out 2024–2026 test set.)
   - This mimics real use: the model never sees the year it is tested on.
 - **Calibration:** each model's raw score is converted into a probability (here, "Platt
   calibration"), so that "1%" means roughly a 1-in-100 chance.
@@ -66,14 +71,14 @@ run for this page.
 
 ## Summary table
 
-*(17 Oct run on 88 labels and 28 test floods: `models/candidates/selection_2026-10-17.json`;
+*(17 Oct run on 88 labels and 28 validation floods: `models/candidates/selection_2026-10-17.json`;
 18 Oct tests: `models/candidates/mentor_tests_2026-10-18.json`)*
 
 The two tier columns show floods caught (with the 90% CI) and false alerts per zone-year (fa).
 
 | Model | What it uses | Event score | High: caught, fa | Moderate: caught, fa | Status | Why |
 |---|---|---|---|---|---|---|
-| **rule_rain60** | Rain in the last 60 min | **0.500** | 14/28 (36–64%), 2.49 | 18/28 (50–79%), 4.52 | **In use (champion)** | Highest score of everything tried, and the simplest to run and explain |
+| **rule_rain60** | Rain in the last 60 min | **0.500** | 14/28 (36–64%), 2.49 | 18/28 (50–79%), 4.52 | **In use (champion)** | Only T3 met its pre-set margin and awaits a team decision; T1 (0.518) and the post-hoc prior-SD 0.1 static run (0.509) scored a little higher without meeting a margin, and it is the simplest to run and explain |
 | rule_rain30 | Rain in the last 30 min | 0.491 | 11/28 (25–54%), 1.41 | 21/28 (61–89%), 8.74 | Not used | Catches 3 fewer floods at High; its 3 extra Moderate catches cost about twice the false alerts |
 | Logistic regression | Several rain measures | 0.232 | 4/28 (4–25%), 1.70 | 12/28 (29–57%), 8.16 | Not used | Catches far fewer floods than the rule at the same false-alarm level |
 | LightGBM | Several rain measures | 0.438 | 11/28 (25–54%), 1.53 | 19/28 (54–82%), 8.60 | Not used | Lower score than the rule, nearly twice the Moderate false alerts, and its results swing a lot as floods are added |
@@ -112,7 +117,7 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 - **Why the Moderate threshold moved from 0.30% to 0.53%:** after more floods were verified, 0.30%
   gave 11.29 false Moderate alerts per zone-year. That is over the budget of 11, so the budget
   rule picked 0.53% instead. The budgets themselves did not change.
-- **What that cost:** at 0.30% the rule caught 20 of 28 test floods (90% CI 57–86%); at 0.53% it
+- **What that cost:** at 0.30% the rule caught 20 of 28 validation floods (90% CI 57–86%); at 0.53% it
   catches 18 (50–79%).
   - The two floods lost are 2021-08-20 Tampines Ave 10 and 2021-08-24 Cashew Rd.
   - In exchange, false Moderate alerts fall from 11.29 to 4.52 per zone-year.
@@ -137,7 +142,9 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 **Strengths**
 - **Easy to explain:** "about 38 mm of rain in the last hour in your area" is something a resident
   or a town council can act on.
-- **Best score** of everything we tried.
+- **Only T3 met its pre-set margin, and it awaits a team decision.** T1 (0.518) and T2 (0.446) did
+  not meet theirs. The post-hoc static run (prior SD 0.1, chosen after seeing the data) scored
+  0.509, slightly above the rule's 0.500.
 - **Can't learn reporting bias.** It knows nothing about a zone except its rain, so it can't learn
   that busy areas simply get more floods *reported* (see the zone-feature models below).
 - **Calibrated,** with thresholds set by a fixed rule rather than tuned by hand.
@@ -205,7 +212,7 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
     sensitive it is to small amounts of data.
   - Its High warnings come later (median 38 min against 45).
   - It raises nearly twice the Moderate false alerts.
-- **Why it isn't used:** it still scores below the rule. With 28 test floods, the order of the top
+- **Why it isn't used:** it still scores below the rule. With 28 validation floods, the order of the top
   three models isn't firmly settled, so the simpler model stays.
 - **Open question:** whether it would win with 100 or more floods. We can't test that yet.
 
@@ -266,7 +273,7 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 ### Different Moderate thresholds for the current rule
 *(`models/candidates/cutoff_comparison_2026-10-17.json`; handoff "17 Oct, later" block)*
 - **What it is:** the champion rule itself, with the Moderate warning threshold moved up or down.
-  The results are for the same 28 test floods.
+  The results are for the same 28 validation floods.
 
 | Moderate threshold | Floods caught (90% CI) | fa (budget 11) | Median warning |
 |---|---|---|---|
@@ -390,7 +397,8 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
   - Both methods underestimate the heaviest storm cells by about 16–17 mm/h.
   - Kriging is worse for light rain.
 - **Why it isn't used:** the team judged the gain too small to switch. When kriging was later scored
-  on catching floods (T2 above), it did no better.
+  on catching floods (T2 above), only kriged mean + 1 kriging SD was scored. Kriged mean alone is
+  untested, so we can't say whether kriging helps or hurts flood catching.
 
 ### Radar nowcast (used for the forecast map, not as a model input)
 *(`docs/radar_nowcast_result.md`; `docs/radar_calibration.md`; handoff §3, A1)*
@@ -436,7 +444,7 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
   - Singapore's water mostly moves through man-made drains and canals, so a natural-terrain index
     may not show where floods really happen.
   - The FABDEM licence (probably CC BY-NC-SA 4.0, non-commercial) is **unverified**.
-  - With 28 test floods, a small gain wouldn't be distinguishable from luck.
+  - With 28 validation floods, a small gain wouldn't be distinguishable from luck.
   - It goes on the slides as a next step. About a day of work if revisited.
 - **PUB drainage capacity and catchment boundaries:** not openly available (unverified).
 - **A model trained on radar:** not possible with about 3 months of radar.
@@ -449,7 +457,7 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 - **Zone features pick up reporting bias.** Busy areas get more floods *reported*, so a model given
   zone facts learns to warn in busy areas. That uses up the false-alarm budget and costs floods
   elsewhere.
-- **28 test floods is very few.** Each result is uncertain by about ±15 points, so differences of 1–3
+- **28 validation floods is very few.** Each result is uncertain by about ±15 points, so differences of 1–3
   floods can't be told apart from luck.
 - **"More floods caught" often just means "more false alerts allowed".** The champion's Moderate
   setting uses 4.52 of the 11 false alerts allowed. T1, T2, T3 and the 30-minute rule all reach

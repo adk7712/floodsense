@@ -128,3 +128,39 @@ def test_geojson_generation():
     gj = create_singapore_geojson()
     assert gj["type"] == "FeatureCollection"
     assert len(gj["features"]) == len(URA_PLANNING_AREAS)
+
+
+# --- Scoring unknown inputs, and the IDW engine's defaults ---------------------------------------
+
+
+def _scoring_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "ura_planning_area": ["BUKIT TIMAH"] * 3,
+            "rain_5m": [4.0, 4.0, 4.0],
+            "rain_15m": [12.0, 12.0, 12.0],
+            "rain_30m": [24.0, 24.0, 24.0],
+            "rain_60m": [48.0, np.nan, 48.0],
+            "rain_120m": [60.0, 60.0, np.nan],
+            "rain_decay_72h": [50.0] * 3,
+            "storm_rarity_score": [0.0] * 3,
+        }
+    )
+
+
+def test_nan_feature_scores_no_data_not_low_or_an_error():
+    from floodsense.models.artifact import load_model
+    from floodsense.models.scoring import score_zone_features
+
+    out = score_zone_features(_scoring_frame(), load_model())
+    assert list(out["risk_tier"][1:]) == ["No data", "No data"]
+    assert out["flood_probability"][1:].isna().all()
+    assert out["flood_probability"].iloc[0] >= 0 and out["risk_tier"].iloc[0] != "No data"
+    # The heuristic only reads rain_30m and rain_120m, so only a NaN rain_120m makes it unknown.
+    heur = score_zone_features(_scoring_frame(), None)
+    assert heur["risk_tier"].iloc[2] == "No data" and heur["risk_tier"].iloc[1] != "No data"
+
+
+def test_empty_stations_or_zones_are_not_swapped_for_the_defaults():
+    assert IDWMatrixEngine(stations={}).stations == {}
+    assert IDWMatrixEngine(zones={}).zones == {}

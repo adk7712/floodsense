@@ -7,6 +7,7 @@ import pytest
 from PIL import Image
 
 from floodsense.common.config import settings
+from floodsense.models.scoring import score_zone_features
 from floodsense.radar.decode import COLOUR_SCALE, decode_levels, rate_table
 
 pytest.importorskip("cv2")
@@ -84,7 +85,23 @@ def test_forecast_features_swap_in_next_hour_rain():
     z = pd.DataFrame({"ura_planning_area": ["A"], "nowcast_60_mm": [40.0]})
     out = forecast_features(f, z).set_index("ura_planning_area")
     assert out.loc["A", "rain_60m"] == 40 and out.loc["A", "rain_120m"] == 45
-    assert out.loc["B", "rain_60m"] == 0  # no radar for a zone means no forecast rain, not a guess
+    # No radar for a zone means the forecast is unknown, not a dry hour.
+    assert pd.isna(out.loc["B", "rain_60m"]) and pd.isna(out.loc["B", "rain_120m"])
+
+
+def test_zone_without_a_nowcast_scores_no_data_not_low():
+    f = pd.DataFrame(
+        {
+            "ura_planning_area": ["A", "B"],
+            "rain_60m": [45.0, 45.0],
+            "rain_120m": [60.0, 60.0],
+            "rain_30m": [30.0, 30.0],
+        }
+    )
+    z = pd.DataFrame({"ura_planning_area": ["A", "B"], "nowcast_60_mm": [40.0, np.nan]})
+    out = score_zone_features(forecast_features(f, z), None).set_index("ura_planning_area")
+    assert out.loc["B", "risk_tier"] == "No data" and np.isnan(out.loc["B", "flood_probability"])
+    assert out.loc["A", "risk_tier"] != "No data"
 
 
 # --- The Databricks radar volume (how the Databricks App gets frames) ---------------------------

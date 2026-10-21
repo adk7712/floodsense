@@ -13,6 +13,7 @@ accumulated across reruns, so the page depends only on the selected mode, time a
 
 import html
 import json
+import logging
 import time
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -24,7 +25,13 @@ import streamlit as st
 from shapely.geometry import mapping, shape
 
 from floodsense.app import replay_days
-from floodsense.app.resident_view import RESIDENT_CSS, render_resident_view, show_pub_alerts
+from floodsense.app.resident_view import (
+    RESIDENT_CSS,
+    escape_markdown,
+    pct,
+    render_resident_view,
+    show_pub_alerts,
+)
 from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data.flood_events import load_flood_events
@@ -39,15 +46,22 @@ from floodsense.features.zone_features import (
 from floodsense.ingestion.flood_alerts import FloodAlert, active_alerts, fetch_flood_alerts
 from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 from floodsense.models.artifact import load_model, rarity_scores
-from floodsense.models.scoring import default_thresholds, score_zone_features
+from floodsense.models.scoring import (
+    NO_DATA_TIER,
+    default_thresholds,
+    score_zone_features,
+)
 from floodsense.radar.decode import COLOUR_SCALE
 from floodsense.radar.live import RadarView, forecast_features, radar_view
+from floodsense.serving.coverage import coverage, withhold_tier
 from floodsense.serving.gold import GoldUnavailable, latest_zone_risk, warehouse_id
 from floodsense.spatial.singapore_geo import (
     URA_PLANNING_AREAS,
     area_from_slug,
     load_station_snapshot,
 )
+
+log = logging.getLogger(__name__)
 
 st.set_page_config(
     page_title="FloodSense | Urban Drainage Intelligence",
@@ -702,13 +716,10 @@ button[data-testid="stButtonGroupButton"] {{
     transition: all 0.15s ease !important;
 }}
 
-button[data-variant="segmented_control"][aria-checked="true"],
-button[data-variant="segmented_control"][aria-pressed="true"],
 button[data-testid="stButtonGroupButton"][aria-pressed="true"] {{
-    background-color: var(--bg-surface) !important;
-    color: var(--text-main) !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
-    border: 1px solid var(--border-subtle) !important;
+    background-color: var(--primary) !important;
+    color: {"#111827" if IS_DARK else "#FFFFFF"} !important;
+    border: 1px solid var(--primary) !important;
 }}
 
 button[data-variant="segmented_control"]:hover,
@@ -878,15 +889,80 @@ hr {{
     font-size: 0.78rem !important;
 }}
 
-/* View switch (Analyst / Resident): the chosen view is the orange button. */
-.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-pressed="true"],
-.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-checked="true"] {{
+/* Every switch (Live / Replay, Analyst / Resident, the map's layer and timing): the chosen option
+   is the orange button, like the other buttons. "Advanced" is orange while its toggle is open. */
+div[data-testid="stButtonGroup"] button[aria-pressed="true"],
+div[data-testid="stButtonGroup"] button[aria-checked="true"],
+button[data-variant="segmented_control"][aria-checked="true"],
+button[data-variant="segmented_control"][aria-pressed="true"],
+.st-key-advanced_btn_open button {{
     background-color: var(--primary) !important;
     border-color: var(--primary) !important;
+    box-shadow: none !important;
 }}
-.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
-.st-key-view_switch div[data-testid="stButtonGroup"] button[aria-checked="true"] * {{
+div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
+div[data-testid="stButtonGroup"] button[aria-checked="true"] *,
+button[data-variant="segmented_control"][aria-checked="true"] *,
+button[data-variant="segmented_control"][aria-pressed="true"] *,
+.st-key-advanced_btn_open button * {{
     color: {"#111827" if IS_DARK else "#FFFFFF"} !important;
+}}
+
+/* KPI labels: one line with an ellipsis on wide screens (wrapping on phones, below). */
+.fs-kpi-label {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+/* The map legend's "no data" key. */
+.fs-legend-nodata {{ margin-top: 2px; font-size: 0.68rem; color: var(--text-muted); }}
+.fs-legend-nodata span {{
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px;
+}}
+
+/* Phones: the top controls stack full width in the page flow, clear of the sidebar toggle at the
+   top left; labels wrap rather than being cut off. */
+@media (max-width: 640px) {{
+    .block-container {{
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }}
+    .st-key-top_controls {{
+        position: static !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        padding-left: 48px !important;
+        margin-bottom: 0.5rem !important;
+        box-sizing: border-box !important;
+    }}
+    .st-key-top_controls > div, .st-key-view_switch, .st-key-theme_toggle {{
+        width: 100% !important;
+        max-width: 100% !important;
+    }}
+    .st-key-view_switch [data-testid="stElementContainer"],
+    .st-key-view_switch div[data-testid="stButtonGroup"] {{
+        width: 100% !important;
+    }}
+    .st-key-view_switch div[role="radiogroup"] {{
+        display: flex !important;
+        width: 100% !important;
+        max-width: none !important;
+    }}
+    .st-key-view_switch div[role="radiogroup"] > button {{
+        flex: 1 1 0 !important;
+        justify-content: center !important;
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+    }}
+    .st-key-theme_toggle {{
+        justify-content: flex-start !important;
+        box-sizing: border-box !important;
+    }}
+    .fs-kpi-label {{ white-space: normal; overflow: visible; text-overflow: clip; }}
+    div[data-testid="stMain"] {{ overflow-x: hidden; }}
+    div.st-key-map_view, div.st-key-map_subview div[data-testid="stElementContainer"],
+    div.st-key-map_view div[data-testid="stButtonGroup"],
+    div.st-key-map_subview div[data-testid="stButtonGroup"] {{
+        width: 100% !important;
+        max-width: 100% !important;
+    }}
 }}
 
 /* Resident view */
@@ -907,6 +983,10 @@ def tier_style(tier: str, is_dark: bool) -> tuple[str, str, str]:
         if is_dark:
             return ("rgba(245, 158, 11, 0.16)", "rgba(245, 158, 11, 0.4)", "#FCD34D")
         return ("#FFFBEB", "#FDE68A", "#D97706")
+    elif tier == NO_DATA_TIER:  # grey: the risk is unknown, not low
+        if is_dark:
+            return ("rgba(148, 163, 184, 0.14)", "rgba(148, 163, 184, 0.4)", "#CBD5E1")
+        return ("#F1F5F9", "#CBD5E1", "#475569")
     else:  # Low
         if is_dark:
             return ("rgba(56, 189, 248, 0.16)", "rgba(56, 189, 248, 0.4)", "#7DD3FC")
@@ -938,9 +1018,32 @@ def load_ura_boundaries() -> dict[str, Any] | None:
 
 def forecast_scored(features: pd.DataFrame, radar: RadarView) -> pd.DataFrame:
     """Zone risk in 1 hour: the same scoring as now, on the radar nowcast's rain."""
-    out = score_zone_features(forecast_features(features, radar.zones), model).merge(
-        ZONE_META, on="ura_planning_area"
-    )
+    return page_table(score_zone_features(forecast_features(features, radar.zones), model))
+
+
+def withhold_no_data(scored: pd.DataFrame) -> pd.DataFrame:
+    """Zones with too few reporting gauges get tier "No data" and no probability, not Low.
+
+    Live and replay tables carry the ``coverage`` column (judged over the whole hour, in
+    ``live_features`` / ``replay_days``). A gold table has only its own step's gauge count, so each
+    row is judged alone: only "none" can be told there, never "partial"."""
+    if "coverage" not in scored.columns:
+        out = withhold_tier(scored.assign(timestamp=scored["timestamp"].max()))
+        out["timestamp"] = scored["timestamp"]
+        return out
+    out = scored.copy()
+    none = out["coverage"] == "none"
+    out.loc[none, "risk_tier"] = NO_DATA_TIER
+    out.loc[none, "flood_probability"] = float("nan")
+    return out
+
+
+def page_table(scored: pd.DataFrame) -> pd.DataFrame:
+    """The scored table as the page shows it: one row for each of the 55 zones, with zone
+    coordinates. A zone missing from ``scored`` is "No data", so a lookup never comes back empty."""
+    out = ZONE_META.merge(withhold_no_data(scored), on="ura_planning_area", how="left")
+    out["risk_tier"] = out["risk_tier"].fillna(NO_DATA_TIER)
+    out["coverage"] = out["coverage"].fillna("none")
     out["zone"] = out["ura_planning_area"]
     return out
 
@@ -949,6 +1052,7 @@ TIER_COLORS = {
     "High": "#EF4444",  # Signal Crimson
     "Moderate": "#F59E0B",  # Industrial Amber
     "Low": "#0EA5E9",  # Sky Blue
+    NO_DATA_TIER: "#94A3B8",  # Slate grey: unknown, not low
 }
 NUM_ZONES = len(URA_PLANNING_AREAS)
 RADAR_COLOURS = COLOUR_SCALE  # light → heavy, as on MSS's legend
@@ -989,6 +1093,7 @@ def replay_features(path: str) -> tuple[pd.DataFrame, str, int]:
     """Features for every zone and step in the replay's display window (warm-up included in calc)."""
     replay = load_replay(path)
     table = compute_zone_feature_table(replay.snapshots, replay.stations)
+    table["coverage"] = coverage(table)
     in_window = (table["timestamp"] >= replay.display_start) & (
         table["timestamp"] <= replay.display_end
     )
@@ -1072,6 +1177,7 @@ def live_features() -> tuple[pd.DataFrame | None, int, str | None]:
     for snap in snapshots:
         stations.update(snap.stations)
     table = compute_zone_feature_table(snapshots, stations)
+    table["coverage"] = coverage(table)  # over the whole history, so a gap in the hour shows
     # The newest step NEA has finished filling in, not one with only a few gauges so far.
     latest = table[table["timestamp"] == newest_complete_step(step_counts(table))]
     latest = latest.reset_index(drop=True)
@@ -1086,11 +1192,39 @@ DATABRICKS, DATA_GOV = "Databricks", "data.gov.sg"
 # 15 min: half the poller's 30-min interval, so gold stays under the stale warning while each
 # viewer queries the SQL warehouse (daily compute cap) at most 4 times an hour.
 @st.cache_data(ttl=900, show_spinner="Reading risk from Databricks…")
+def _gold_cached() -> pd.DataFrame:
+    # Raises when gold is unavailable: Streamlit doesn't cache a call that raised, so one cold
+    # warehouse can't keep every viewer on the fallback for 15 minutes.
+    return latest_zone_risk()
+
+
+GOLD_RETRY_AFTER = 60.0  # seconds to leave a failed gold read alone
+
+
+@st.cache_resource
+def _gold_failure() -> dict[str, Any]:
+    """The last gold failure (shared by all sessions): when it happened and its message."""
+    return {}
+
+
+def clear_gold() -> None:
+    """Forget the cached gold table and any recent failure (Retry)."""
+    _gold_cached.clear()
+    _gold_failure().clear()
+
+
 def gold_latest() -> tuple[pd.DataFrame | None, str | None]:
-    """The latest gold row per zone, or (None, error message)."""
+    """The latest gold row per zone, or (None, error message). Successes are cached for 15 min;
+    a failure is remembered for GOLD_RETRY_AFTER seconds, so a down warehouse isn't queried on
+    every rerun."""
+    failure = _gold_failure()
+    failed_at = failure.get("at")  # .get: another session may clear it at any moment
+    if failed_at is not None and time.monotonic() - failed_at < GOLD_RETRY_AFTER:
+        return None, str(failure.get("error", "unavailable"))
     try:
-        return latest_zone_risk(), None
+        return _gold_cached(), None
     except GoldUnavailable as exc:
+        failure.update(at=time.monotonic(), error=str(exc))
         return None, str(exc)
 
 
@@ -1116,6 +1250,17 @@ def live_flood_alerts() -> tuple[list[FloodAlert] | None, str | None]:
         return active_alerts(fetch_flood_alerts(since=since)), None
     except LiveFeedUnavailable as exc:
         return None, str(exc)
+    except (ValueError, KeyError, TypeError, OSError) as exc:  # a malformed or failed reply
+        log.warning("PUB flood alerts could not be read", exc_info=True)
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+try:
+    import cv2
+
+    _RADAR_ERRORS: tuple[type[BaseException], ...] = (ValueError, KeyError, OSError, cv2.error)
+except ImportError:  # the optional 'radar' extra isn't installed (radar_view then says so)
+    _RADAR_ERRORS = (ValueError, KeyError, OSError)
 
 
 def _radar(when_iso: str) -> RadarView | None:
@@ -1123,14 +1268,32 @@ def _radar(when_iso: str) -> RadarView | None:
         return radar_view(datetime.fromisoformat(when_iso))
     except ImportError:
         return None  # the optional 'radar' extra (OpenCV) isn't installed
+    except _RADAR_ERRORS:  # a corrupt frame or a changed colour scale: "no radar", not a crash
+        log.warning("Radar for %s could not be read", when_iso, exc_info=True)
+        return None
+
+
+class _NoRadar(Exception):
+    """No radar came back; raised so that the miss isn't cached for good."""
+
+
+RADAR_MISS_TTL = 300.0  # seconds a missing radar frame isn't looked for again
+
+
+@st.cache_resource
+def _radar_misses() -> dict[str, float]:
+    return {}
 
 
 # Frames more than an hour old never change, so a replayed time is computed once and kept (about
 # 0.2 MB each; 500 is plenty for a session of scrubbing). Recent times are refreshed every 5 min,
 # since the newest frames may still be arriving.
 @st.cache_data(max_entries=500, show_spinner="Loading radar…")
-def _radar_past(when_iso: str) -> RadarView | None:
-    return _radar(when_iso)
+def _radar_past(when_iso: str) -> RadarView:
+    view = _radar(when_iso)
+    if view is None:
+        raise _NoRadar  # not cached: a network blip must not hide the radar for the whole session
+    return view
 
 
 @st.cache_data(ttl=300, show_spinner="Loading radar…")
@@ -1141,7 +1304,17 @@ def _radar_recent(when_iso: str) -> RadarView | None:
 def radar_for(when_iso: str) -> RadarView | None:
     """Radar now and the nowcast at a time (None: no radar exists for it). Cached per frame time."""
     age = datetime.now(settings.tzinfo) - datetime.fromisoformat(when_iso)
-    return _radar_past(when_iso) if age > timedelta(hours=1) else _radar_recent(when_iso)
+    if age <= timedelta(hours=1):
+        return _radar_recent(when_iso)
+    misses = _radar_misses()
+    missed_at = misses.get(when_iso)
+    if missed_at is not None and time.monotonic() - missed_at < RADAR_MISS_TTL:
+        return None  # looked a moment ago: don't repeat the frame reads and API calls
+    try:
+        return _radar_past(when_iso)
+    except _NoRadar:
+        misses[when_iso] = time.monotonic()
+        return None
 
 
 LIVE_REFRESH = timedelta(minutes=5)
@@ -1154,7 +1327,7 @@ def live_auto_refresh() -> None:
     if time.monotonic() - loaded_at >= LIVE_REFRESH.total_seconds() - 10:
         st.session_state["live_loaded_at"] = time.monotonic()
         live_features.clear()
-        live_flood_alerts.clear()
+        live_flood_alerts.clear()  # not gold: its 15-min cache keeps the warehouse load down
         st.rerun(scope="app")
 
 
@@ -1173,12 +1346,19 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-st.session_state.setdefault("mode", "Live Feed")
-mode = st.sidebar.segmented_control(
-    "Mode",
-    options=["Live Feed", "Replay Storm"],
-    key="mode",
-    label_visibility="collapsed",
+MODES = ["Live Feed", "Replay Storm"]
+# Clicking the chosen segment again sends None; keep Live Feed rather than falling into Replay.
+if st.session_state.get("mode") not in MODES:
+    st.session_state["mode"] = "Live Feed"
+mode = (
+    st.sidebar.segmented_control(
+        "Mode",
+        options=MODES,
+        key="mode",
+        required=True,
+        label_visibility="collapsed",
+    )
+    or "Live Feed"
 )
 
 st.sidebar.markdown("---")
@@ -1187,12 +1367,17 @@ st.sidebar.markdown("---")
 # with the area and time controls). Streamlit drops a widget's value while the widget is hidden,
 # so re-store the values of the widgets the other step hides.
 # A shared link (?area=bukit-merah) picks the area once per session; later choices win.
+DEFAULT_ZONE = "BUKIT TIMAH"
 if not st.session_state.get("_area_link_applied"):
     st.session_state["_area_link_applied"] = True
-    _linked_area = area_from_slug(st.query_params.get("area"))
+    _link = st.query_params.get("area")
+    _linked_area = area_from_slug(_link)
     if _linked_area:
         st.session_state["zone"] = _linked_area
-st.session_state.setdefault("zone", "BUKIT TIMAH")
+    elif _link:
+        st.session_state["_area_notice"] = str(_link)[:60]
+st.session_state.setdefault("zone", DEFAULT_ZONE)
+st.session_state.setdefault("_area_synced", st.session_state["zone"])
 st.session_state.setdefault("replay_stage", "choose")
 for _key in list(st.session_state):
     if _key in ("zone", "replay_date", "use_data_gov") or str(_key).startswith("replay-time-"):
@@ -1245,8 +1430,28 @@ def render_app_header() -> None:
 
 render_app_header()
 
+
+def sync_area_param(zone: str) -> None:
+    """Keep ?area= in step with the chosen area, so the address bar is the shareable link."""
+    if st.session_state.get("_area_synced") != zone:
+        st.session_state["_area_synced"] = zone
+        st.query_params["area"] = zone.lower().replace(" ", "-")
+
+
+# A shared link with an area we don't have: say so (while the default is still showing).
+_area_notice = st.session_state.get("_area_notice")
+if _area_notice is not None:
+    if st.session_state["zone"] == DEFAULT_ZONE:
+        st.info(
+            f"Area '{escape_markdown(_area_notice)}' not found; showing {DEFAULT_ZONE.title()}."
+        )
+    else:
+        del st.session_state["_area_notice"]
+
 # --- DATA FOR THE SELECTED VIEW ------------------------------------------------------------
 replay_warning: str | None = None
+stale = False  # live data older than settings.gold_stale_minutes
+older_zones = 0  # gold zones whose row is older than the newest
 from_gold = False  # Live risk read from the Databricks gold table (scored there, not here)
 day_events: list[FloodEvent] | None = None  # reported floods for the replayed day
 if mode == "Live Feed":
@@ -1254,36 +1459,54 @@ if mode == "Live Feed":
     if live_source == DATABRICKS:
         features, gold_error = gold_latest()
         if features is None:
-            st.warning(
-                f"Couldn't read the Databricks gold table ({gold_error}). Showing data.gov.sg "
-                "readings instead.",
-                icon=":material/cloud_off:",
-            )
+            log.warning("Gold table unavailable: %s", gold_error)
+            if not resident_view_on():  # residents get the data.gov.sg readings without the jargon
+                st.warning(
+                    "Couldn't read the Databricks gold table. Showing data.gov.sg readings instead.",
+                    icon=":material/cloud_off:",
+                )
+                with st.expander("Technical detail"):
+                    st.code(str(gold_error), language=None)
         else:
             from_gold, total_stations = True, 0
     if features is None:
         features, total_stations, live_error = live_features()
     if features is None:
-        st.error(f"Live feed unavailable: {live_error}", icon=":material/cloud_off:")
-        st.info(
-            "No data is shown rather than substituting simulated rain. Switch to **Replay Storm**, "
-            "or retry. Setting `FLOODSENSE_DATA_GOV_API_KEY` avoids anonymous rate limits."
-        )
+        log.warning("Live feed unavailable: %s", live_error)
+        st.error("We can't reach NEA's rain gauges right now.", icon=":material/cloud_off:")
+        if resident_view_on():
+            st.info("No risk is shown rather than a guess. Please try again in a few minutes.")
+        else:
+            st.info(
+                "No data is shown rather than substituting simulated rain. Switch to "
+                "**Replay Storm**, or retry."
+            )
+            with st.expander("Technical detail"):
+                st.code(str(live_error), language=None)
+                if any(code in str(live_error) for code in ("401", "403")):
+                    st.caption(
+                        "The data.gov.sg key may be missing or wrong. Set "
+                        "`FLOODSENSE_DATA_GOV_API_KEY` to a valid key."
+                    )
         col_fb1, col_fb2 = st.columns(2)
         with col_fb1:
-            st.button(
-                "⚡ Switch to Replay Storm (17 Apr 2021)",
-                type="primary",
-                on_click=_replay_pinned_storm,
-                use_container_width=True,
-            )
-        with col_fb2:
-            if st.button("🔄 Retry Live Feed", use_container_width=True):
+            if st.button("Retry Live Feed", use_container_width=True):
                 live_features.clear()
+                clear_gold()
                 st.rerun()
+        with col_fb2:
+            if not resident_view_on():
+                st.button(
+                    "Switch to Replay Storm (17 Apr 2021)",
+                    type="primary",
+                    on_click=_replay_pinned_storm,
+                    use_container_width=True,
+                )
         st.stop()
     view_time = features["timestamp"].max()
-    age = datetime.now(settings.tzinfo) - view_time
+    # Gold rows can differ in time: the age is the oldest row's, so a stale zone isn't hidden.
+    age = datetime.now(settings.tzinfo) - features["timestamp"].min()
+    older_zones = int((features["timestamp"] < view_time).sum())
     live_bg = "rgba(16, 185, 129, 0.15)" if IS_DARK else "#ECFDF5"
     live_border = "rgba(16, 185, 129, 0.35)" if IS_DARK else "#A7F3D0"
     live_color = "#34D399" if IS_DARK else "#059669"
@@ -1298,8 +1521,8 @@ if mode == "Live Feed":
             "reporting (data.gov.sg)</span>"
         )
     )
-    # Gold older than settings.gold_stale_minutes: the age turns amber (the only stale signal).
-    stale = from_gold and age > timedelta(minutes=settings.gold_stale_minutes)
+    # Older than settings.gold_stale_minutes (either source): the age turns amber and the page warns.
+    stale = age > timedelta(minutes=settings.gold_stale_minutes)
     age_color = ("#FBBF24" if IS_DARK else "#D97706") if stale else c_muted
     status_line = (
         f"{live_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Latest Reading:</span> "
@@ -1377,6 +1600,7 @@ elif replay_days.store_available():
         st.sidebar.markdown("---")
         st.sidebar.button(
             "Choose another date",
+            type="primary",
             width="stretch",
             on_click=_set_replay_stage,
             args=("choose",),
@@ -1431,11 +1655,20 @@ else:
     day_events = replay_days.events_on(replay_days.PINNED_STORM, flood_events())
 
 # Gold arrives scored by the pipeline: show its probabilities and tiers as they are.
-df_results = (features if from_gold else score_zone_features(features, model)).merge(
-    ZONE_META, on="ura_planning_area"
-)
-df_results["zone"] = df_results["ura_planning_area"]
+df_results = page_table(features if from_gold else score_zone_features(features, model))
 reporting_stations = int(features["reporting_stations"].iloc[0])
+no_data_count = int((df_results["risk_tier"] == NO_DATA_TIER).sum())
+all_no_data = no_data_count == NUM_ZONES
+
+if all_no_data:  # an outage or a gap: no risk can be given, and none is guessed
+    gauges = (
+        f"{reporting_stations} of {total_stations}" if total_stations else f"{reporting_stations}"
+    )
+    st.warning(
+        f"Too few rain gauges are reporting ({gauges}) — risk can't be estimated "
+        f"{'right now' if mode == 'Live Feed' else 'at this time'}.",
+        icon=":material/cloud_off:",
+    )
 
 # --- RESIDENT VIEW -------------------------------------------------------------------------
 if resident_view_on():
@@ -1447,8 +1680,11 @@ if resident_view_on():
     resident_forecast = (
         forecast_scored(features, resident_radar) if resident_radar is not None else None
     )
+    resident_alerts, resident_alerts_error = (
+        live_flood_alerts() if mode == "Live Feed" else ([], None)
+    )
     with st.container(key="resident_page"):
-        render_resident_view(
+        resident_zone = render_resident_view(
             risk_now=df_results,
             risk_in_1h=resident_forecast,
             when=view_time,
@@ -1456,10 +1692,14 @@ if resident_view_on():
             tier_style=tier_style,
             is_dark=IS_DARK,
             tokens=tokens,
-            # Live only; the list is cached (no new fetch). A failed fetch shows nothing here.
-            pub_alerts=(live_flood_alerts()[0] or []) if mode == "Live Feed" else [],
+            # Live only; the list is cached (no new fetch).
+            pub_alerts=resident_alerts or [],
+            pub_alerts_unavailable=resident_alerts_error is not None,
+            stale_age=age_text(age) if stale else None,
         )
+    sync_area_param(resident_zone)
     st.stop()
+sync_area_param(selected_zone)
 
 # --- TOP BAR & SCOPE INDICATORS -----------------------------------------------------------
 st.markdown(status_line, unsafe_allow_html=True)
@@ -1475,6 +1715,28 @@ st.markdown(
 )
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
+if stale:
+    st.warning(
+        f"Data is {age_text(age)} old. The risk shown may not reflect current conditions.",
+        icon=":material/schedule:",
+    )
+if older_zones:
+    st.caption(
+        f"{older_zones} of {NUM_ZONES} areas have older readings than the rest; the age above is "
+        "for the oldest."
+    )
+# Where the risk comes from: the model's caption (a warning when it could not load), then how much
+# history the rolling features had.
+if model is None and not from_gold:
+    st.warning(model_caption, icon=":material/model_training:")
+    st.caption(history_note)
+elif model is None:
+    st.caption(
+        "Risk is scored on Databricks. The local model isn't loaded, so alert levels and the "
+        f"storm-rarity figure are not shown. {history_note}"
+    )
+else:
+    st.caption(history_note if from_gold else f"{model_caption} {history_note}")
 
 active_pub_alerts: list[FloodAlert] = []  # live PUB alerts (none in Replay: no history)
 if mode == "Live Feed":
@@ -1482,11 +1744,14 @@ if mode == "Live Feed":
     pub_alerts, pub_alerts_error = live_flood_alerts()
     active_pub_alerts = pub_alerts or []
     if pub_alerts_error:
-        st.caption(f"PUB flood alerts unavailable right now: {pub_alerts_error}")
+        st.caption("PUB flood alerts can't be checked right now.")
+        with st.expander("Technical detail"):
+            st.code(str(pub_alerts_error), language=None)
     elif pub_alerts:
         tiers = dict(zip(df_results["ura_planning_area"], df_results["risk_tier"], strict=True))
         lines = [
-            f"- **{a.zone or a.area_desc}** · {a.issued_at:%H:%M} · {a.description}"
+            f"- **{escape_markdown(a.zone or a.area_desc)}** · {a.issued_at:%H:%M} · "
+            f"{escape_markdown(' '.join(a.description.split()))}"
             + (f" *(FloodSense: {tiers[a.zone]})*" if a.zone in tiers else "")
             for a in pub_alerts
         ]
@@ -1503,21 +1768,30 @@ if mode == "Live Feed":
 
 high_risk_count = int((df_results["risk_tier"] == "High").sum())
 mod_risk_count = int((df_results["risk_tier"] == "Moderate").sum())
-peak = df_results.sort_values("rain_30m", ascending=False).iloc[0]
-wettest = df_results.sort_values("rain_decay_72h", ascending=False).iloc[0]
+# A "partial" zone's missing steps are 0-filled, so a zero there isn't known to be dry.
+any_partial = bool((df_results["coverage"] == "partial").any())
+# Rain is only read where gauges reported: a zone with no data isn't "the driest".
+with_rain = df_results[
+    (df_results["coverage"] != "none")
+    & df_results["rain_30m"].notna()
+    & df_results["rain_decay_72h"].notna()
+]
+peak = with_rain.sort_values("rain_30m", ascending=False).iloc[0] if len(with_rain) else None
+wettest = (
+    with_rain.sort_values("rain_decay_72h", ascending=False).iloc[0] if len(with_rain) else None
+)
 
 # --- 5 TOP KPI METRIC CARDS ---------------------------------------------------------------
 # Every card has the same three parts, each one line: label, value, footer (label | value).
 _LABEL = (
     f"font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:{tokens['text_muted']}; "
-    "text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; overflow:hidden; "
-    "text-overflow:ellipsis; display:block;"
-)
+    "text-transform:uppercase; letter-spacing:0.05em; display:block;"
+)  # one line with an ellipsis on wide screens, wrapping on phones (.fs-kpi-label)
 
 
 def card_header(label: str) -> None:
     st.markdown(
-        f'<div style="margin-bottom:4px;"><span style="{_LABEL}">{label}</span></div>',
+        f'<div style="margin-bottom:4px;"><span class="fs-kpi-label" style="{_LABEL}">{label}</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -1541,7 +1815,11 @@ def kpi_card(label: str, metric_label: str, value: str, footer: tuple[str, str],
         card_footer(*footer)
 
 
-tier_thresholds = getattr(model, "thresholds", None) or default_thresholds()
+# Gold is scored on Databricks. Without a local model there are no thresholds to show (the 25% /
+# 65% heuristic ones would be wrong for gold), so the alert levels and the rarity are left out.
+tier_thresholds: dict[str, float] | None = getattr(model, "thresholds", None) or (
+    None if (from_gold and model is None) else default_thresholds()
+)
 share = reporting_stations / total_stations if total_stations else 0.0
 kpi_cols = st.columns(5)
 with kpi_cols[0]:
@@ -1549,30 +1827,40 @@ with kpi_cols[0]:
         "High risk zones",
         "High Risk",
         f"{high_risk_count} / {NUM_ZONES}",
-        ("High from", f"{tier_thresholds['high']:.2%}"),
+        ("High from", pct(tier_thresholds["high"]))
+        if tier_thresholds
+        else ("Scored on", "Databricks"),
     )
 with kpi_cols[1]:
     kpi_card(
         "Moderate risk zones",
         "Moderate Risk",
         f"{mod_risk_count} / {NUM_ZONES}",
-        ("Moderate from", f"{tier_thresholds['moderate']:.2%}"),
+        ("Moderate from", pct(tier_thresholds["moderate"]))
+        if tier_thresholds
+        else ("Scored on", "Databricks"),
     )
 with kpi_cols[2]:
     kpi_card(
         "Max 30-min rain",
         "Max 30-min Rain",
-        f"{peak['rain_30m']:.0f} mm",
-        ("Heaviest", peak["zone"].title()) if peak["rain_30m"] > 0 else ("Heaviest", "No rain"),
+        f"{peak['rain_30m']:.1f} mm" if peak is not None else "—",
+        ("Heaviest", "No data")
+        if peak is None
+        else ("Heaviest", peak["zone"].title())
+        if peak["rain_30m"] > 0
+        else ("Heaviest", "Readings missing" if any_partial else "No rain"),
     )
 with kpi_cols[3]:
     kpi_card(
         "Wet-ground index",
         "Wet-Ground Index",
-        f"{wettest['rain_decay_72h']:.0f}",
-        ("Wettest", wettest["zone"].title())
+        f"{wettest['rain_decay_72h']:.0f}" if wettest is not None else "—",
+        ("Wettest", "No data")
+        if wettest is None
+        else ("Wettest", wettest["zone"].title())
         if wettest["rain_decay_72h"] > 0
-        else ("Wettest", "All dry"),
+        else ("Wettest", "Readings missing" if any_partial else "All dry"),
     )
 with kpi_cols[4]:
     kpi_card(
@@ -1580,6 +1868,12 @@ with kpi_cols[4]:
         "Gauges Live",
         f"{reporting_stations} / {total_stations}" if total_stations else f"{reporting_stations}",
         ("Reporting now", f"{share:.0%}") if total_stations else ("Source", "Databricks"),
+    )
+
+if no_data_count:
+    st.caption(
+        f"{no_data_count} {'area has' if no_data_count == 1 else 'areas have'} no data "
+        "(too few gauges reporting), so they are left out of the risk counts."
     )
 
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
@@ -1647,7 +1941,7 @@ with map_col, st.container(border=True, key="map_card"):
         "hover_name": "zone",
         "hover_data": {
             "risk_tier": True,
-            "flood_probability": ":.4f",
+            "prob_txt": True,
             "rain_30m": ":.1f",
             "rain_decay_72h": False,
             "marker_size": False,
@@ -1660,17 +1954,28 @@ with map_col, st.container(border=True, key="map_card"):
         style_key: tokens["map_style"],
     }
     # Plotly's map hides markers of size exactly 0 (before sizemin applies), so floor at 0.01.
-    map_df = map_df.assign(marker_size=map_df["rain_30m"].clip(lower=0.01))
+    map_df = map_df.assign(
+        marker_size=map_df["rain_30m"].clip(lower=0.01).fillna(0.01),
+        prob_txt=[pct(p, tier_thresholds) for p in map_df["flood_probability"]],
+    )
     fig_map = map_func(map_df, **map_kwargs)  # type: ignore[misc]
 
     # Clean tooltip formatting
     for trace in fig_map.data:
-        if trace.name in TIER_COLORS:
+        if trace.name == NO_DATA_TIER:  # no probability and no rain figure: neither is known
+            trace.update(
+                hovertemplate=(
+                    "<b>ZONE: %{hovertext}</b><br>"
+                    f"<span style='color:{tokens['text_muted']};'>No gauge data: risk unknown</span>"
+                    "<extra></extra>"
+                ),
+            )
+        elif trace.name in TIER_COLORS:
             trace.update(
                 hovertemplate=(
                     "<b>ZONE: %{hovertext}</b><br>"
                     f"<span style='color:{tokens['text_muted']};'>Risk Classification:</span> %{{customdata[0]}}<br>"
-                    f"<span style='color:{tokens['text_muted']};'>Flood Probability:</span> %{{customdata[1]:.2%}}<br>"
+                    f"<span style='color:{tokens['text_muted']};'>Flood Probability:</span> %{{customdata[1]}}<br>"
                     f"<span style='color:{tokens['text_muted']};'>Max 30m Rain:</span> %{{customdata[2]:.1f}} mm<extra></extra>"
                 ),
             )
@@ -1786,19 +2091,26 @@ with map_col, st.container(border=True, key="map_card"):
             for t in ("Low", "Moderate", "High")
         )
         title = "Risk in 1 hour" if forecast_on and radar is not None else "Risk of flood"
-        ticks = (
-            '<span style="left:16.7%;">Low</span>'
-            f'<span style="left:33.3%;">{tier_thresholds["moderate"]:.2%}</span>'
-            '<span style="left:50%;">Moderate</span>'
-            f'<span style="left:66.7%;">{tier_thresholds["high"]:.2%}</span>'
-            '<span style="left:83.3%;">High</span>'
+        ticks = '<span style="left:16.7%;">Low</span>'
+        if tier_thresholds:
+            ticks += f'<span style="left:33.3%;">{pct(tier_thresholds["moderate"])}</span>'
+        ticks += '<span style="left:50%;">Moderate</span>'
+        if tier_thresholds:
+            ticks += f'<span style="left:66.7%;">{pct(tier_thresholds["high"])}</span>'
+        ticks += '<span style="left:83.3%;">High</span>'
+        no_data_key = (
+            '<div class="fs-legend-nodata"><span style="background:'
+            f'{TIER_COLORS[NO_DATA_TIER]};"></span>No data: too few gauges reporting</div>'
+            if (map_df["risk_tier"] == NO_DATA_TIER).any()
+            else ""
         )
         st.markdown(
             f'<div class="fs-legend"><div class="fs-legend-title">{title} · chance of a reported '
             f'flood in the next hour</div><div class="fs-legend-bar">{segs}</div>'
-            f'<div class="fs-legend-ticks">{ticks}</div></div>',
+            f'<div class="fs-legend-ticks">{ticks}</div>{no_data_key}</div>',
             unsafe_allow_html=True,
         )
+        st.caption("If the map background doesn't load, the coloured areas still show risk.")
 
 
 with detail_col, st.container(border=True, key="zone_card"):
@@ -1810,12 +2122,15 @@ with detail_col, st.container(border=True, key="zone_card"):
         f"</div>",
         unsafe_allow_html=True,
     )
+    # df_results has a row for every zone (an absent one reads "No data"), so this can't be empty.
     zone_data = df_results[df_results["zone"] == selected_zone].iloc[0]
+    zone_no_data = zone_data["risk_tier"] == NO_DATA_TIER
 
     tier_label = {
         "High": "HIGH RISK",
         "Moderate": "MODERATE RISK",
         "Low": "LOW RISK",
+        NO_DATA_TIER: "No gauge data — risk unknown",
     }[zone_data["risk_tier"]]
     tier_bg, tier_border, tier_text_color = tier_style(zone_data["risk_tier"], IS_DARK)
 
@@ -1831,17 +2146,25 @@ with detail_col, st.container(border=True, key="zone_card"):
     st.markdown(
         f'<div style="background: {tier_bg}; border: 1px solid {tier_border}; border-radius: 8px; padding: 10px 14px; margin: 10px 0 14px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">'
         f'  <div style="display: flex; align-items: center; gap: 10px;">'
-        f'    <span style="color: {tier_text_color}; font-size: 1.2rem; font-weight: 700;">{"✓" if zone_data["risk_tier"] == "Low" else "!"}</span>'
+        f'    <span style="color: {tier_text_color}; font-size: 1.2rem; font-weight: 700;">{"?" if zone_no_data else "✓" if zone_data["risk_tier"] == "Low" else "!"}</span>'
         f"    <div>"
         f"      <div style=\"font-size: 0.65rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">STATUS</div>"
         f"      <div style=\"font-size: 0.95rem; font-weight: 700; color: {tier_text_color}; font-family: 'Inter', sans-serif;\">{tier_label}</div>"
         f"    </div>"
         f"  </div>"
-        f"  <span style=\"background: {tokens['bg_surface']}; color: {tier_text_color}; border: 1px solid {tier_border}; border-radius: 9999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; white-space: nowrap;\">{zone_data['flood_probability']:.2%} chance</span>"
-        f"</div>",
+        + (
+            ""
+            if zone_no_data
+            else f"  <span style=\"background: {tokens['bg_surface']}; color: {tier_text_color}; border: 1px solid {tier_border}; border-radius: 9999px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; white-space: nowrap;\">{pct(zone_data['flood_probability'], tier_thresholds)} chance</span>"
+        )
+        + "</div>",
         unsafe_allow_html=True,
     )
 
+    if zone_data["coverage"] == "partial" and not zone_no_data:
+        st.caption(
+            "Some readings in the last hour are missing, so rain totals and risk may read too low."
+        )
     show_pub_alerts(active_pub_alerts, selected_zone)
 
     if radar_mode and radar is not None:
@@ -1851,13 +2174,23 @@ with detail_col, st.container(border=True, key="zone_card"):
             f"Forecast: **{zr['nowcast_30_mm']:.1f} mm** in the next 30 min, "
             f"**{zr['nowcast_60_mm']:.1f} mm** in the next hour."
         )
-    else:
+    elif not zone_no_data:
+        levels = (
+            f"are low: Moderate from {pct(tier_thresholds['moderate'])}, "
+            f"High from {pct(tier_thresholds['high'])}."
+            if tier_thresholds
+            else "are low."
+        )
         st.caption(
             f"Chance a flood is reported here in the next 60 min: "
-            f"**{zone_data['flood_probability']:.2%}**. Flood reports are rare, so the alert levels "
-            f"are low: Moderate from {tier_thresholds['moderate']:.2%}, "
-            f"High from {tier_thresholds['high']:.2%}."
+            f"**{pct(zone_data['flood_probability'], tier_thresholds)}**. Flood reports are rare, "
+            f"so the alert levels {levels}"
         )
+
+    def rain_txt(col: str, spec: str) -> str:
+        """A rain figure, or a dash where there is no gauge data (0 would read as dry)."""
+        value = zone_data[col]
+        return "—" if zone_no_data or pd.isna(value) else format(value, spec)
 
     # Rolling rainfall and wet-ground tiles
     st.markdown(
@@ -1868,107 +2201,124 @@ with detail_col, st.container(border=True, key="zone_card"):
         f'<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">'
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">5-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_5m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_5m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">15-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_15m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_15m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">30-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_30m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_30m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">60-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_60m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_60m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">120-min Rain</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_120m"]:.2f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_120m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
         f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Wet-Ground</div>'
-        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{zone_data["rain_decay_72h"]:.1f} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">idx</span></div>'
+        f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_decay_72h", ".1f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">idx</span></div>'
         f"  </div>"
         f"</div>",
         unsafe_allow_html=True,
     )
 
     fitted = getattr(model, "rarity_quantiles", None)
-    if fitted:
-        rarity = float(rarity_scores(df_results[df_results["zone"] == selected_zone], fitted)[0])
-        rarity_title = "Storm Rarity Percentile"
-        rarity_basis = "of rainy half-hours in this zone, 2017–2023"
-    else:
-        rarity = float(zone_data.get("storm_rarity_score", 0.0))
-        rarity_title = "Storm Rarity Percentile (uncalibrated)"
-        rarity_basis = "against hand-set cut-offs: no trained model loaded"
-    if zone_data["rain_30m"] <= 0:
-        rarity_status = "No rain in the last 30 min"
-    elif rarity < 0.7:
-        rarity_status = "Typical for rain here"
-    elif rarity < 0.9:
-        rarity_status = "Heavier than usual"
-    else:
-        rarity_status = "Rare for this zone"
+    # Not shown without gauge data (nothing to rank), nor for gold without a local model: the
+    # uncalibrated 0.0 fallback would read as "not rare" next to a tier scored elsewhere.
+    if zone_no_data:
+        st.caption("No gauge data, so there is no storm to rank.")
+    elif fitted or not from_gold:
+        if fitted:
+            rarity = float(
+                rarity_scores(df_results[df_results["zone"] == selected_zone], fitted)[0]
+            )
+            rarity_title = "Storm Rarity Percentile"
+            rarity_basis = "of rainy half-hours in this zone, 2017–2023"
+        else:
+            rarity = float(zone_data.get("storm_rarity_score", 0.0))
+            rarity_title = "Storm Rarity Percentile (uncalibrated)"
+            rarity_basis = "against hand-set cut-offs: no trained model loaded"
+        zone_partial = zone_data["coverage"] == "partial"
+        if zone_data["rain_30m"] <= 0 and zone_partial:
+            rarity_status = "Rain readings missing"
+        elif zone_data["rain_30m"] <= 0:
+            rarity_status = "No rain in the last 30 min"
+        elif rarity < 0.7:
+            rarity_status = "Typical for rain here"
+        elif rarity < 0.9:
+            rarity_status = "Heavier than usual"
+        else:
+            rarity_status = "Rare for this zone"
 
-    # The title lives in the page, not the chart: a chart title stays small and lands inside the
-    # arc when the chart is opened full screen.
-    st.markdown(
-        '<div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0 0 0;">'
-        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">{rarity_title}</span>"
-        f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: {tokens['accent']}; font-family: 'Inter', sans-serif;\">{rarity_status}</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-    fig_gauge = go.Figure(
-        go.Indicator(
-            mode="gauge+number",
-            value=rarity * 100,
-            number={
-                "font": {"family": "Inter, sans-serif", "size": 34, "color": tokens["gauge_num"]},
-                "valueformat": ".1f",
-                "suffix": "%",
-            },
-            gauge={
-                "axis": {
-                    "range": [0, 100],
-                    "tickcolor": tokens["gauge_tick"],
-                    "tickfont": {
-                        "family": "Inter, sans-serif",
-                        "size": 11,
-                        "color": tokens["text_muted"],
-                    },
-                },
-                "bar": {
-                    "color": "#0EA5E9"
-                    if rarity < 0.7
-                    else ("#F59E0B" if rarity < 0.9 else "#EF4444"),
-                    "thickness": 0.26,
-                },
-                "steps": [
-                    {"range": [0, 70], "color": tokens["gauge_step_0_70"]},
-                    {"range": [70, 90], "color": tokens["gauge_step_70_90"]},
-                    {"range": [90, 100], "color": tokens["gauge_step_90_100"]},
-                ],
-            },
+        # The title lives in the page, not the chart: a chart title stays small and lands inside the
+        # arc when the chart is opened full screen.
+        st.markdown(
+            '<div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0 0 0;">'
+            f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">{rarity_title}</span>"
+            f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: {tokens['accent']}; font-family: 'Inter', sans-serif;\">{rarity_status}</span>"
+            "</div>",
+            unsafe_allow_html=True,
         )
-    )
-    fig_gauge.update_layout(
-        height=210,
-        margin={"t": 20, "b": 10, "l": 30, "r": 30},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-    )
-    # No full-screen or download toolbar: a half-dial gains nothing from full screen, where its
-    # text stays small while the arc grows.
-    with st.container(key="rarity_gauge"):
-        st.plotly_chart(fig_gauge, config={"displayModeBar": False})
-    st.caption(
-        "No rain here in the last 30 minutes, so there is no storm to rank."
-        if zone_data["rain_30m"] <= 0
-        else f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
-    )
+        fig_gauge = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=rarity * 100,
+                number={
+                    "font": {
+                        "family": "Inter, sans-serif",
+                        "size": 34,
+                        "color": tokens["gauge_num"],
+                    },
+                    "valueformat": ".1f",
+                    "suffix": "%",
+                },
+                gauge={
+                    "axis": {
+                        "range": [0, 100],
+                        "tickcolor": tokens["gauge_tick"],
+                        "tickfont": {
+                            "family": "Inter, sans-serif",
+                            "size": 11,
+                            "color": tokens["text_muted"],
+                        },
+                    },
+                    "bar": {
+                        "color": "#0EA5E9"
+                        if rarity < 0.7
+                        else ("#F59E0B" if rarity < 0.9 else "#EF4444"),
+                        "thickness": 0.26,
+                    },
+                    "steps": [
+                        {"range": [0, 70], "color": tokens["gauge_step_0_70"]},
+                        {"range": [70, 90], "color": tokens["gauge_step_70_90"]},
+                        {"range": [90, 100], "color": tokens["gauge_step_90_100"]},
+                    ],
+                },
+            )
+        )
+        fig_gauge.update_layout(
+            height=210,
+            margin={"t": 20, "b": 10, "l": 30, "r": 30},
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+        # No full-screen or download toolbar: a half-dial gains nothing from full screen, where its
+        # text stays small while the arc grows.
+        with st.container(key="rarity_gauge"):
+            st.plotly_chart(fig_gauge, config={"displayModeBar": False})
+        st.caption(
+            "Some readings are missing, so there is no reliable rain total to rank."
+            if zone_data["rain_30m"] <= 0 and zone_partial
+            else "No rain here in the last 30 minutes, so there is no storm to rank."
+            if zone_data["rain_30m"] <= 0
+            else f"The last 30 minutes here were heavier than **{rarity * 100:.1f}%** {rarity_basis}."
+        )
+        st.caption("Risk uses rain in the last 60 minutes only.")
 
 
 # --- PUBLIC TRANSPORT AT RISK -------------------------------------------------------------
@@ -1991,7 +2341,7 @@ with st.container(border=True):
             t_cols = st.columns(3)
             t_cols[0].metric("Stations in High areas", int(counts.get("High", 0)))
             t_cols[1].metric("Stations in Moderate areas", int(counts.get("Moderate", 0)))
-            t_cols[2].metric("Stations near a PUB alert", int(counts.get("PUB alert", 0)))
+            t_cols[2].metric("Stations near a PUB alert", int(at_risk["near_alert"].sum()))
         shown = pin_zone_stations(at_risk, selected_zone, df_results)
 
         # An HTML table rather than st.dataframe: the dataframe is drawn on a canvas that the
@@ -2015,14 +2365,15 @@ with st.container(border=True):
         rows_html = "".join(
             "<tr>"
             f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.station))}</td>'
-            f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
             f'<td style="{cell} {pick if r.selected else ""}">{_tier_chip(str(r.tier))}</td>'
             f'<td style="{cell} {pick if r.selected else ""}">'
-            f"{'' if pd.isna(r.probability) else f'{r.probability:.2%}'}</td>"
+            f"{'' if pd.isna(r.probability) else pct(r.probability, tier_thresholds)}</td>"
+            f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
             "</tr>"
             for r in shown.itertuples(index=False)
         )
-        headers = ["Station", "Planning area", "Risk", "Chance (next hour)"]
+        # Risk and chance come right after the station, so they stay on screen on a phone.
+        headers = ["Station", "Risk", "Chance (next hour)", "Planning area"]
         st.markdown(
             f'<div style="max-height:380px; overflow:auto; border:1px solid {c_border}; '
             f'border-radius:10px; background:{c_surface};">'
@@ -2047,9 +2398,16 @@ with st.container(border=True):
 
 # --- CONTEXT & PROTOTYPE STATUS -----------------------------------------------------------
 context_col, status_col = st.columns(2)
+_n_events = len(flood_events())
+event_count_text = f"{_n_events} sourced events" if _n_events else "sourced events"
+if replay_days.store_available():
+    _store_first, _store_last = store_range()
+    rain_store_text = f"{_store_first.year} to {_store_last:%d %b %Y}"
+else:
+    rain_store_text = "2017 onward"
 
 with context_col, st.container(border=True):
-    st.subheader(":material/info: Hydrological Context & Archive")
+    st.subheader(":material/water_drop: Hydrological Context & Archive")
     if day_events is not None:
         if day_events:
             lines = []
@@ -2067,7 +2425,7 @@ with context_col, st.container(border=True):
             st.markdown("**Reported floods this day:**\n" + "\n".join(lines))
         else:
             st.markdown(
-                "**Reported floods this day:** none in our 66 sourced events. Many floods are "
+                f"**Reported floods this day:** none in our {event_count_text}. Many floods are "
                 "never reported, so this doesn't mean none happened."
             )
     st.markdown(
@@ -2110,16 +2468,22 @@ with context_col, st.container(border=True):
 with status_col, st.container(border=True):
     st.subheader(":material/construction: Prototype Status & Verification")
     st.markdown(
-        "- **Rainfall (real):** NEA 5-minute gauge readings, 2017 to Sep 2026 (60.8M readings), "
+        f"- **Rainfall (real):** NEA 5-minute gauge readings, {rain_store_text}, "
         "mapped to zones with distance weights that re-balance when gauges drop out.\n"
-        "- **Flood labels (sourced):** 66 events, each with a source link, a quoted sentence and a "
-        "human sign-off.\n"
-        "- **Model:** a calibrated 60-minute-rainfall rule. It beat logistic regression and "
-        "LightGBM at matched false-alarm levels on 2020–23.\n"
-        "- **Held-out test (2024 to Sep 2026, 30 floods, 90% confidence intervals):** High caught "
-        "12 (40%, 27–53%), median warning 10 min, 4 warned 15+ min ahead (13%, 3–23%); "
-        "Moderate caught 21 (70%, 57–83%), median warning 15 min, 10 warned 15+ min ahead "
-        "(33%, 20–47%). Gauges alone give little lead time; radar nowcasting is next.\n"
+        f"- **Flood labels (sourced):** {_n_events or 'not loaded'} events, each with a source "
+        "link, a quoted sentence and a human sign-off.\n"
+        "- **Model:** a calibrated 60-minute-rainfall rule. Only T3 (rain30 for Moderate) met its "
+        "pre-registered margin (+3 floods at Moderate, 90% CI +4 to +21 percentage points, at 8.74 "
+        "false Moderate episodes per zone-year against a budget of 11); it is not in use and "
+        "awaits a team decision. T1 (0.518) and T2 (0.446) did not meet theirs. A post-hoc static "
+        "run (prior SD 0.1, chosen after seeing the data) scored 0.509, slightly above the rule's "
+        "0.500. At 10 false alerts per zone-year, rule_rain30 caught 21 of 28 validation floods, "
+        "LightGBM 19, the registered static candidate (rule_rain60_static) 19, and the rule 18.\n"
+        "- **Version 1 (Moderate from 0.30%) on 2024–Sep 2026:** held-out test, 30 floods, 90% "
+        "confidence intervals. High caught 12 (40%, 27–53%), median warning 10 min, 4 warned 15+ "
+        "min ahead (13%, 3–23%); Moderate caught 21 (70%, 57–83%), median warning 15 min, 10 "
+        "warned 15+ min ahead (33%, 20–47%). Gauges alone give little lead time. The current "
+        "version 3 has not been scored on these years.\n"
         "- **Zones:** the 55 URA Master Plan 2019 planning areas."
     )
 

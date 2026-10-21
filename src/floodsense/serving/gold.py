@@ -15,6 +15,7 @@ import re
 import time
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from floodsense.common.config import settings
@@ -63,8 +64,14 @@ def to_frame(columns: list[str], rows: list[list[Any]]) -> pd.DataFrame:
     df = pd.DataFrame(rows, columns=columns)
     if df[FLOAT_COLUMNS + ["timestamp", "reporting_stations"]].isna().any().any():
         raise GoldUnavailable("gold has missing values")
-    df[FLOAT_COLUMNS] = df[FLOAT_COLUMNS].astype(float)
-    df["reporting_stations"] = df["reporting_stations"].astype(int)
+    try:
+        df[FLOAT_COLUMNS] = df[FLOAT_COLUMNS].astype(float)
+        df["reporting_stations"] = df["reporting_stations"].astype(int)
+    except (TypeError, ValueError) as exc:
+        raise GoldUnavailable(f"gold has non-numeric values: {exc}") from exc
+    prob = df["flood_probability"]
+    if not (np.isfinite(prob).all() and prob.between(0.0, 1.0).all()):
+        raise GoldUnavailable("gold has flood probabilities outside 0 to 1")
     df["timestamp"] = (
         pd.to_datetime(df["timestamp"].astype("int64"), unit="s", utc=True)
         .dt.as_unit("ns")
@@ -73,8 +80,14 @@ def to_frame(columns: list[str], rows: list[list[Any]]) -> pd.DataFrame:
     unknown = set(df["ura_planning_area"]) - set(URA_PLANNING_AREAS)
     if unknown:
         raise GoldUnavailable(f"unknown zones in gold: {sorted(unknown)}")
+    # Gold has no model thresholds here, so tier consistency is checked only to the known tiers.
     if bad := set(df["risk_tier"]) - TIERS:
         raise GoldUnavailable(f"unknown risk tiers in gold: {sorted(bad)}")
+    if df["ura_planning_area"].duplicated().any():
+        dup = sorted(df.loc[df["ura_planning_area"].duplicated(), "ura_planning_area"].unique())
+        raise GoldUnavailable(f"duplicate zones in gold: {dup}")
+    if missing := set(URA_PLANNING_AREAS) - set(df["ura_planning_area"]):
+        raise GoldUnavailable(f"gold is missing {len(missing)} zones: {sorted(missing)}")
     return df.sort_values("ura_planning_area").reset_index(drop=True)
 
 

@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 21 Oct 2026, adk's session (alerts wording, transport table, area link; §0, branch `alerts-wording-transport`, uncommitted). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 21 Oct 2026, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -24,6 +24,82 @@
 ---
 
 ## 0. Latest sessions: 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 21 Oct, later (adk, with subagents): stress test and fixes. Branch `stress-test-fixes`, NOT committed
+
+Cut from `alerts-wording-transport` (09b7638). Checks run: the default `uv run pytest` gives 495 passed, 2 skipped, 3 deselected, and that count already includes the 55 Streamlit AppTest integration tests (`-m "integration and not network"`: 55 passed, 1 skipped), so the two numbers are not additive; `ruff check`, `ruff format --check` (119 files) and `mypy` (60 files) clean. Scores on complete data are unchanged: 0 differences on the 17 Apr 2021 replay, 4 Apr 2017 and 8 Jan 2019, and the bot's alerts on complete data are unchanged. The stress test report was a local scratch file (not in the repo); the IDs below are its IDs. An Opus review round found 13 issues, all addressed: bot replay coverage, the gold cache not cleared by auto-refresh, the 60 s gold back-off, the 300 s radar-miss cache, narrowed `except`s, an earlier-date alert failure keeping today's pages, naive alert times read as SGT, a coverage off-grid guard, the `evaluate_nowcast` docstring back to v1 thresholds, doc wording, and credits for CARTO/OSM and Google Fonts.
+
+**Fixed (one line each; main file):**
+- **H1** missing rain is no longer shown as dry in serving (`serving/coverage.py`). `MIN_REPORTING_STATIONS` = 20 (`common/config.py`), from the 2017–2023 store only: 29 gauges at the 0.1st percentile, about 0.08% of steps below 20. A step below it shows "No data" with the tier and probability withheld. On data.gov.sg and replay a step with such a gap in the last 60 minutes shows a "partial" caution; on gold only none/ok can be told (one row per zone). The bot never lowers a tier or sends an all-clear on a none/partial step, and the replay bot uses coverage too. **Training keeps the 0-fill (team decision, below).** Limitation: the live bot runs every 30 minutes, so a gap that falls between two runs can be missed.
+- **H2** "Prototype Status" panel: label count and store date range come from the data; the held-out figures are labelled version 1 (Moderate from 0.30%) and say version 3 has not been scored (`streamlit_app.py`).
+- **H3** dashboard text says Moderate 0.53% (`databricks/dashboards/floodsense_live_risk.lvdash.json`). **Redeploy pending (Akul).**
+- **M1** a failed gold read is no longer cached for 15 min: 60 s back-off (`GOLD_RETRY_AFTER`), Retry clears it, auto-refresh does not (`streamlit_app.py`).
+- **M2** `serving/gold.py` `to_frame` needs exactly the 55 zones, unique, probability finite and in [0, 1], else `GoldUnavailable` (the app falls back); selected-zone lookups no longer crash.
+- **M3** a stale-data warning shows in both views for any source; the Resident tier is greyed.
+- **M4** the model-load caption is shown as a warning; on gold the fallback thresholds and rarity are not shown; the `risk_*` config comment says heuristic-only (comment change only).
+- **M5** outage wording is plain; the technical detail is in an Analyst-only "Technical detail" expander; the API-key hint is shown only for a bad key; the Resident view says PUB alerts can't be checked.
+- **M6** PUB alert queries cover each date in the 3-hour window, so alerts just after midnight are not missed (`ingestion/flood_alerts.py`). The live API's reply to yesterday's date is unverified.
+- **M7** docs only: DEPLOYMENT.md and the parity test docstring say parity is proven for v1 only.
+- **M8** phone layout: a `max-width: 640px` rule stacks the top controls (`streamlit_app.py`). Checked with Playwright at 375×812 in light and dark: `stMain` scrollWidth = clientWidth (374/374) on Live, Replay and Resident, so no overflow; no overflow at 1440 px either.
+- **M9** doc fixes in `model_comparison.md`, `DEPLOYMENT.md`, `README.md`, code comments, and the stale lines in this file (§2, §3b, §4b B4.4, §8).
+- **M10** "Credits and licences" section in `README.md` (datasets, libraries, models, CARTO/OSM, Google Fonts); several licences are marked unverified.
+- **L1** covered by the H1 minimum-gauge rule. **L2** a caption says how many areas have older readings than the rest. **L3** a missing radar frame is not looked for again for 300 s (`RADAR_MISS_TTL`), not cached forever. **L4** the Mode control is `required=True`. **L5** percentages show 3 significant figures (`pct`), so 0.706% is not shown as 0.71%. **L6** PUB alert text is markdown-escaped. **L7** `?area=` accepts spaces/underscores, shows a notice for an unknown area and keeps the address bar in step. **L8** a separate `near_alert` flag keeps the "near a PUB alert" count right. **L9** radar and alert parse errors are caught as a narrow set and logged. **L10** the poller handles a non-JSON 200, a non-dict body and unusable blocks, and caps pages (`MAX_PAGES_PER_DAY` is 100 in `ingestion/poller.py` and 50 in `ingestion/flood_alerts.py`). **L11** an empty station list is no longer swapped for the packaged one. **L12** a NaN input scores "No data", not Low. **L13** the bot sends nothing if the newest step doesn't cover all zones at one time. **L14** cancel matching compares exact identifiers (`referenced_identifiers`). **L15** a rise dropped by the rate limit is re-checked after the hour; the Moderate/High wording is **kept on purpose** ("possible"; ~0.5–0.7% doesn't justify "likely"). **L16** a map caption says the coloured areas still show risk if the background doesn't load. **L17** the heading ⓘ icon is gone and the selected states of the toggles are styled orange (measured in the browser: rgb(234,88,12) light, rgb(251,146,60) dark). **L18** caption "Risk uses rain in the last 60 minutes only." **L19** a zone with no nowcast stays unknown ("No data") instead of 0 mm. **L20** CI pins Python 3.12; the e2e job is **not added** (the Playwright test needs a running server).
+
+**Refuted in the stress test (no change):** the Telegram time label (callers pass SGT; hardened anyway), the repeating page token (capped anyway), duplicate gold rows (not reachable through the real SQL). **Corrected later (Haiku round, D3):** the README "66 labels" finding was a wording error after all, not a non-issue: v1 was fitted on the 36 development floods of 2017–2023 (`models/model_card.json`), and 66 was the total verified labels then (36 + 30 held out). README fixed.
+
+**New user-facing copy that needs adk's review** (strings from the code):
+- Outage: "We can't reach NEA's rain gauges right now." / "No risk is shown rather than a guess. Please try again in a few minutes."
+- Tier name and map: "No gauge data — risk unknown" (hover: "No gauge data: risk unknown").
+- Banner: "Too few rain gauges are reporting (N of M) — risk can't be estimated right now." (Replay: "… at this time.")
+- Partial: "Some readings in the last hour are missing, so rain totals and risk may read too low." (changed in the Haiku round) and, in the Resident view, "Some rain readings from the last hour are missing, so the real risk may be higher than shown."
+- Stale: "Data is X old. The risk shown may not reflect current conditions." and "Out of date: the latest data is X old, so this may not be current."
+- Alerts: "PUB flood alerts can't be checked right now."
+- Unknown area: "Area 'x' not found; showing Bukit Timah."
+- Map: "If the map background doesn't load, the coloured areas still show risk." and "Risk uses rain in the last 60 minutes only."
+- Haiku round: footer "Readings missing" (instead of "No rain"/"All dry" when any zone is partial); zone card "Rain readings missing" and "Some readings are missing, so there is no reliable rain total to rank."
+- Resident no-data advice: "We have no rain gauge readings for this area right now, so we can't tell the flood risk. Check PUB's official flood alerts and take care if heavy rain starts."
+
+**Open for Akul (needs Databricks; paused to save credits):**
+- Redeploy the dashboard text (0.53%).
+- Re-export the replay from the v3 champion for the parity evidence (the committed export is v1).
+- Optional: make gold's `latest_query` return the minimum `reporting_stations` over each zone's last 12 rows, so gold and the bot can tell "partial".
+
+**Open for the team** (trade-off, then recommendation):
+1. **Second-look caption** on the 2024–26 storm buttons and the 30 Sep 2026 radar demo day: replaying them with v3 is a qualitative second look. A caption costs nothing. Recommend: add it.
+2. **`drafted_by` column** in `flood_events.csv`: today "verifier is not the drafter" can't be checked from the file. Recommend: add it.
+3. **PUB "Issued HHMM"** is stored as an exact start: 23 rows whose notes say the clock time is PUB's "Issued" time (all `exact`), plus 2 rows that use a PUB post time reported in an article (`2023-11-28-jurong-west-boon-lay-way`, `2024-02-03-bukit-timah-dunearn-rd`). Counted on 21 Oct from the `notes` column of `data/reference/flood_events.csv`: the phrase "clock time is PUB's 'Issued' time" gives 23; the 2 article rows are named in their notes ("PUB's post time", "PUB post 'Issued 1827 hours'"). The flood began at or before that time, so Round 1 lead times are slightly short. A new precision value is more honest, but any re-score is a second look. Recommend: add a distinct precision value.
+4. **5 "exact" rows with a blank end time:** `2018-01-24-jurong-west-jalan-boon-lay`, `2018-01-24-outram-craig-rd`, `2018-05-26-orchard-kramat-lane`, `2024-11-22-toa-payoh-wan-tho-ave`, `2024-11-22-yishun-yishun-ave-7`. Confirm that is intended.
+5. **origin/master's 4 unverified 2017–23 labels** (`144750b`): adk to verify or reject; merging changes the 88 count.
+6. **CLAUDE.md freeze rule** vs README (freeze dropped 18 Oct): update CLAUDE.md.
+7. **Two results marked `dirty: true`** (`risk_multiple_2017_2023.json`, `mentor_tests_2026-10-18.json`): re-run on clean commits.
+8. **v3 model card:** `models/model_card.json` still describes v1.
+9. **Project LICENSE:** not chosen.
+10. **Training 0-fill:** keep it, or refit NaN-aware. Keeping it is cheaper and leaves the model unchanged; a refit is cleaner but is a model change under the evaluation rules. Recommend: keep, and say so (done in the README).
+11. **Unverified:** whether a full day fits the live `MAX_PAGES_PER_DAY` cap; whether the alert API returns the previous evening's alerts when queried by yesterday's date; one unexplained tooltip-icon element seen on a first 375 px load (not reproducible).
+12. **Bot with an incomplete gold step (C1, Haiku round).** The bot sends nothing for any zone if gold's 55 newest rows don't share one timestamp (fail-closed, by design); the app falls back if a zone is missing. Alternative: show "No data" for the affected zones only and keep alerting the others. Unlikely in practice, since gold is rewritten whole. Recommend: keep fail-closed.
+13. **Earlier-date alert query errors (I2, Haiku round).** After midnight, any error on the earlier-date PUB alert query is swallowed with a warning. Options: swallow only a 404 and show "late-evening alerts not checked", or raise. Recommend: the first, once the live API's behaviour for yesterday's date is known.
+14. **Freeze wording differs across files (I6, Haiku round).** CLAUDE.md rules 3 and 4 still describe the freeze, the README says "no code freeze", and the `register_model.py` docstring dropped "before the freeze". Recommend: update CLAUDE.md to match the 18 Oct decision (item 6 above).
+
+### Haiku review round (21 Oct)
+
+4 Haiku reviewers plus Sonnet verification found 20 issues. **Fixed (docs, done):**
+- **D1** model-superiority wording (README, `model_comparison.md`): only T3 met its pre-registered margin (+3 floods at Moderate, 90% CI +4 to +21 points, 8.74 false Moderate episodes per zone-year against 11) and awaits the team decision (B7); T1 and T2 did not.
+- **D2** the post-hoc prior-SD 0.1 static run (0.509) and the registered `rule_rain60_static` (0.411; 19 caught at 10 false alerts) are now named separately.
+- **D3** README "trained on 66 labels" is now "fitted on the 36 development floods of 2017–2023", and "On the first 66 labels" for the thresholds is corrected the same way.
+- **D4** the five blank-end "exact" rows are listed by `event_id`.
+- **D5** test counts: 492 passed, 2 skipped is the default run and includes the 55 integration tests.
+- **D6** the "Issued" count is 23 + 2 (method above).
+
+**Code fixes from this round (done):**
+- **C2** the `coverage()` docstring says a NaN `reporting_stations` counts as "none" and a missing column raises `KeyError`; the `config.py` comment names its source (the raw 2017–2023 store via `read_rainfall`, 716,632 steps).
+- **A1** partial zones no longer look dry: the footer says "Readings missing" instead of "No rain"/"All dry" when the pick is zero and any zone is partial; the zone card's rarity status is "Rain readings missing" with the caption "Some readings are missing, so there is no reliable rain total to rank."; the partial caption is "Some readings in the last hour are missing, so rain totals and risk may read too low." (the Resident caution is unchanged). Partial zones stay in Heaviest/Wettest, because right after a gap all zones are partial.
+- **A2** the Max 30-min Rain KPI shows one decimal (0.3 mm shows "0.3 mm").
+- **A3** `escape_markdown` escapes "&".
+- **I1** `parse_rainfall_payload` raises `ValueError("No usable block in rainfall payload")` when every block is skipped, so the Lakeflow parse UDF quarantines it (`is_valid=0.0`) as before; single bad blocks are still skipped.
+- **I5** new `PaginationLimitExceeded(LiveFeedUnavailable)` in `poller.py` for the page cap and a repeated token; `build_rainfall_store._fetch_day` fails fast on it without retrying.
+- The app status panel's model sentence now matches the README and `model_comparison.md` (D1/D2).
+
+**Left alone:** A4 (cosmetic), A5 (refuted), C3 (the comment is accurate for the raw store), I3 and I4 (by design).
 
 ### 21 Oct (adk, with subagents): alerts wording, transport table, area link. Branch `alerts-wording-transport`, NOT committed
 
@@ -358,7 +434,7 @@ Streamlit app, live or as a replay of any day since 2017.
 | Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and 15-min PUB alert job** (§3b). See DEPLOYMENT.md. |
 | Radar | **Done, all of A1** (§3). |
 | App | Live mode (PUB live alerts, 5-min refresh) and Replay (two-step sidebar: choose a date, then simulate). Map switch **Risk of flood \| Rain radar**, with a joined timing row (**Now \| In 1 hour**, or **Now \| +30 \| +60 min**); one layer at a time; slim legend bars. Zone Diagnostic panel shows risk, a 2-line radar summary in radar view, and (Live mode, 17 Oct, `404c9bd`) the official PUB alert for the selected area. The separate Resident view (A9) has the "What to do" line; its switch sits top right. MRT stations at risk. Light/dark toggle, orange buttons. |
-| Tests/CI | ruff, mypy, format, and pytest in CI. On `mentor-tests-round2` (18 Oct, adk's session): 344 unit and 33 integration tests pass; ruff, format and mypy clean. (Earlier counts: 321 unit on 17 Oct, about 290 on 16 Oct.) GitHub Actions on push. |
+| Tests/CI | ruff, mypy, format, and pytest in CI. On `stress-test-fixes` (21 Oct, adk's session, uncommitted): 495 passed, 2 skipped, 3 deselected with the default `uv run pytest` (this includes the 55 Streamlit AppTest integration tests, 1 skipped); ruff, format and mypy clean. (Earlier counts, as then written: 366 unit and 43 integration on 21 Oct earlier, 344/33 on 18 Oct, 321 unit on 17 Oct, about 290 on 16 Oct.) GitHub Actions on push. |
 
 ---
 
@@ -397,7 +473,7 @@ The poller is paused, so two jobs keep the data growing (DEPLOYMENT.md §14):
 - **`floodsense-flood-alerts`** (every 15 min): PUB alerts, which the API doesn't keep. Only pages
   with an alert are saved. **Pause it at the same time as the poller is unpaused** (A3); the poller saves alerts
   too. Check its compute use after the first day; fall back to every 30 min if heavy.
-- The **local** gauge store (`data/raw/rainfall`) still ends 30 Sep, and local radar ends 14 Oct;
+- The **local** gauge store (`data/raw/rainfall`) ends 15 Oct 2026 (21 Oct), and local radar ends 14 Oct;
   neither updates by itself.
 
 ---
@@ -477,11 +553,12 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | B4.2 | Re-run selection on 2020–2023 only | adk | Done; re-run on 88 labels done 17 Oct (on `rerun-88-labels`, pushed) | `docs/candidate_selection_2026-10.md`; `rule_rain60` still wins (0.500; next `rule_rain30` 0.491, `lightgbm` 0.438) |
 | B4.2b | Candidate that uses static features; re-run LR and LightGBM | adk | Done; 88-label result on `rerun-88-labels` | On 88 labels the static features are mixed, not adopted (High 8/28 vs 14/28; Moderate 19/28 vs 18/28 at twice the false episodes); LR and LightGBM still behind |
 | B4.3 | Radar via A1.6, without retraining | adk | Done | Radar GO (17 Oct): the forecast risk uses the nowcast with the current model, no retraining |
-| B4.4 | Register the candidate with alias `candidate` | Akul | Done 18 Oct | The refit (Moderate 0.53%) is `workspace.floodsense.flood_model` **version 3, alias `candidate`**. Version 2 is the same model with a differently named file: superseded, do not promote. `champion` is still version 1 |
+| B4.4 | Register the candidate with alias `candidate` | Akul | Done 18 Oct | The refit (Moderate 0.53%) is `workspace.floodsense.flood_model` **version 3, alias `candidate`**. Version 2 is the same model with a differently named file: superseded, do not promote. History at the time (18 Oct, before the promotion): `champion` was still version 1. It is version 3 since 18 Oct (B4.5) |
 | B4.5 | Freeze and set thresholds (~~before the freeze~~; freeze dropped 18 Oct) | adk | Done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk signed off on 18 Oct** (relayed by Akul). The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
 | B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the Resident view's "What to do" line to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
 | B7 | Mentor suggestions round 2: runoff-weighted rain, kriged mean + 1 SD, rain30 for Moderate (pre-registered, 2020–2023 CV) | adk | Done 18 Oct, decision open | `docs/mentor_tests_2026-10.md`; pre-registration `538924b`. T1 and T2 not adopted; T3 meets its margin but its gain is +3 floods at Moderate (mostly the same ones in every test) at about twice the false Moderate episodes. Headline counts (90% CI): baseline High 14/28 (36–64%), Moderate 18/28 (50–79%); T1 High 15/28 (39–68%), Moderate 21/28 (61–89%); T2 High 14/28 (36–64%), Moderate 21/28 (61–89%); T3 Moderate 21/28 (61–89%). Recommendation: keep `rule_rain60`. Team decision on T3. Deferred (adk, 18 Oct): bare-earth DEM, not before Demo Day (reasons in §0 B7). Review pending (Akul) |
+| B8 | Stress test fixes (H1–H3, M1–M10, L1–L20) | adk | Done 21 Oct on `stress-test-fixes`, not committed; review and redeploy open | See §0 (21 Oct, later). Needs adk's review of the new copy, Akul's review before master, and Akul's dashboard redeploy and v3 parity re-export (Databricks, paused to save credits). The open team decisions are listed in §0 |
 | B6 | Deck and metrics write-up | adk (Akul: architecture slide) | Open | B6.1 rates with raw counts and 90% intervals, plus false alarms per zone-year. B6.2 limitations slide: label count, test-set status, radar scope; tide is not built although some labels carry a `rain_tide` tag. B6.3 credit all datasets, libraries, models. B6.4 draft as soon as possible, both review, **deck saved as PDF in the repo**. Include the "mentor suggestions measured" slide (§6) |
 | J1 | Integration and demo flow | both | Open | J1.1 CI green. ~~Freeze and tag before the limit (23 Oct 18:00 SGT)~~ (freeze dropped 18 Oct). J1.2 demo order: app live from gold, map with radar nowcast, Resident view's "What to do" line, replay 17 Apr 2021, click the High zone and show the warning time, Telegram alert (replay mode), Databricks (pipeline, model in UC, dashboard). J1.3 a fallback recording or screenshot for each live step. J1.4 two clean end-to-end runs from a fresh browser |
 | J2 | Rehearsals and Q&A | both | Open | J2.1 rehearsal 1 (time it, note failures). J2.2 rehearsal 2 (every fallback works), once ~~the freeze is done and~~ the fallbacks exist (freeze dropped 18 Oct). J2.3 Q&A answers (adk): why not full radar; false-alarm rate; how labels are verified; what happens during NEA downtime |
@@ -598,7 +675,7 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
   - the feature store `data/processed/features` (to Sep 2026)
   - radar `data/raw/radar`
   - `data/processed/nowcast_eval.parquet`
-- **Gauge store coverage:** ends 30 Sep 2026 (nowcast evaluation window: 16 Jul to 30 Sep).
+- **Gauge store coverage:** ends 15 Oct 2026 (the nowcast evaluation window is still 16 Jul to 30 Sep).
 - **`.env` (adk, 17 Oct):** holds the Telegram token and chat ID. It has no data.gov.sg key yet (§0, 17 Oct, later). Never print any of them.
 
 ---

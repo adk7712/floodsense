@@ -9,6 +9,7 @@ always agree.
 
 import html
 import json
+import re
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ import streamlit as st
 
 from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
 from floodsense.ingestion.flood_alerts import FloodAlert
+from floodsense.models.scoring import NO_DATA_TIER, risk_tier
 
 # The same wording as the Telegram alerts and the zone panel (alerts/messages.py).
 ADVICE_FOR_TIER = ADVICE
@@ -25,7 +27,16 @@ RISK_NOW = {
     "High": "High risk of a flash flood",
     "Moderate": "Moderate risk of a flash flood",
     "Low": "Low risk of a flash flood",
+    NO_DATA_TIER: "No gauge data — risk unknown",
 }
+NO_DATA_ADVICE = (
+    "We have no rain gauge readings for this area right now, so we can't tell the flood risk. "
+    "Check PUB's official flood alerts and take care if heavy rain starts."
+)
+PARTIAL_NOTE = (
+    "Some rain readings from the last hour are missing, so the real risk may be higher than shown."
+)
+PUB_ALERTS_UNAVAILABLE = "PUB flood alerts can't be checked right now."
 FORECAST_CAVEAT = "Forecast from radar; flood accuracy not yet tested."
 
 # DRAFT wording (T2), off until adk signs off the wording and the figure. COPY CHANGE FOR REVIEW.
@@ -67,7 +78,45 @@ def risk_multiple_line(tier: str, path: Path = RISK_MULTIPLE_FILE) -> str | None
 
 
 def _tier_of(table: pd.DataFrame, zone: str) -> str:
-    return str(table.loc[table["ura_planning_area"] == zone, "risk_tier"].iloc[0])
+    """The zone's tier; "No data" when the table has no row for it (never a crash)."""
+    tiers = table.loc[table["ura_planning_area"] == zone, "risk_tier"]
+    return str(tiers.iloc[0]) if len(tiers) else NO_DATA_TIER
+
+
+def _coverage_of(table: pd.DataFrame, zone: str) -> str:
+    """ "ok", "partial" or "none" for the zone; "ok" when the table carries no coverage column."""
+    if "coverage" not in table.columns:
+        return "ok"
+    cov = table.loc[table["ura_planning_area"] == zone, "coverage"]
+    return str(cov.iloc[0]) if len(cov) else "none"
+
+
+_MARKDOWN_SPECIALS = re.compile(r"([\\`*_{}\[\]()#+\-.!|>~$:<&])")
+
+
+def escape_markdown(text: str) -> str:
+    """Show ``text`` literally in st.markdown / st.error: no links, bold, lists or emoji codes."""
+    return _MARKDOWN_SPECIALS.sub(r"\\\1", text)
+
+
+def pct(p: float, thresholds: dict[str, float] | None = None) -> str:
+    """A probability as a percentage to 3 significant figures ("0.706%").
+
+    With ``thresholds``, a value just under a threshold gets more digits until it no longer
+    prints as the threshold, so the text never contradicts the tier."""
+    if pd.isna(p):
+        return "—"
+    value = p * 100
+    if value < 0.001:
+        return "<0.001%" if value > 0 else "0%"
+    text = f"{value:.3g}"
+    if thresholds:
+        exact = {k: round(v, 12) for k, v in thresholds.items()}
+        for digits in range(3, 10):
+            text = f"{value:.{digits}g}"
+            if risk_tier(round(float(text) / 100, 12), exact) == risk_tier(round(p, 12), exact):
+                break
+    return f"{text}%"
 
 
 _ALERT_TEXT_MAX = 160
@@ -86,6 +135,7 @@ def show_pub_alerts(alerts: list[FloodAlert] | None, zone: str) -> None:
         text = " ".join(a.description.split()) or a.headline or "flash flood observed"
         if len(text) > _ALERT_TEXT_MAX:
             text = text[: _ALERT_TEXT_MAX - 1].rstrip() + "…"
+        text = escape_markdown(text)  # PUB's words, shown as plain text
         st.error(
             f"**PUB flood alert active here:** {text} (issued {a.issued_at:%H:%M} SGT, "
             "official PUB alert)",
@@ -103,8 +153,14 @@ def render_resident_view(
     is_dark: bool,
     tokens: Mapping[str, str],
     pub_alerts: list[FloodAlert] | None = None,
+    pub_alerts_unavailable: bool = False,
+    stale_age: str | None = None,
 ) -> str:
-    """Draw the resident page and return the chosen planning area."""
+    """Draw the resident page and return the chosen planning area.
+
+    ``pub_alerts_unavailable``: the PUB alert fetch failed (said so, instead of showing nothing).
+    ``stale_age``: how old the data is, as text, when it is past the stale limit; the tier is then
+    drawn faded under an "out of date" line."""
     names = sorted(risk_now["ura_planning_area"])
     st.markdown('<div class="fs-res-step">Your area</div>', unsafe_allow_html=True)
     zone = str(
@@ -118,18 +174,26 @@ def render_resident_view(
         )
     )
     tier = _tier_of(risk_now, zone)
+    coverage = _coverage_of(risk_now, zone)
     bg, border, colour = tier_style(tier, is_dark)
     name = html.escape(zone.title())
 
+    if stale_age:
+        st.warning(f"Out of date: the latest data is {stale_age} old, so this may not be current.")
     st.markdown(
-        f'<div class="fs-res-card" style="background:{bg}; border:2px solid {border};">'
+        f'<div class="fs-res-card" style="background:{bg}; border:2px solid {border};'
+        f'{" opacity:0.55;" if stale_age else ""}">'
         f'<div class="fs-res-small" style="color:{tokens["text_muted"]};">{name}, right now</div>'
         f'<div class="fs-res-big" style="color:{colour};">{RISK_NOW[tier]}</div>'
         "</div>",
         unsafe_allow_html=True,
     )
 
+    if coverage == "partial" and tier != NO_DATA_TIER:
+        st.caption(PARTIAL_NOTE)
     show_pub_alerts(pub_alerts, zone)
+    if pub_alerts_unavailable:
+        st.caption(PUB_ALERTS_UNAVAILABLE)
 
     if RISK_WORDING_DRAFT and tier in DRAFT_TIER_LINE:
         st.markdown(f"**{DRAFT_TIER_LINE[tier]}**")
@@ -144,7 +208,7 @@ def render_resident_view(
             '<div class="fs-res-line">'
             f'<span style="color:{tokens["text_main"]};">In 1 hour: </span>'
             f'<span class="fs-res-chip" style="color:{colour_1h}; border:2px solid {border_1h};">'
-            f"{tier_1h}</span></div>",
+            f"{'Unknown' if tier_1h == NO_DATA_TIER else tier_1h}</span></div>",
             unsafe_allow_html=True,
         )
         st.caption(FORECAST_CAVEAT)
@@ -153,7 +217,7 @@ def render_resident_view(
     st.markdown(
         f'<div class="fs-res-advice" style="border-left:6px solid {colour}; '
         f'background:{tokens["bg_surface"]}; color:{tokens["text_main"]};">'
-        f"{ADVICE_FOR_TIER[tier]}</div>",
+        f"{NO_DATA_ADVICE if tier == NO_DATA_TIER else ADVICE_FOR_TIER[tier]}</div>",
         unsafe_allow_html=True,
     )
 

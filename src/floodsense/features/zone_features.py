@@ -39,7 +39,10 @@ def interpolate_snapshots(
     Zone rainfall on a contiguous 5-minute grid.
 
     Returns long-format rows ``(ura_planning_area, timestamp, rainfall_mm, reporting_stations)``.
-    Grid steps with no snapshot are treated as no station reporting (zone rainfall 0).
+    Grid steps with no snapshot are treated as no station reporting (zone rainfall 0). The 0-fill
+    is a training-time choice: it keeps the feature table contiguous. It does not mean the step was
+    dry. Serving flags such steps (too few gauges, or a gap in the last hour) through
+    ``floodsense.serving.coverage`` and shows "No data" instead of a tier.
     """
     if not snapshots:
         raise ValueError("No rainfall snapshots to interpolate")

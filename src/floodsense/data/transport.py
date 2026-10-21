@@ -98,8 +98,9 @@ def stations_at_risk(
     Stations with an exit in a Moderate/High zone or inside an active PUB alert circle.
 
     ``zone_risk`` has ``ura_planning_area``, ``risk_tier`` and ``flood_probability``. Returns one
-    row per station: station, zone, tier ("High", "Moderate" or "PUB alert"), probability and
-    reason, most urgent first.
+    row per station: station, zone, tier ("High", "Moderate" or "PUB alert"), probability, reason
+    and ``near_alert`` (True when any of the station's rows came from a PUB alert circle, even if
+    its tier is a zone tier), most urgent first.
     """
     exits = load_station_exits() if exits is None else exits
     risky = zone_risk[zone_risk["risk_tier"].isin(["High", "Moderate"])]
@@ -135,8 +136,12 @@ def stations_at_risk(
                     }
                 )
     if not rows:
-        return pd.DataFrame(columns=["station", "zone", "tier", "probability", "reason"])
+        return pd.DataFrame(
+            columns=["station", "zone", "tier", "probability", "reason", "near_alert"]
+        )
     out = pd.DataFrame(rows)
+    # Flag before the dedup below, which keeps only the most urgent row per station.
+    out["near_alert"] = out["station"].isin(set(out.loc[out["tier"] == "PUB alert", "station"]))
     out["order"] = out["tier"].map(TIER_ORDER)
     out = out.sort_values(["order", "probability"], ascending=[True, False])
     return out.drop_duplicates("station").drop(columns="order").reset_index(drop=True)
@@ -173,6 +178,7 @@ def pin_zone_stations(
                 "tier": tier,
                 "probability": float(prob) if pd.notna(prob) else float("nan"),
                 "reason": f"{zone.title()} is at {tier} risk",
+                "near_alert": False,
                 "selected": True,
             }
         )

@@ -15,6 +15,7 @@ from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent, StationMetadata
 from floodsense.data import rainfall_store
 from floodsense.features.zone_features import compute_zone_feature_table
+from floodsense.serving.coverage import coverage
 
 STEPS_PER_DAY = 288
 SPARSE_SHARE = 0.9  # under this share of 5-minute steps with readings, warn that the day is patchy
@@ -25,7 +26,7 @@ PINNED_STORM = date(2021, 4, 17)
 @dataclass
 class DayView:
     day: date
-    features: pd.DataFrame  # every zone x 5-minute step of the day (empty if no readings)
+    features: pd.DataFrame  # every zone x 5-minute step of the day, with a ``coverage`` column
     total_stations: int  # gauges that reported at least once in the window (incl. warm-up)
     step_share: float  # share of the day's 288 steps with at least one reading
 
@@ -63,6 +64,8 @@ def day_view(day: date) -> DayView:
     for s in snaps:
         stations.update(s.stations)
     table = compute_zone_feature_table(snaps, stations)
+    # Judged on the warm-up too, so a gap before midnight still marks the first hours as partial.
+    table["coverage"] = coverage(table)
     stamps = pd.to_datetime(table["timestamp"])
     table = table[(stamps >= pd.Timestamp(start)) & (stamps <= pd.Timestamp(end))]
     return DayView(

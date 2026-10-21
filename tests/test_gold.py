@@ -24,6 +24,11 @@ def gold_rows(epoch: int = EPOCH, high: str = "BUKIT TIMAH") -> list[list[Any]]:
     ]
 
 
+def _with_prob(rows: list[list[Any]], prob: str) -> list[list[Any]]:
+    """All 55 zones, the first with ``flood_probability`` set to ``prob``."""
+    return [[*rows[0][:9], prob, rows[0][10]], *rows[1:]]
+
+
 def _resp(state: str, columns=PREDICTION_COLUMNS, rows=None, error: str | None = None):
     return SimpleNamespace(
         statement_id="s1",
@@ -106,6 +111,11 @@ def test_a_query_that_never_finishes_is_cancelled(monkeypatch):
         (_resp("SUCCEEDED", rows=[["ATLANTIS", *gold_rows()[0][1:]]]), "unknown zones"),
         (_resp("SUCCEEDED", rows=[[*gold_rows()[0][:-1], "Severe"]]), "unknown risk tiers"),
         (_resp("SUCCEEDED", rows=[[*gold_rows()[0][:2], None, *gold_rows()[0][3:]]]), "missing"),
+        (_resp("SUCCEEDED", rows=gold_rows()[:54]), "missing 1 zones"),
+        (_resp("SUCCEEDED", rows=gold_rows() + gold_rows()[:1]), "duplicate zones"),
+        (_resp("SUCCEEDED", rows=_with_prob(gold_rows(), "1.5")), "outside 0 to 1"),
+        (_resp("SUCCEEDED", rows=_with_prob(gold_rows(), "NaN")), "outside 0 to 1"),
+        (_resp("SUCCEEDED", rows=_with_prob(gold_rows(), "abc")), "non-numeric"),
     ],
 )
 def test_bad_answers_are_refused(response, message):

@@ -134,8 +134,14 @@ The pipeline had passed the local Spark run (section 9) before any of these:
   to protect the daily compute cap.
 - **Telegram alerts** run as the poller's third task (section 22), so they only post while the
   poller is unpaused.
-- **Promoting a new model** to `champion` (A4.4, 23 Oct): gold already serves whatever the alias
-  points to (section 17).
+- **Promoting a model to `champion`** is done for version 3 (promoted 18 Oct, adk signed off 18 Oct;
+  section 21). Gold serves whatever the alias points to (section 17), so any later promotion is
+  a matter of moving the alias.
+- **A model card for version 3.** `models/model_card.json` still describes version 1 (Moderate
+  0.30%, git `cac91ca`); a version 3 card is open (the file is read and written by code, so it has
+  not been moved or edited).
+- **A version 3 parity export** (section 17): the committed Databricks replay export was produced
+  by version 1. Re-exporting needs a Databricks run, which is paused to save free-plan credits.
 
 ## 7. Answers to plan §9
 
@@ -199,8 +205,10 @@ DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py   #
   its signature, `model_card.json`, `final_report.json`, the thresholds and the test metrics.
 - Experiment `/Users/<login>/floodsense-model` (the `floodsense` name is taken by the
   workspace folder), run `85df4e2d536f43d4a4df1663f1f5c14a`.
-- Registered as **`workspace.floodsense.flood_model` version 1, alias `champion`** (status READY).
-  Each re-run adds a version and moves `champion`.
+- *History (6 Oct):* registered as **`workspace.floodsense.flood_model` version 1, alias `champion`**
+  (status READY); at that time each re-run added a version and moved `champion`. That is no longer
+  so: `register_model.py` now defaults to the alias `candidate`, and only the team moves `champion`.
+  The current champion is **version 3** (section 21).
 - Check: `models:/workspace.floodsense.flood_model@champion`, loaded back with `mlflow.pyfunc`, scores
   the 17 Apr 2021 replay (4,675 rows) identically to the joblib model: max probability difference 0,
   tiers identical (4,113 Low, 367 Moderate, 195 High).
@@ -367,10 +375,12 @@ the sidebar: it opens a single toggle,
     `FLOODSENSE_GOLD_STALE_MINUTES` (default 60).
   - With no warehouse set (CI, a fresh clone), Live mode starts on data.gov.sg without a warning.
 - **Freshness:** the page shows the data's age next to the latest reading; when gold is older than
-  60 minutes that age turns amber (no separate banner). If gold can't be read, a warning gives the
-  reason and the app falls back to data.gov.sg.
+  60 minutes the age turns amber and a stale warning shows in both views (Analyst and Resident).
+  If gold can't be read, the app falls back to data.gov.sg; the reason is in an Analyst-only
+  "Technical detail" expander, and the Resident view shows no gold warning.
 - **Cost:** results are cached for 15 minutes (half the poller's interval), so each viewer queries
-  the warehouse at most 4 times an hour. A cold warehouse takes about 25 s to answer.
+  the warehouse at most 4 times an hour. After a failed read the app backs off for 60 seconds;
+  auto-refresh no longer clears that, only the Retry button does. A cold warehouse takes about 25 s to answer.
 - **Checked on 16 Oct:** 55 zones read from the workspace, last scored 6 Oct 17:35 SGT (the poller
   is paused), so the page showed "9 days old". Checked in light and dark mode.
 
@@ -431,7 +441,12 @@ pipeline doesn't change. With the key empty, gold falls back to `models/flood_mo
   newest-filled-step rule (gold stops at the newest step most gauges have reported).
 
 **Parity (A4.3), 16 Oct:**
-- The file behind `@champion` (version 1) has the same SHA-256 as the committed
+- *Parity is proven for version 1 only.* The committed export
+  (`data/reference/phase5/databricks_replay_predictions.csv`) was produced by version 1; the
+  champion is now version 3. A version 3 re-export is pending (Akul; it needs a Databricks run,
+  paused to save credits). Locally, version 3 against that export gives 240 of 4,675 tier
+  differences (as expected for a different model; 0 differences against archived version 1).
+- At the time (16 Oct), the file behind `@champion` (version 1) had the same SHA-256 as the committed
   `models/flood_model.joblib`.
 - Loaded through `load_registered_model`, it scores the 17 Apr 2021 replay exactly like the
   committed Databricks export (`data/reference/phase5/databricks_replay_predictions.csv`): 4,675
@@ -473,7 +488,7 @@ Audited every object in `workspace.floodsense`, then filled the gaps:
 | Volumes `landing`, `radar`, `artifacts` | yes | **added** `project`, `data_classification`, `purpose`, and `source` on `landing` and `radar` |
 | Volume `autoloader` | **added** (pipeline state, not data) | **added** as above |
 | Model `flood_model` | yes | **added** `project`, `track`, `data_classification`, `model_type` |
-| Model version 1 (`@champion`) | **added**: what it is, its tiers and its test result | |
+| Model version 1 (was `@champion` on 6 Oct; champion is now version 3) | **added** (6 Oct): what it is, its tiers and its test result (history; not re-checked for version 3) | |
 | Jobs (poller, daily archiver, flood alerts) | yes | **added** `project`, `track`, `role` (also in the job JSON files) |
 | App `floodsense` | yes | Apps have no tags |
 
@@ -532,9 +547,9 @@ The team chose the refit of `rule_rain60` on 88 verified labels: the budget rule
   report, and its file is always stored as `artifacts/flood_model.joblib`, the name the pipeline
   loads. `load_registered_model` also accepts a single differently named `.joblib`.
 - Registered as **version 3, alias `candidate`** (version 2 is the same model, but its file kept its
-  local name; marked superseded). `champion` is still version 1 (Moderate 0.30%), so gold is unchanged
-  until the promotion.
-- **Promoted 18 Oct** (by Akul, ahead of the planned 23 Oct; adk's sign-off to be recorded): `champion`
+  local name; marked superseded). At this point `champion` was still version 1 (Moderate 0.30%), so gold was unchanged
+  until the promotion (history; see the next item).
+- **Promoted 18 Oct** (by Akul, ahead of the planned 23 Oct; **adk signed off on 18 Oct**, B4.5 in `docs/ROUND2_HANDOFF.md`): `champion`
   → version 3, wheel rebuilt, pipeline update `5e1554ac…` completed with no warnings. The committed
   `models/flood_model.joblib` is now version 3 (byte-identical to the registry's file), so the app's
   Replay, data.gov.sg and forecast views use the same model as gold. Version 1 is kept as

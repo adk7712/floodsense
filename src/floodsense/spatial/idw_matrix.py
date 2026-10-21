@@ -38,8 +38,8 @@ class IDWMatrixEngine:
         power: float = 2.0,
         eps: float = 1e-4,
     ):
-        self.zones = zones or URA_PLANNING_AREAS
-        self.stations = stations or load_station_snapshot()
+        self.zones = URA_PLANNING_AREAS if zones is None else zones
+        self.stations = load_station_snapshot() if stations is None else stations
         self.power = power
         self.eps = eps
 

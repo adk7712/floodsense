@@ -298,7 +298,7 @@ def _snapshots_to_frames(snaps: Iterable[RainfallSnapshot]) -> tuple[pd.DataFram
 
 
 def _fetch_day(poller, day: date, max_tries: int = 6) -> list[RainfallSnapshot]:  # noqa: ANN001
-    from floodsense.ingestion.poller import LiveFeedUnavailable
+    from floodsense.ingestion.poller import LiveFeedUnavailable, PaginationLimitExceeded
 
     for attempt in range(1, max_tries + 1):
         try:
@@ -306,6 +306,8 @@ def _fetch_day(poller, day: date, max_tries: int = 6) -> list[RainfallSnapshot]:
             for page in poller._iter_day_pages(day):
                 snaps.extend(page)
             return snaps
+        except PaginationLimitExceeded as exc:
+            raise RuntimeError(f"{day}: paging never ended, not retrying: {exc}") from exc
         except LiveFeedUnavailable as exc:
             if "HTTP 404" in str(exc):
                 # data.gov.sg answers "REAL_TIME_API_DATA_NOT_FOUND": NEA has nothing more for

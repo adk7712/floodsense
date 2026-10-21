@@ -13,18 +13,24 @@ Rules (documented choices):
     (``allow_escalation=True``, the default). Without it the replay of 17 Apr 2021 sends no High
     message at all, because zones go Moderate -> High within the hour. After a High message the
     zone is silent for an hour. ``allow_escalation=False`` gives the strict one-per-hour rule.
-    The rate limit does not queue: a dropped rise is not re-sent later.
+    A rise dropped by the rate limit is remembered and re-checked once the hour has passed: if the
+    zone is then still at that tier or higher, it is sent (a zone that fell back is forgotten).
   * "Back to Low" all-clear is OFF by default (``include_all_clear=True`` turns it on). When on,
     one all-clear is sent when a zone that was alerted drops to Low; it is not rate limited and does
     not reset the hourly clock.
   * Missing zones in a snapshot keep their last known tier; nothing is treated as dry.
+  * Data coverage (``serving.coverage``): a zone-step with too few gauges has tier "No data". It
+    never changes the remembered tier and never sends anything. A "partial" step (the last 60
+    minutes had a gap) may still raise an alert, but never sends an all-clear or lowers the
+    remembered tier; an all-clear needs an "ok" step. Live, gold carries only the current step's
+    gauge count, so the bot tracks the last "No data" time per zone itself and treats the next
+    60 minutes as partial.
   * The token is read from ``TELEGRAM_BOT_TOKEN`` and is never printed or logged.
 
 Live mode (reads the Databricks gold table):
   * Provider: ``gold_latest_risk`` wraps ``serving.gold.latest_zone_risk()`` (newest gold row per
-    zone). If zones carry different timestamps it uses the NEWEST step and only the zones present
-    at that step; zones missing at that step are skipped, never given an invented tier (they keep
-    their last known tier in the detector).
+    zone, always all 55). If the zones are not all at one timestamp it logs a warning and sends
+    nothing, rather than leave some zones on stale tiers. Zones with too few gauges are given the tier "No data".
   * State: each zone's last tier, last send time and last sent tier are saved to a small JSON file
     (``--state-file``, default ``data/processed/telegram_state.json``, gitignored) after every
     change, written to a temp file then renamed. A restart reloads it, so a zone already alerted at
@@ -70,20 +76,28 @@ import pandas as pd
 import requests
 
 from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
-from floodsense.common.config import settings
+from floodsense.common.config import MIN_REPORTING_STATIONS, settings
+from floodsense.common.timeutil import to_sgt
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.models.artifact import load_model
-from floodsense.models.scoring import score_zone_features
+from floodsense.models.scoring import NO_DATA_TIER, score_zone_features
+from floodsense.serving.coverage import coverage
 from floodsense.serving.gold import GoldUnavailable, latest_zone_risk
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 logger = logging.getLogger("FloodSense.TelegramBot")
 
 TIER_RANK = {"Low": 0, "Moderate": 1, "High": 2}
+COVERAGE_VALUES = {"ok", "partial", "none"}
+GAP_WINDOW = timedelta(minutes=60)  # the rain_60m window: how long after a gap data is "partial"
 RATE_LIMIT = timedelta(hours=1)
 TELEGRAM_API = "https://api.telegram.org"
 
-Snapshot = tuple[datetime, Mapping[str, str]]
+# (timestamp, {zone: tier}) or (timestamp, {zone: tier}, {zone: "ok" | "partial" | "none"}).
+Snapshot = (
+    tuple[datetime, Mapping[str, str]] | tuple[datetime, Mapping[str, str], Mapping[str, str]]
+)
 
 
 @dataclass(frozen=True)
@@ -102,6 +116,7 @@ def display_name(zone: str) -> str:
 
 def format_message(zone: str, tier: str, when: datetime) -> str:
     """Plain-language message for a zone reaching ``tier`` at ``when`` (SGT)."""
+    when = to_sgt(when)
     stamp = f"{when:%H:%M}, {when:%d %b %Y} SGT"
     name = display_name(zone)
     if tier == "Low":
@@ -112,6 +127,8 @@ def format_message(zone: str, tier: str, when: datetime) -> str:
     return (
         f"FloodSense {tier.upper()} flood risk: {name}\n"
         f"Time: {stamp}\n"
+        # Deliberate: Moderate and High share this line. Calibrated probabilities are about
+        # 0.5-0.7%, which does not justify "likely".
         f"Flash flood possible in the next hour.\n\n"
         f"What to do: {ADVICE[tier]}\n\n"
         f"{DISCLAIMER} {HONESTY_LINE}"
@@ -135,7 +152,9 @@ class AlertDetector:
         self._last_sent: dict[str, datetime] = {}
         self._last_sent_tier: dict[str, str] = {}
         self._alerted: set[str] = set()
-        self._undo: dict[str, tuple[str | None, datetime | None, str | None, bool]] = {}
+        self._pending: dict[str, str] = {}  # tier of a rise the rate limit dropped
+        self._last_gap: dict[str, datetime] = {}  # last "No data" step per zone
+        self._undo: dict[str, tuple[str | None, datetime | None, str | None, bool, str | None]] = {}
 
     def to_state(self) -> dict[str, object]:
         """JSON-able copy of the per-zone state (tiers, send times)."""
@@ -145,35 +164,46 @@ class AlertDetector:
             "last_sent": {z: t.isoformat() for z, t in self._last_sent.items()},
             "last_sent_tier": dict(self._last_sent_tier),
             "alerted": sorted(self._alerted),
+            "pending": dict(self._pending),
+            "last_gap": {z: t.isoformat() for z, t in self._last_gap.items()},
         }
 
     def load_state(self, state: Mapping[str, object]) -> None:
         """Restore ``to_state()`` output. Raises ValueError/TypeError/KeyError if malformed."""
         last_tier = dict(state["last_tier"])  # type: ignore[call-overload]
         sent_tier = dict(state["last_sent_tier"])  # type: ignore[call-overload]
+        # A naive saved time is read as SGT, so it can be compared with aware step times.
         last_sent = {
-            str(z): datetime.fromisoformat(str(t))
+            str(z): to_sgt(datetime.fromisoformat(str(t)))
             for z, t in dict(state["last_sent"]).items()  # type: ignore[call-overload]
         }
         alerted = {str(z) for z in state["alerted"]}  # type: ignore[attr-defined]
-        for tier in [*last_tier.values(), *sent_tier.values()]:
+        pending = {str(z): str(t) for z, t in dict(state.get("pending", {})).items()}  # type: ignore[call-overload]
+        last_gap = {
+            str(z): to_sgt(datetime.fromisoformat(str(t)))
+            for z, t in dict(state.get("last_gap", {})).items()  # type: ignore[call-overload]
+        }
+        for tier in [*last_tier.values(), *sent_tier.values(), *pending.values()]:
             if tier not in TIER_RANK:
                 raise ValueError(f"unknown tier {tier!r} in saved state")
         self._last_tier = {str(z): str(t) for z, t in last_tier.items()}
         self._last_sent_tier = {str(z): str(t) for z, t in sent_tier.items()}
         self._last_sent = last_sent
         self._alerted = alerted
+        self._pending = pending
+        self._last_gap = last_gap
 
     def retract(self, alert: Alert) -> None:
         """Undo the state change that produced ``alert`` (its send failed), so it can retry."""
         undo = self._undo.get(alert.zone)
         if undo is None:
             return
-        tier, sent, sent_tier, alerted = undo
+        tier, sent, sent_tier, alerted, pending = undo
         for table, value in (
             (self._last_tier, tier),
             (self._last_sent, sent),
             (self._last_sent_tier, sent_tier),
+            (self._pending, pending),
         ):
             if value is None:
                 table.pop(alert.zone, None)  # type: ignore[attr-defined]
@@ -181,21 +211,56 @@ class AlertDetector:
                 table[alert.zone] = value  # type: ignore[assignment]
         (self._alerted.add if alerted else self._alerted.discard)(alert.zone)
 
-    def feed(self, ts: datetime, tiers: Mapping[str, str]) -> list[Alert]:
+    def _coverage(self, zone: str, tier: str, ts: datetime, given: str | None) -> str:
+        """ "none", "partial" or "ok" for this zone-step. "No data" is always "none"."""
+        if tier == NO_DATA_TIER or given == "none":
+            return "none"
+        if given == "partial":
+            return "partial"
+        gap = self._last_gap.get(zone)
+        if given is None and gap is not None and ts - gap < GAP_WINDOW:
+            return "partial"
+        return "ok"
+
+    def feed(
+        self,
+        ts: datetime,
+        tiers: Mapping[str, str],
+        coverage: Mapping[str, str] | None = None,
+    ) -> list[Alert]:
+        """Alerts for one step. ``coverage`` maps zone -> "ok" | "partial" | "none" (default: from
+        the tier "No data" and the gaps this detector has seen)."""
+        ts = to_sgt(ts)
+        cov_in = coverage or {}
+        for zone, tier in tiers.items():
+            if tier not in TIER_RANK and tier != NO_DATA_TIER:
+                raise ValueError(f"unknown tier {tier!r} for {zone}")
+            if cov_in.get(zone, "ok") not in COVERAGE_VALUES:
+                raise ValueError(f"unknown coverage {cov_in[zone]!r} for {zone}")
         out: list[Alert] = []
         for zone in sorted(tiers):
             tier = tiers[zone]
-            if tier not in TIER_RANK:
-                raise ValueError(f"unknown tier {tier!r} for {zone}")
+            cov = self._coverage(zone, tier, ts, cov_in.get(zone))
+            if cov == "none":
+                self._last_gap[zone] = ts  # rain unknown, not dry: remember nothing else
+                continue
             prev = self._last_tier.get(zone, "Low")
             self._undo[zone] = (
                 self._last_tier.get(zone),
                 self._last_sent.get(zone),
                 self._last_sent_tier.get(zone),
                 zone in self._alerted,
+                self._pending.get(zone),
             )
+            if cov == "partial" and TIER_RANK[tier] < TIER_RANK[prev]:
+                continue  # a thin window can only understate rain: no downgrade, no all-clear
             self._last_tier[zone] = tier
-            if tier != "Low" and TIER_RANK[tier] > TIER_RANK[prev]:
+            pending = self._pending.get(zone)
+            if pending is not None and TIER_RANK[tier] < TIER_RANK[pending]:
+                del self._pending[zone]  # fell back below the dropped rise: forget it
+                pending = None
+            rose = TIER_RANK[tier] > TIER_RANK[prev]
+            if tier != "Low" and (rose or pending is not None):
                 sent = self._last_sent.get(zone)
                 limited = sent is not None and ts - sent < self.rate_limit
                 escalation = (
@@ -203,7 +268,10 @@ class AlertDetector:
                     and TIER_RANK[tier] > TIER_RANK[self._last_sent_tier.get(zone, "Low")]
                 )
                 if limited and not escalation:
+                    # Dropped for now; re-checked on later steps once the hour has passed.
+                    self._pending[zone] = tier
                     continue
+                self._pending.pop(zone, None)
                 self._last_sent[zone] = ts
                 self._last_sent_tier[zone] = tier
                 self._alerted.add(zone)
@@ -227,8 +295,8 @@ def detect_alerts(
         allow_escalation=allow_escalation,
         rate_limit=rate_limit,
     )
-    for ts, tiers in snapshots:
-        yield from det.feed(ts, tiers)
+    for snap in snapshots:
+        yield from det.feed(*snap)
 
 
 class TelegramSender:
@@ -299,12 +367,17 @@ def load_dotenv_file(path: Path | None = None) -> None:
 
 
 def replay_snapshots(day: date, model: object | None = None) -> list[Snapshot]:
-    """Per-step {zone: tier} for a replayed day, from the existing replay + scoring path."""
+    """Per-step ({zone: tier}, {zone: coverage}) for a replayed day, via the replay + scoring path.
+
+    Coverage is judged on the table including its warm-up, then steps with too few gauges get the
+    tier "No data", so a gauge gap is never replayed as a dry spell (and never an all-clear).
+    """
     if model is None:
         model = load_model()
     if day == date(2021, 4, 17) and settings.replay_file.exists():
         replay = load_replay(settings.replay_file)
         table = compute_zone_feature_table(replay.snapshots, replay.stations)
+        table["coverage"] = coverage(table)
         stamps = pd.to_datetime(table["timestamp"])
         table = table[(stamps >= replay.display_start) & (stamps <= replay.display_end)]
     else:
@@ -315,13 +388,25 @@ def replay_snapshots(day: date, model: object | None = None) -> list[Snapshot]:
         table = replay_days.day_view(day).features
         if table.empty:
             raise ValueError(f"No rainfall readings for {day}: nothing to replay")
-    scored = score_zone_features(table.reset_index(drop=True), model)
+        if "coverage" not in table.columns:
+            table = table.assign(coverage=coverage(table))
+    return _score_snapshots(table, model)
+
+
+def _score_snapshots(table: pd.DataFrame, model: object) -> list[Snapshot]:
+    """Score a feature table that has a ``coverage`` column into per-step snapshots."""
+    table = table.reset_index(drop=True)
+    scored = score_zone_features(table, model)
+    scored["coverage"] = table["coverage"].to_numpy()
+    scored.loc[scored["coverage"] == "none", "risk_tier"] = NO_DATA_TIER
     out: list[Snapshot] = []
     for ts, g in scored.groupby("timestamp", sort=True):
+        zones = g["ura_planning_area"]
         out.append(
             (
                 pd.Timestamp(ts).to_pydatetime(),
-                dict(zip(g["ura_planning_area"], g["risk_tier"], strict=True)),
+                dict(zip(zones, g["risk_tier"], strict=True)),
+                dict(zip(zones, g["coverage"], strict=True)),
             )
         )
     return out
@@ -338,18 +423,23 @@ DEFAULT_MAX_AGE = timedelta(minutes=30)
 def gold_latest_risk() -> tuple[datetime, Mapping[str, str]]:
     """(timestamp, {zone: tier}) for the newest scored step in the gold table.
 
-    Wraps ``latest_zone_risk()``. Zones whose newest row is older than the newest step in the frame
-    are left out (never given an invented tier). Raises ``GoldUnavailable``.
+    Wraps ``latest_zone_risk()`` (one row per zone). If the 55 rows do not share one timestamp it
+    warns and returns no tiers. Zones with too few gauges get "No data". Raises ``GoldUnavailable``.
     """
     df = latest_zone_risk()
     if df.empty:
         raise GoldUnavailable("the gold table returned no rows")
     newest = df["timestamp"].max()
-    step = df[df["timestamp"] == newest]
-    skipped = len(df) - len(step)
-    if skipped:
-        logger.warning("%d zone(s) have no row at the newest step %s; skipped", skipped, newest)
-    tiers = dict(zip(step["ura_planning_area"], step["risk_tier"], strict=True))
+    df = df.copy()
+    if "reporting_stations" in df.columns:  # too few gauges: the rain is unknown, not dry
+        thin = df["reporting_stations"] < MIN_REPORTING_STATIONS
+        df.loc[thin, "risk_tier"] = NO_DATA_TIER
+    if df["timestamp"].nunique() != 1 or df["ura_planning_area"].nunique() != len(
+        URA_PLANNING_AREAS
+    ):
+        logger.warning("Zones are not all at one step (newest %s); nothing sent this cycle", newest)
+        return pd.Timestamp(newest).to_pydatetime(), {}
+    tiers = dict(zip(df["ura_planning_area"], df["risk_tier"], strict=True))
     return pd.Timestamp(newest).to_pydatetime(), tiers
 
 
@@ -408,11 +498,16 @@ def run_cycle(
     except Exception as exc:
         logger.error("Gold read failed (%s), skipping this cycle", type(exc).__name__)
         return 1
-    if max_age is not None and now is not None and now() - ts > max_age:
+    if max_age is not None and now is not None and to_sgt(now()) - to_sgt(ts) > max_age:
         logger.warning("Newest gold step %s is older than %s; nothing sent", ts, max_age)
         return 0
     problems = 0
-    for alert in det.feed(ts, tiers):
+    try:
+        alerts = det.feed(ts, tiers)
+    except ValueError as exc:  # an unknown tier or coverage value: log it, skip the cycle
+        logger.error("Bad risk data, skipping this cycle: %s", exc)
+        return 1
+    for alert in alerts:
         try:
             emit(alert)
         except Exception as exc:

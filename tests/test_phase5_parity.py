@@ -9,6 +9,12 @@ Reads the export of a real workspace run (DEPLOYMENT.md, sections 2 and 4); skip
 The CSV alone could be produced locally, so it is not the proof on its own: a person checked the
 run_info update id and row counts in the workspace (the sign-off in DEPLOYMENT.md). This test makes
 sure that what ran there is the same computation as here.
+
+Scope: the committed export was produced by model version 1, so parity is proven for version 1
+only (the test compares against the archived v1 model). The served champion is now version 3. A
+version 3 re-export is pending (Akul; it needs a Databricks run, paused to save free-plan credits).
+Locally, version 3 against this export gives 240 of 4,675 tier differences, as expected for a
+different model.
 """
 
 import json

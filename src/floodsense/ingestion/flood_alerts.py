@@ -12,8 +12,9 @@ shows the live alerts next to its own risk, and the Databricks poller archives t
 
 import json
 import logging
+import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from typing import Any
 
@@ -22,9 +23,11 @@ from shapely.strtree import STRtree
 
 from floodsense.common.config import settings
 from floodsense.common.timeutil import to_sgt
-from floodsense.ingestion.poller import NEAPoller
+from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller
 
 logger = logging.getLogger("FloodSense.FloodAlerts")
+
+MAX_PAGES_PER_DAY = 50  # stops a repeating or endless paginationToken
 
 
 @dataclass(frozen=True)
@@ -61,74 +64,142 @@ def zone_for_point(latitude: float, longitude: float) -> str | None:
     return None
 
 
+def _record_time(record: Any) -> datetime | None:
+    """A record's SGT ``datetime`` (naive read as SGT), or None (with a warning) when it is unusable."""
+    try:
+        when = datetime.fromisoformat(record["datetime"])
+    except (KeyError, ValueError, TypeError) as exc:
+        logger.warning("Skipping flood-alert record with no usable datetime: %s", exc)
+        return None
+    return to_sgt(when)  # a naive time is read as SGT, as everywhere else
+
+
 def parse_flood_alerts(payload: dict[str, Any]) -> list[FloodAlert]:
-    """All alert readings in an API payload, oldest first. Empty observations are skipped."""
+    """All alert readings in an API payload, oldest first. Empty observations are skipped, as are
+    records that are malformed (logged)."""
     alerts = []
     for record in (payload.get("data") or {}).get("records") or []:
+        issued_at = _record_time(record)
+        if issued_at is None:
+            continue
         item = record.get("item") or {}
         for reading in item.get("readings") or []:
-            circle = (reading.get("area") or {}).get("circle") or []
-            lat, lon, radius = (
-                (float(circle[0]), float(circle[1]), float(circle[2]))
-                if len(circle) >= 3
-                else (None, None, None)
-            )
-            alerts.append(
-                FloodAlert(
-                    identifier=str(item.get("identifier", "")),
-                    msg_type=str(item.get("msgType", "")),
-                    references=str(item.get("references", "")),
-                    issued_at=to_sgt(datetime.fromisoformat(record["datetime"])),
-                    headline=str(reading.get("headline", "")),
-                    description=str(reading.get("description", "")),
-                    area_desc=str((reading.get("area") or {}).get("areaDesc", "")),
-                    latitude=lat,
-                    longitude=lon,
-                    radius_km=radius,
-                    severity=str(reading.get("severity", "")),
-                    zone=zone_for_point(lat, lon) if lat is not None and lon is not None else None,
+            try:
+                circle = (reading.get("area") or {}).get("circle") or []
+                lat, lon, radius = (
+                    (float(circle[0]), float(circle[1]), float(circle[2]))
+                    if len(circle) >= 3
+                    else (None, None, None)
                 )
-            )
+                alerts.append(
+                    FloodAlert(
+                        identifier=str(item.get("identifier", "")),
+                        msg_type=str(item.get("msgType", "")),
+                        references=str(item.get("references", "")),
+                        issued_at=issued_at,
+                        headline=str(reading.get("headline", "")),
+                        description=str(reading.get("description", "")),
+                        area_desc=str((reading.get("area") or {}).get("areaDesc", "")),
+                        latitude=lat,
+                        longitude=lon,
+                        radius_km=radius,
+                        severity=str(reading.get("severity", "")),
+                        zone=(
+                            zone_for_point(lat, lon)
+                            if lat is not None and lon is not None
+                            else None
+                        ),
+                    )
+                )
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.warning("Skipping malformed flood-alert reading: %s", exc)
     return sorted(alerts, key=lambda a: a.issued_at)
 
 
+def referenced_identifiers(references: str) -> set[str]:
+    """The identifiers in a CAP ``references`` field: whitespace-separated "sender,identifier,sent"
+    triples (some feeds put a space after each comma, so those are closed up first)."""
+    identifiers = set()
+    for triple in re.sub(r"\s*,\s*", ",", references.strip()).split():
+        parts = triple.split(",")
+        if len(parts) >= 2 and parts[1]:
+            identifiers.add(parts[1])
+    return identifiers
+
+
 def active_alerts(alerts: list[FloodAlert]) -> list[FloodAlert]:
-    """Alerts with no later Cancel referencing them."""
-    cancelled = {
-        a.identifier
-        for a in alerts
+    """Alerts with no later Cancel referencing them (exact identifier match; a Cancel never
+    cancels an alert sent after it)."""
+    cancels = [
+        (c.issued_at, referenced_identifiers(c.references))
         for c in alerts
-        if c.msg_type == "Cancel" and a.identifier and a.identifier in c.references
-    }
-    return [a for a in alerts if a.msg_type == "Alert" and a.identifier not in cancelled]
+        if c.msg_type == "Cancel"
+    ]
+    return [
+        a
+        for a in alerts
+        if a.msg_type == "Alert"
+        and not (
+            a.identifier
+            and any(a.issued_at <= when and a.identifier in ids for when, ids in cancels)
+        )
+    ]
 
 
 def fetch_flood_alert_payloads(
     day: date | None = None, poller: NEAPoller | None = None, since: datetime | None = None
 ) -> list[dict[str, Any]]:
-    """The API's pages for ``day`` (default: today, SGT), newest first; stops once a page reaches
-    back past ``since``."""
+    """The API's pages, newest first. Without ``since``: ``day`` only (default: today, SGT). With
+    ``since``: every date from ``since`` to ``day``, so a window that crosses midnight also gets the
+    previous evening; each date stops once a page reaches back past ``since``."""
     poller = poller or NEAPoller()
     day = day or datetime.now(settings.tzinfo).date()
+    if since is not None:
+        since = to_sgt(since)  # naive is taken as SGT, so comparisons with record times can't raise
+    first_day = since.date() if since is not None else day
     pages: list[dict[str, Any]] = []
-    token: str | None = None
-    while True:
-        params = {"date": day.isoformat()}
-        if token:
-            params["paginationToken"] = token
-        payload = poller._get_json(settings.pub_flood_alerts_url, params)
-        pages.append(payload)
-        records = (payload.get("data") or {}).get("records") or []
-        token = (payload.get("data") or {}).get("paginationToken")
-        oldest = min((datetime.fromisoformat(r["datetime"]) for r in records), default=None)
-        if not token or (since is not None and oldest is not None and oldest < since):
-            return pages
+    # NB: this file records that past dates come back empty, so whether the previous date's query
+    # returns the late-evening alerts is unverified live.
+    last_day = day
+    while day >= first_day:
+        token: str | None = None
+        seen_tokens: set[str] = set()
+        for _ in range(MAX_PAGES_PER_DAY):
+            params = {"date": day.isoformat()}
+            if token:
+                params["paginationToken"] = token
+            try:
+                payload = poller._get_json(settings.pub_flood_alerts_url, params)
+            except LiveFeedUnavailable as exc:
+                if day == last_day:
+                    raise
+                # An earlier date may 404 (the archive job treats that as "no data"): keep the rest.
+                logger.warning("Flood-alert query for %s failed, continuing: %s", day, exc)
+                break
+            pages.append(payload)
+            records = (payload.get("data") or {}).get("records") or []
+            token = (payload.get("data") or {}).get("paginationToken")
+            times = [t for t in (_record_time(r) for r in records) if t is not None]
+            oldest = min(times, default=None)
+            if not token or token in seen_tokens:
+                break
+            seen_tokens.add(token)
+            if since is not None and oldest is not None and oldest < since:
+                break
+        else:
+            logger.warning(
+                "Flood-alert pagination for %s hit the %d-page cap", day, MAX_PAGES_PER_DAY
+            )
+        day -= timedelta(days=1)
+    return pages
 
 
 def fetch_flood_alerts(
     day: date | None = None, poller: NEAPoller | None = None, since: datetime | None = None
 ) -> list[FloodAlert]:
     """Alerts issued on ``day`` (from ``since``, when given), oldest first."""
+    if since is not None:
+        since = to_sgt(since)
     pages = fetch_flood_alert_payloads(day, poller, since)
     alerts = [a for p in pages for a in parse_flood_alerts(p)]
     if since is not None:

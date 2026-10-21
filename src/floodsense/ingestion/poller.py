@@ -25,9 +25,17 @@ from floodsense.common.timeutil import to_sgt
 
 logger = logging.getLogger("FloodSense.Poller")
 
+# Stops an endless paginationToken. A day is ~288 5-minute blocks; the page count of a full day is
+# unverified against the live API, so check this cap if a full-day fetch ever raises it.
+MAX_PAGES_PER_DAY = 100
+
 
 class LiveFeedUnavailable(RuntimeError):
     """The rainfall API could not be reached, refused the request, or returned no readings."""
+
+
+class PaginationLimitExceeded(LiveFeedUnavailable):
+    """Paging never ended (a repeated paginationToken or too many pages); retrying won't help."""
 
 
 def _parse_stations(raw_stations: list[dict[str, Any]]) -> dict[str, StationMetadata]:
@@ -55,7 +63,7 @@ def _parse_readings(timestamp: datetime, raw: list[tuple[str, Any]]) -> dict[str
             reading = RainfallReading(
                 station_id=station_id, timestamp=timestamp, rainfall_mm=float(value)
             )
-        except ValueError as exc:
+        except (ValueError, TypeError) as exc:
             logger.warning(
                 "Dropping invalid reading station=%s value=%s: %s", station_id, value, exc
             )
@@ -74,30 +82,29 @@ def parse_rainfall_payload(payload: dict[str, Any]) -> list[RainfallSnapshot]:
     data = payload.get("data")
     if isinstance(data, dict) and "readings" in data:
         stations = _parse_stations(data.get("stations") or [])
-        blocks = [
-            (b["timestamp"], [(r.get("stationId"), r.get("value")) for r in b.get("data") or []])
-            for b in data.get("readings") or []
-        ]
+        blocks = [(b, "data", "stationId") for b in data.get("readings") or []]
     elif "items" in payload:
         stations = _parse_stations((payload.get("metadata") or {}).get("stations") or [])
-        blocks = [
-            (
-                b["timestamp"],
-                [(r.get("station_id"), r.get("value")) for r in b.get("readings") or []],
-            )
-            for b in payload.get("items") or []
-        ]
+        blocks = [(b, "readings", "station_id") for b in payload.get("items") or []]
     else:
         raise ValueError("Unrecognised rainfall payload shape")
 
     snapshots = []
-    for raw_ts, raw_readings in blocks:
-        ts = to_sgt(datetime.fromisoformat(raw_ts.replace("Z", "+00:00")))
+    for block, list_key, id_key in blocks:
+        try:
+            ts = to_sgt(datetime.fromisoformat(block["timestamp"].replace("Z", "+00:00")))
+            raw_readings = [(r.get(id_key), r.get("value")) for r in block.get(list_key) or []]
+        except (KeyError, ValueError, TypeError, AttributeError) as exc:
+            logger.warning("Skipping unusable rainfall block: %s", exc)
+            continue
         snapshots.append(
             RainfallSnapshot(
                 timestamp=ts, readings=_parse_readings(ts, raw_readings), stations=stations
             )
         )
+    if blocks and not snapshots:
+        # Every block was unusable (e.g. a renamed key): a broken payload, not a quiet one.
+        raise ValueError("No usable block in rainfall payload")
     return sorted(snapshots, key=lambda s: s.timestamp)
 
 
@@ -128,11 +135,18 @@ class NEAPoller:
                 last_error = str(exc)
             else:
                 if resp.status_code == 200:
-                    body = resp.json()
-                    # v2 reports errors in-band via a non-zero "code"; v1 has no such field.
-                    if body.get("code", 0) == 0:
-                        return body
-                    last_error = f"API error {body.get('code')}: {body.get('errorMsg')}"
+                    try:
+                        body = resp.json()
+                    except ValueError as exc:  # a 200 that isn't JSON (e.g. an HTML error page)
+                        last_error = f"response is not JSON: {exc}"
+                    else:
+                        if not isinstance(body, dict):
+                            last_error = f"unexpected JSON type {type(body).__name__}"
+                        # v2 reports errors in-band via a non-zero "code"; v1 has no such field.
+                        elif body.get("code", 0) == 0:
+                            return body
+                        else:
+                            last_error = f"API error {body.get('code')}: {body.get('errorMsg')}"
                 else:
                     last_error = f"HTTP {resp.status_code}"
             logger.warning(
@@ -167,7 +181,8 @@ class NEAPoller:
     def _iter_day_pages(self, day: date) -> Iterator[list[RainfallSnapshot]]:
         """Yield one day's snapshots page by page, newest page first (v2 pagination)."""
         token: str | None = None
-        while True:
+        seen_tokens: set[str] = set()
+        for _ in range(MAX_PAGES_PER_DAY):
             params = {"date": day.isoformat()}
             if token:
                 params["paginationToken"] = token
@@ -176,7 +191,13 @@ class NEAPoller:
             token = (payload.get("data") or {}).get("paginationToken")
             if not token:
                 return
+            if token in seen_tokens:
+                raise PaginationLimitExceeded(f"Rainfall API repeated paginationToken for {day}")
+            seen_tokens.add(token)
             time.sleep(settings.api_page_delay_sec)
+        raise PaginationLimitExceeded(
+            f"Rainfall API paged past {MAX_PAGES_PER_DAY} pages for {day}"
+        )
 
     def fetch_range(self, start: datetime, end: datetime) -> list[RainfallSnapshot]:
         """All snapshots with ``start <= timestamp <= end`` (inclusive), oldest first."""

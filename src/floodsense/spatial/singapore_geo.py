@@ -6,6 +6,7 @@ snapshot of data.gov.sg station metadata.
 """
 
 import json
+import re
 from pathlib import Path
 
 from floodsense.common.config import settings
@@ -89,10 +90,11 @@ URA_PLANNING_AREAS: dict[str, dict] = {
 
 def area_from_slug(slug: object) -> str | None:
     """The planning area for a share-link slug ("bukit-merah" -> "BUKIT MERAH"), else None.
-    Case and surrounding spaces are ignored; empty or unknown values give None."""
+    Case and surrounding spaces are ignored, and runs of spaces or underscores count as one hyphen
+    ("Bukit_Merah", "bukit  merah"). Empty or unknown values give None."""
     if not isinstance(slug, str):
         return None
-    wanted = slug.strip().lower()
+    wanted = re.sub(r"[ _]+", "-", slug.strip().lower())
     return next((a for a in URA_PLANNING_AREAS if a.lower().replace(" ", "-") == wanted), None)
 
 

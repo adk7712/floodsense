@@ -263,11 +263,15 @@ def radar_view(when: datetime, archive: Path = ARCHIVE_DIR) -> RadarView | None:
 
 
 def forecast_features(features: pd.DataFrame, zones: pd.DataFrame) -> pd.DataFrame:
-    """Zone features with the next hour's nowcast rain in place of the last hour's (A1.6)."""
+    """Zone features with the next hour's nowcast rain in place of the last hour's (A1.6).
+
+    A zone with no nowcast (absent from ``zones`` or NaN) keeps NaN, so its forecast is unknown and
+    scores "No data". It is never filled in as a dry 0 mm hour.
+    """
     f = features.merge(
         zones[["ura_planning_area", "nowcast_60_mm"]], on="ura_planning_area", how="left"
     )
-    nc = f["nowcast_60_mm"].fillna(0.0)
+    nc = f["nowcast_60_mm"]
     f["rain_120m"] = f["rain_60m"] + nc  # observed hour + forecast hour
     f["rain_60m"] = nc
     return f.drop(columns="nowcast_60_mm")

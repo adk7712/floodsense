@@ -78,3 +78,13 @@ def test_gap_day_is_empty_and_partial_day_reports_its_share():
     assert rd.day_view(date(2018, 2, 8)).features.empty
     partial = rd.day_view(date(2021, 1, 1))
     assert 0.3 < partial.step_share < 0.4
+
+
+@needs_store
+def test_day_features_carry_a_coverage_flag_for_gaps():
+    full = rd.day_view(date(2021, 4, 17)).features
+    assert set(full["coverage"]) <= {"ok", "partial"}  # a complete day has no "none" step
+    patchy = rd.day_view(date(2017, 4, 4)).features  # 21 steps with no gauge reporting
+    assert "none" in set(patchy["coverage"])
+    # the hour after a gap is "partial", not "ok"
+    assert "partial" in set(patchy["coverage"])

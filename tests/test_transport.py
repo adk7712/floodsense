@@ -95,3 +95,25 @@ def test_pinning_a_risky_area_puts_it_first_and_no_zone_changes_nothing():
     assert out["station"].iloc[0] == "A MRT" and out["selected"].tolist() == [True, False, False]
     none = pin_zone_stations(base, None, risk, _exits())
     assert list(none["station"]) == list(base["station"]) and not none["selected"].any()
+
+
+def test_station_in_a_moderate_zone_inside_an_alert_circle_keeps_both_facts():
+    alert = FloodAlert(
+        identifier="A2",
+        msg_type="Alert",
+        references="",
+        issued_at=datetime(2025, 5, 22, 17, 5, tzinfo=settings.tzinfo),
+        headline="Flash Flood Alert",
+        description="Flash flood near A MRT",
+        area_desc="near A MRT",
+        latitude=1.3,
+        longitude=103.8,
+        radius_km=0.5,
+        severity="Minor",
+        zone="BEDOK",
+    )
+    out = stations_at_risk(_zone_risk(**{"BEDOK": "Moderate"}), [alert], _exits())
+    row = out[out["station"] == "A MRT"].iloc[0]
+    assert row["tier"] == "Moderate"
+    assert bool(row["near_alert"]) is True
+    assert "near_alert" in stations_at_risk(_zone_risk(**{"BEDOK": "Moderate"}), exits=_exits())

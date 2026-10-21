@@ -15,7 +15,8 @@ Forecasts, issued at every storm time step t in the radar archive:
 
 Storm time steps: some zone has ≥ 5 mm in the truth window, or ≥ 5 mm/h on radar at t.
 Scores: correlation, MAE and bias over zone × step pairs, and hit / false-alarm / CSI for the
-model's tier thresholds (Moderate from 29.5 mm and High from 44.5 mm in 60 minutes).
+model's tier thresholds (v1 levels, as in the published results: Moderate from 29.5 mm and High
+from 44.5 mm of rain in 60 minutes). The v3 levels (about 37.7 and 43.2 mm) are not used here yet.
 
     uv run --extra radar python -m floodsense.radar.evaluate_nowcast --start 2026-07-16 --end 2026-09-30
 """

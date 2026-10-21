@@ -4,8 +4,8 @@ FloodSense - Log the trained model to MLflow and register it in Unity Catalog.
 Wraps a ``FloodModel`` in an ``mlflow.pyfunc`` model that scores through
 ``floodsense.models.scoring.score_zone_features`` (the same path the app and pipeline use),
 registers it as a new version of ``workspace.floodsense.flood_model`` and points an alias at it:
-``candidate`` by default. Only the team promotes a version to ``champion`` (moving that alias), on
-the freeze day, after sign-off.
+``candidate`` by default. Only the team promotes a version to ``champion`` (moving that alias), after
+sign-off.
 
     # a candidate, e.g. a refit (its summary JSON is logged with it)
     DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py \
@@ -48,6 +48,8 @@ def default_experiment() -> str:
     from databricks.sdk import WorkspaceClient
 
     return f"/Users/{WorkspaceClient().current_user.me().user_name}/{EXPERIMENT_NAME}"
+
+
 MODEL_NAME = "workspace.floodsense.flood_model"
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "flood_model.joblib"
@@ -84,7 +86,9 @@ def replay_feature_rows(model: FloodModel, replay_path: Path | None = None) -> p
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--experiment", help="MLflow experiment path (default: /Users/<you>/floodsense-model)")
+    parser.add_argument(
+        "--experiment", help="MLflow experiment path (default: /Users/<you>/floodsense-model)"
+    )
     parser.add_argument("--name", default=MODEL_NAME)
     parser.add_argument(
         "--model-path",

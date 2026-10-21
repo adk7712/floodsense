@@ -132,7 +132,14 @@ def test_diagnostics_use_real_model_and_current_status():
     assert "Wet-Ground Index" in labels and "Wet Ground (72h)" not in labels
     text = " ".join(md.value for md in at.markdown) + " ".join(c.value for c in at.caption)
     assert "placeholder" not in text and "boundary polygons to come" not in text
-    assert "60.8M readings" in text and "High from" in text
+    assert "High from" in text
+    # H2: the held-out figures are version 1's, and nothing about them is stale or "next".
+    assert "Version 1 (Moderate from 0.30%) on 2024–Sep 2026" in text
+    assert "version 3 has not been scored on these years" in text
+    assert "radar nowcasting is next" not in text and "60.8M" not in text
+    from floodsense.data.flood_events import load_flood_events
+
+    assert f"**Flood labels (sourced):** {len(load_flood_events())} events" in text
     assert "DAISI Challenge" not in " ".join(c.value for c in at.sidebar.caption)
 
 
@@ -163,7 +170,11 @@ def test_replay_any_date_and_featured_storms():
     at.sidebar.date_input[0].set_value(date(2019, 7, 15))
     at.run(timeout=60)
     assert not at.exception
-    assert "none in our 66 sourced events" in " ".join(md.value for md in at.markdown)
+    from floodsense.data.flood_events import load_flood_events
+
+    n = len(load_flood_events())
+    text = " ".join(md.value for md in at.markdown)
+    assert f"none in our {n} sourced events" in text and "66 sourced" not in text
 
 
 @needs_store
@@ -199,7 +210,7 @@ def test_opens_in_live_mode_by_default(offline):
     assert not at.exception
     assert at.sidebar.button_group[0].value == "Live Feed"
     assert any(
-        "Live feed unavailable" in e.value for e in at.error
+        "can't reach NEA's rain gauges" in e.value for e in at.error
     )  # offline: says so, no fake rain
 
 
@@ -302,6 +313,7 @@ def gold_table(monkeypatch):
     monkeypatch.setattr(settings, "api_backoff_sec", 0.0)
     monkeypatch.setattr(settings, "databricks_warehouse_id", "test-warehouse")
     st.cache_data.clear()  # gold_latest() is cached across AppTest runs in this process
+    st.cache_resource.clear()  # and so is a remembered gold failure
 
     def answer(minutes_old: float | None):
         import time as _time
@@ -339,7 +351,7 @@ def test_stale_gold_shows_its_age_and_data_gov_is_one_switch_away(gold_table):
     gold_table(minutes_old=9 * 24 * 60)
     at = _app(mode="Live Feed")
     assert "9 days old" in _page_text(at)
-    assert not at.warning  # the age next to the latest reading is the only stale signal
+    assert any(w.value.startswith("Data is 9 days old") for w in at.warning)  # and a warning
     assert not any(b.label == "Use data.gov.sg readings" for b in at.button)
 
     at.button(key="advanced_btn").click()  # Advanced opens its toggle to the right
@@ -348,7 +360,7 @@ def test_stale_gold_shows_its_age_and_data_gov_is_one_switch_away(gold_table):
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["use_data_gov"] is True
-    assert any("Live feed unavailable" in str(e.value) for e in at.error)  # offline here
+    assert any("can't reach NEA's rain gauges" in str(e.value) for e in at.error)  # offline here
 
     at.button(key="advanced_btn_open").click()  # closing Advanced keeps the choice
     at.run(timeout=60)
@@ -358,8 +370,9 @@ def test_stale_gold_shows_its_age_and_data_gov_is_one_switch_away(gold_table):
 def test_unreachable_gold_falls_back_to_data_gov(gold_table):
     gold_table(minutes_old=None)
     at = _app(mode="Live Feed")
-    assert any("warehouse unreachable" in str(w.value) for w in at.warning)
-    assert any("Live feed unavailable" in str(e.value) for e in at.error)
+    assert any("Couldn't read the Databricks gold table" in str(w.value) for w in at.warning)
+    assert "warehouse unreachable" in at.expander[0].code[0].value  # the detail, collapsed
+    assert any("can't reach NEA's rain gauges" in str(e.value) for e in at.error)
 
 
 def test_without_a_warehouse_live_starts_on_data_gov_quietly(offline):
@@ -488,7 +501,7 @@ def test_resident_advice_matches_the_tier():
     assert "High" in seen, "expected some zone to be High at 12:50 on 17 Apr 2021"
 
 
-def test_resident_view_in_live_reads_the_same_gold_and_shows_no_stale_caption(gold_table):
+def test_resident_view_in_live_reads_the_same_gold_and_flags_old_data(gold_table):
     gold_table(minutes_old=9 * 24 * 60)
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = "Live Feed"
@@ -499,7 +512,9 @@ def test_resident_view_in_live_reads_the_same_gold_and_shows_no_stale_caption(go
     text = _resident_text(at)
     assert "Bukit Timah, right now" in text
     assert "High risk of a flash flood" in text  # gold's own tier, as in the analyst view
-    assert not at.warning
+    assert [w.value for w in at.warning] == [
+        "Out of date: the latest data is 9 days old, so this may not be current."
+    ]
     assert "poller" not in text and "old" not in text.lower().replace("older", "")
     assert not any(m.label == "Use data.gov.sg readings" for m in at.button)
     at.button(key="advanced_btn").click()  # the sidebar control still works from this view
@@ -609,3 +624,266 @@ def test_transport_table_pins_the_selected_area_first_even_when_low():
     table = next(m.value for m in at.markdown if "<thead>" in m.value)
     first_row = table.split("<tbody>")[1].split("</tr>")[0]
     assert "Bedok" in first_row and "Low" in first_row
+
+
+# --- live outage, gold failure, stale data, odd inputs (stress-test fixes) -------------------
+
+from datetime import datetime, timedelta  # noqa: E402
+
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
+
+from floodsense.common.config import settings  # noqa: E402
+from floodsense.common.schemas import RainfallSnapshot, StationMetadata  # noqa: E402
+from floodsense.ingestion import flood_alerts, poller  # noqa: E402
+from floodsense.serving import gold  # noqa: E402
+from floodsense.serving.gold import GoldUnavailable  # noqa: E402
+from floodsense.serving.pipeline_core import PREDICTION_COLUMNS  # noqa: E402
+from floodsense.spatial.singapore_geo import load_station_snapshot  # noqa: E402
+
+
+def _now() -> datetime:
+    return datetime.now(settings.tzinfo).replace(second=0, microsecond=0)
+
+
+def _live_feed(monkeypatch, end: datetime, rain: float = 0.0, empty_last: int = 0) -> None:
+    """Live data.gov.sg readings ending at ``end``; the last ``empty_last`` steps have no gauge."""
+    stations = {
+        sid: StationMetadata(station_id=sid, name=s["name"], latitude=s["lat"], longitude=s["lon"])
+        for sid, s in load_station_snapshot().items()
+    }
+    snaps = []
+    for k in range(72):
+        ts = end - timedelta(minutes=5 * (71 - k))
+        readings = {} if k >= 72 - empty_last else {sid: rain for sid in stations}
+        snaps.append(RainfallSnapshot(timestamp=ts, readings=readings, stations=stations))
+    monkeypatch.setattr(poller.NEAPoller, "fetch_history", lambda self, hours, now=None: snaps)
+    monkeypatch.setattr(flood_alerts, "fetch_flood_alerts", lambda day=None, **kw: [])
+    monkeypatch.setattr(settings, "databricks_warehouse_id", None)
+    st.cache_data.clear()
+    st.cache_resource.clear()  # also forgets a recent gold failure
+
+
+def _gold_frame(ts: pd.Timestamp, drop: tuple[str, ...] = ()) -> pd.DataFrame:
+    rows = [
+        dict(
+            ura_planning_area=z,
+            timestamp=ts,
+            rain_5m=0.0,
+            rain_15m=0.0,
+            rain_30m=0.0,
+            rain_60m=0.0,
+            rain_120m=0.0,
+            rain_decay_72h=1.0,
+            reporting_stations=90,
+            flood_probability=0.001,
+            risk_tier="Low",
+        )
+        for z in sorted(URA_PLANNING_AREAS)
+        if z not in drop
+    ]
+    return pd.DataFrame(rows)[PREDICTION_COLUMNS]
+
+
+def _use_gold(monkeypatch, fn) -> None:
+    monkeypatch.setattr(gold, "latest_zone_risk", fn)
+    monkeypatch.setattr(gold, "warehouse_id", lambda: "wh-test")
+
+
+def _all_text(at: AppTest) -> str:
+    parts = [
+        str(x.value) for c in (at.markdown, at.caption, at.warning, at.error, at.info) for x in c
+    ]
+    return "\n".join(parts)
+
+
+def _live_app(**state) -> AppTest:
+    at = AppTest.from_file(APP_PATH, default_timeout=120)
+    at.session_state["mode"] = "Live Feed"
+    for key, value in state.items():
+        at.session_state[key] = value
+    at.run()
+    return at
+
+
+def test_an_outage_step_shows_no_data_not_low(monkeypatch):
+    _live_feed(monkeypatch, _now() - timedelta(minutes=5), rain=4.0, empty_last=3)
+    at = _live_app(use_data_gov=True)
+    assert not at.exception
+    text = _all_text(at)
+    assert any("Too few rain gauges are reporting" in w.value for w in at.warning)
+    assert "No gauge data — risk unknown" in text
+    assert "LOW RISK" not in text and "All dry" not in text and "No rain" not in text
+    assert at.metric[0].value == "0 / 55" and at.metric[1].value == "0 / 55"
+
+    resident = _live_app(use_data_gov=True, view="Resident view")
+    assert not resident.exception
+    rtext = _all_text(resident)
+    assert "No gauge data — risk unknown" in rtext and "Low risk of a flash flood" not in rtext
+
+
+def test_a_gap_in_the_last_hour_adds_a_caution(monkeypatch):
+    _live_feed(monkeypatch, _now() - timedelta(minutes=5), rain=0.0)
+    snaps = poller.NEAPoller.fetch_history(None, 3)  # the patched feed
+    gap = snaps[-4].timestamp
+    monkeypatch.setattr(
+        poller.NEAPoller,
+        "fetch_history",
+        lambda self, hours, now=None: [s for s in snaps if s.timestamp != gap],
+    )
+    st.cache_data.clear()
+    at = _live_app(use_data_gov=True)
+    assert not at.exception
+    text = _all_text(at)
+    assert (
+        "Some readings in the last hour are missing, so rain totals and risk may read too low."
+        in text
+    )
+    assert (
+        "No rain here in the last 30 minutes" not in text and "No rain in the last 30" not in text
+    )
+    assert "Readings missing" in text and "All dry" not in text
+    resident = _live_app(use_data_gov=True, view="Resident view")
+    assert "Some rain readings from the last hour are missing" in _all_text(resident)
+
+
+def test_a_failed_gold_read_is_not_cached_and_not_hammered(monkeypatch):
+    calls = {"n": 0}
+    now = pd.Timestamp(_now())
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise GoldUnavailable("warehouse starting")
+        return _gold_frame(now)
+
+    _live_feed(monkeypatch, _now())
+    _use_gold(monkeypatch, flaky)
+    at = _live_app(use_data_gov=False)
+    assert any("Databricks gold table" in w.value for w in at.warning)
+    assert "warehouse starting" not in _all_text(at)  # the detail is in the expander
+    at.run()  # a rerun soon after leaves the failed warehouse alone
+    assert calls["n"] == 1
+    st.cache_resource.clear()  # what Retry does: forget the failure
+    at.run()
+    assert calls["n"] == 2
+    assert not any("Databricks gold table" in w.value for w in at.warning)
+
+
+def test_a_zone_missing_from_gold_shows_no_data_instead_of_crashing(monkeypatch):
+    _live_feed(monkeypatch, _now())
+    now = pd.Timestamp(_now())
+    _use_gold(monkeypatch, lambda: _gold_frame(now, drop=("BUKIT TIMAH",)))
+    at = _live_app(use_data_gov=False)
+    assert not at.exception
+    assert "No gauge data — risk unknown" in _all_text(at)
+    assert "1 area has no data" in _all_text(at)
+    resident = _live_app(use_data_gov=False, view="Resident view")
+    assert not resident.exception and "No gauge data — risk unknown" in _all_text(resident)
+
+
+@pytest.mark.parametrize("source", ["data.gov.sg", "gold"])
+def test_old_data_is_flagged_in_both_views(monkeypatch, source):
+    old = _now() - timedelta(hours=5)
+    _live_feed(monkeypatch, old)
+    _use_gold(monkeypatch, lambda: _gold_frame(pd.Timestamp(old)))
+    at = _live_app(use_data_gov=source == "data.gov.sg")
+    assert not at.exception
+    assert any(w.value.startswith("Data is 5 h") and "old" in w.value for w in at.warning)
+    resident = _live_app(use_data_gov=source == "data.gov.sg", view="Resident view")
+    assert any("Out of date" in w.value for w in resident.warning)
+
+
+def test_gold_rows_of_different_ages_use_the_oldest_for_the_age(monkeypatch):
+    _live_feed(monkeypatch, _now())
+    now = pd.Timestamp(_now())
+    frame = _gold_frame(now)
+    frame.loc[frame["ura_planning_area"] == "BEDOK", "timestamp"] = now - pd.Timedelta(hours=5)
+    _use_gold(monkeypatch, lambda: frame)
+    at = _live_app(use_data_gov=False)
+    assert any(w.value.startswith("Data is 5 h") for w in at.warning)
+    assert "1 of 55 areas have older readings than the rest" in _all_text(at)
+
+
+def test_deselecting_the_mode_keeps_live_feed(monkeypatch):
+    _live_feed(monkeypatch, _now())
+    at = _live_app(use_data_gov=True)
+    at.session_state["mode"] = (
+        None  # the browser sends None when the chosen segment is clicked again
+    )
+    at.run()
+    assert not at.exception
+    assert at.session_state["mode"] == "Live Feed"
+    assert any("Live:" in str(m.value) for m in at.markdown)
+
+
+def test_an_unknown_area_link_says_so_and_the_url_follows_the_area(monkeypatch):
+    _live_feed(monkeypatch, _now())
+    at = AppTest.from_file(APP_PATH, default_timeout=120)
+    at.session_state["mode"] = "Live Feed"
+    at.session_state["use_data_gov"] = True
+    at.query_params["area"] = "atlantis [x](http://e.invalid)"
+    at.run()
+    assert not at.exception
+    notice = [i.value for i in at.info if "not found" in i.value]
+    assert notice and "showing Bukit Timah" in notice[0] and "\\[x\\]" in notice[0]
+    at.sidebar.selectbox[0].set_value("BEDOK")
+    at.run()
+    assert at.query_params["area"] == ["bedok"] or at.query_params["area"] == "bedok"
+    assert not any("not found" in i.value for i in at.info)
+
+
+def test_a_live_outage_reads_plainly_with_the_detail_tucked_away(monkeypatch):
+    def boom(self, hours, now=None):
+        raise poller.LiveFeedUnavailable("HTTP 403 from https://api.example/rain")
+
+    monkeypatch.setattr(poller.NEAPoller, "fetch_history", boom)
+    monkeypatch.setattr(settings, "databricks_warehouse_id", None)
+    st.cache_data.clear()
+    at = _live_app(use_data_gov=True)
+    assert [e.value for e in at.error] == ["We can't reach NEA's rain gauges right now."]
+    assert len(at.expander) == 1  # the technical detail, collapsed
+    assert "api.example" in at.expander[0].code[0].value
+    assert "FLOODSENSE_DATA_GOV_API_KEY" in at.expander[0].caption[0].value  # 403: the key hint
+    assert "api.example" not in " ".join(m.value for m in at.markdown)
+    resident = _live_app(use_data_gov=True, view="Resident view")
+    assert len(resident.expander) == 0 and "403" not in _all_text(resident)
+
+
+def test_a_pub_alert_fetch_failure_is_said_in_both_views(monkeypatch):
+    _live_feed(monkeypatch, _now())
+
+    def boom(day=None, **kw):
+        raise poller.LiveFeedUnavailable("HTTP 429 https://api.example/alerts")
+
+    monkeypatch.setattr(flood_alerts, "fetch_flood_alerts", boom)
+    at = _live_app(use_data_gov=True)
+    assert "PUB flood alerts can't be checked right now." in _all_text(at)
+    assert "api.example" not in _all_text(at)
+    resident = _live_app(use_data_gov=True, view="Resident view")
+    assert "PUB flood alerts can't be checked right now." in _all_text(resident)
+
+
+def test_a_failed_model_load_is_a_warning_and_gold_hides_the_fallback_levels(monkeypatch):
+    from floodsense.models import artifact
+
+    st.cache_resource.clear()  # get_model() is cached across runs
+
+    def no_model():
+        raise OSError("libomp missing")
+
+    monkeypatch.setattr(artifact, "load_model", no_model)
+    now = pd.Timestamp(_now())
+    _live_feed(monkeypatch, _now())
+    _use_gold(monkeypatch, lambda: _gold_frame(now))
+    at = _live_app(use_data_gov=False)
+    text = _all_text(at)
+    assert not at.exception
+    assert "25.0%" not in text and "65.0%" not in text and "heavier than" not in text
+    assert "The local model isn't loaded" in text
+
+    replay = AppTest.from_file(APP_PATH, default_timeout=120)
+    replay.session_state["mode"] = "Replay Storm"
+    replay.run(timeout=60)
+    assert any("could not be loaded" in w.value for w in replay.warning)
+    st.cache_resource.clear()  # don't leave the failed load cached for the other tests

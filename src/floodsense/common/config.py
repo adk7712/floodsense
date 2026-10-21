@@ -31,6 +31,15 @@ MODEL_FEATURE_COLUMNS: list[str] = [
 ]
 
 
+# Serving floor on gauges reporting in a 5-minute step (floodsense.serving.coverage). Below it the
+# step is treated as an outage: zone rain is "no data", not dry. Derived from the 2017-2023 gauge
+# store only (raw store via read_rainfall; 716,632 steps with any reading): those steps had
+# 29 / 41 / 43 / 44 / 46 gauges at the 0.1 / 0.5 / 1 / 2 / 5th percentile (median 64), and only
+# 0.08% had fewer than 20. 20 sits well below the low tail of normal steps. Not a false-alarm
+# budget; no tier threshold depends on it.
+MIN_REPORTING_STATIONS: int = 20
+
+
 class Settings(BaseSettings):
     """Runtime settings, overridable via ``FLOODSENSE_*`` environment variables."""
 
@@ -40,7 +49,8 @@ class Settings(BaseSettings):
         env_prefix="FLOODSENSE_", env_file=_DEFAULT_ROOT_DIR / ".env", extra="ignore"
     )
 
-    # Risk tier thresholds (probability)
+    # Heuristic-only fallback tier thresholds (probability). A trained model carries its own
+    # thresholds, set by the false-alarm budgets below, and ignores these two numbers.
     risk_low_moderate: float = 0.25
     risk_moderate_high: float = 0.65
 
@@ -66,8 +76,10 @@ class Settings(BaseSettings):
     isotonic_min_positives: int = 200
     # False-alarm budgets (false High / Moderate alert episodes per zone per year), chosen by the
     # team on 2026-10-01 from the 2020-2023 out-of-fold trade-off curve (23 validation floods).
-    # High 2.5 -> ~44 mm/h, caught 12/23; Moderate 11 -> ~30 mm/h, caught 17/23. A "false" alarm is
-    # one not followed by a *reported* flood, so these overstate true false alarms.
+    # With version 1 that gave High ~44 mm/h (caught 12/23) and Moderate ~30 mm/h (caught 17/23);
+    # those are v1 numbers. The current model's own thresholds (0.00531 Moderate, 0.00706 High for
+    # v3) come from the same budget rule. A "false" alarm is one not followed by a *reported*
+    # flood, so these overstate true false alarms.
     false_alarm_budget_high: float | None = 2.5
     false_alarm_budget_moderate: float | None = 11.0
 

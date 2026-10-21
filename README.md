@@ -4,23 +4,34 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 
 > **Status: working prototype on real data, running on Databricks.**
 > - **Model:** a calibrated 60-minute-rainfall rule (`models/flood_model.joblib`, registered in Unity
->   Catalog as `workspace.floodsense.flood_model@champion`, version 3). It beat logistic regression,
->   LightGBM and a static-feature variant at matched false-alarm levels
+>   Catalog as `workspace.floodsense.flood_model@champion`, version 3). Only T3 (rain30 for Moderate) met its pre-registered margin
+>   (+3 floods at Moderate, 90% CI +4 to +21 percentage points, at 8.74 false Moderate episodes per zone-year against a budget of 11); it is
+>   not in use and awaits a team decision. T1 (0.518) and T2 (0.446) did not meet theirs. A post-hoc
+>   static run (prior SD 0.1, chosen after seeing the data) scored 0.509, slightly above the rule's
+>   0.500. At 10 false alerts per zone-year, rule_rain30 caught 21 of 28 validation floods, LightGBM
+>   19, the registered static candidate (rule_rain60_static) 19, and the rule 18
 >   (`docs/candidate_selection_2026-10.md`). Moderate from **0.53%** (about 38 mm in 60 min), High from
->   **0.71%** (about 43 mm), set by the false-alarm budget rule on 88 verified floods (18 Oct).
+>   **0.71%** (about 43 mm), set by the false-alarm budget rule on 88 verified flood reports (18 Oct).
 >   In 2020–2023 cross-validation (28 floods) it catches 14 at High (90% CI 36–64%) and 18 at
 >   Moderate (50–79%), at 2.5 and 4.5 false alarms per zone-year.
-> - **Test result** (the previous model, version 1: same rule, Moderate from 0.30%, trained on 66
->   labels): scored once on held-out floods from 2024 to Sep 2026 (30 floods):
->   - High alerts caught 12 (40%), median warning 10 min, 1.6 false alarms per zone-year
->   - Moderate alerts caught 21 (70%), median warning 15 min, 7.3 false alarms per zone-year
+> - **Test result** (the previous model, version 1: same rule, Moderate from 0.30%, fitted on the 36
+>   development floods of 2017–2023; 66 was the total verified labels then, with 30 held out):
+>   scored once on held-out floods from 2024 to Sep 2026 (30 floods):
+>   - High alerts caught 12 of 30 floods (40%, 90% CI 27–53%), median warning 10 min, 1.6 false
+>     alarm episodes per zone-year
+>   - Moderate alerts caught 21 of 30 floods (70%, 90% CI 57–83%), median warning 15 min, 7.3 false
+>     alarm episodes per zone-year
 >
 >   Details and 90% intervals are in `models/final_report.json` and `models/model_card.json`, which
->   describe version 1 (kept as `models/archive/flood_model_v1_2026-10-01.joblib`). The current
->   model hasn't been scored on the test years; doing so would be a "second look".
+>   describe version 1 only (kept as `models/archive/flood_model_v1_2026-10-01.joblib`); a model card
+>   for version 3 (the served model) is still open. The current model hasn't been scored on the
+>   test years; doing so would be a "second look".
 > - **Databricks** (Free Edition, `DEPLOYMENT.md`):
->   - a Lakeflow pipeline (bronze → silver → gold) scores every zone every 5 minutes with the model
->     loaded from Unity Catalog; it reproduces local scoring on the 17 April 2021 storm
+>   - a Lakeflow pipeline (bronze → silver → gold) is built to score every zone every 5 minutes with
+>     the model loaded from Unity Catalog. Its poller is paused to save free-plan Databricks credits.
+>     With no Databricks warehouse configured (the current setup) the app reads data.gov.sg
+>     directly; with one configured it reads gold and warns when gold is stale. Parity with local scoring on the 17 April 2021
+>     storm was shown for version 1 only; a version 3 re-export is pending (`DEPLOYMENT.md` §17)
 >   - Lakeflow Jobs: a rainfall poller (lands NEA readings and PUB alerts, then runs the pipeline), a
 >     daily archiver (radar frames and gauge readings) and a 15-minute PUB-alert saver
 >   - the app runs as a Databricks App and reads gold through a SQL warehouse; an AI/BI dashboard
@@ -116,7 +127,7 @@ Rules for every input:
 
 ### Rainfall store (`data/raw/rainfall/`)
 
-60.8M NEA 5-minute readings, 2017 to Sep 2026, built from NEA's own data:
+NEA 5-minute readings from 2017 onward (the local store runs to 15 Oct 2026; the app reads the date range from the store), built from NEA's own data:
 
 | Period | Source | Step |
 |---|---|---|
@@ -136,8 +147,22 @@ uv run python -m floodsense.data.build_rainfall_store gapfill    # -> readings/y
   - snaps early records stamped one second early (`09:59:59`) onto the 5-minute grid
   - keeps only the `TB1 Rainfall 5 Minute Total F` series in mm
   - drops values outside 0–100 mm and exact duplicates, counting each
-- **Missing is not dry.** A station with no row at a step didn't report, and nothing fills it in;
-  interpolation re-weights over the gauges that did.
+- **Missing is not dry, with one exception we must be honest about.** A station with no row at a
+  step didn't report, and interpolation re-weights over the gauges that did. But in training and
+  feature building (`features/zone_features.py`, `spatial/idw_matrix.py`) a 5-minute step where **no**
+  gauge reported is filled as 0 mm, so a full outage looks dry and pulls the next hour's rolling
+  sums down. Training keeps this 0-fill (team decision). Serving does not hide it
+  (`src/floodsense/serving/coverage.py`):
+  - A 5-minute step with fewer than `MIN_REPORTING_STATIONS` gauges reporting shows "No data" and
+    its tier is withheld. The value is 20 (`src/floodsense/common/config.py`), derived from the
+    2017–2023 store only: 29 gauges at the 0.1st percentile, and about 0.08% of steps below 20.
+  - On data.gov.sg and replay, a step whose previous 60 minutes include such a step is flagged
+    "partial; risk may be understated".
+  - On Databricks gold only "No data" can be told, because gold holds just the current step's gauge
+    count.
+  - The Telegram bot never lowers a tier or sends an all-clear on a "No data" or partial step. In
+    live mode it learns of a gap only if it sees a "No data" step, and it runs every 30 minutes, so
+    a gap that falls between two runs can be missed.
 - Station locations come from the data itself. A station that moved gets one row per location
   (`valid_from` / `valid_to`).
 - The 17 Apr 2021 CSV data matches the API replay exactly, up to the API's 2-decimal rounding.
@@ -204,7 +229,7 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
 
 ### Flood events (`data/reference/flood_events.csv`)
 
-88 verified events, 2017 to Sep 2026, across 33 planning areas: 58 in 2017–2023 (training and
+88 verified flood reports (one row per place and time, so one storm can have several rows), 2017 to Sep 2026, across 33 planning areas: 58 in 2017–2023 (training and
 cross-validation) and 30 in 2024–2026 (the test set). No row is waiting for its second check. Each
 row has:
 - a `source_url` and `source_name`
@@ -251,7 +276,7 @@ How the numbers are kept honest:
 - **Thresholds.** High and Moderate thresholds are chosen under a false-alarm budget of 2.5 and 11
   false alert episodes per zone per year (`FLOODSENSE_FALSE_ALARM_BUDGET_HIGH`,
   `FLOODSENSE_FALSE_ALARM_BUDGET_MODERATE`). The team picked them from the validation trade-off
-  table before the test set was scored. On the first 66 labels they gave Moderate 0.30% and High
+  table before the test set was scored. On the 36 development floods of 2017–2023 (the first 66 labels, 30 of them held out) they gave Moderate 0.30% and High
   0.71% (version 1, the tested model). Re-applied to 88 verified labels on 18 Oct, the same rule
   gives Moderate 0.53% and High 0.71% (version 3, live): at 0.30%, Moderate had gone over its budget
   (11.3 false episodes per zone-year against 11). The budgets themselves never changed.
@@ -286,6 +311,63 @@ Agreed by the team for Round 2 (DAISI Challenge 2026). These rules hold until De
    2026, with adk's sign-off.
 8. **No code freeze.** The team decided on 18 Oct 2026 not to freeze or tag a commit before Demo
    Day. Rules 1–6 still hold for any change to the model or its thresholds.
+
+## Credits and licences
+
+Every dataset, library and model we use, with its licence as recorded. "Unverified" means we have not
+read the licence for that item.
+
+A licence for this project's own code has not been chosen yet (team decision).
+
+**Datasets**
+
+The Singapore Open Data Licence v1.0 (<https://data.gov.sg/open-data-licence>, read 21 Oct 2026) is
+the licence data.gov.sg publishes for its datasets. The page lists no excluded datasets, but we have
+not opened each dataset's own page, so the per-dataset line below is marked accordingly.
+
+| Name | Source | Licence | How used |
+|---|---|---|---|
+| NEA rainfall (5-minute gauges) | data.gov.sg real-time API `v2/real-time/api/rainfall` and collection 2279 "Historical Rainfall across Singapore" | Singapore Open Data Licence v1.0 (site-wide page checked; dataset page unverified) | Rainfall store, features, live and replay |
+| NEA rain-area radar images | data.gov.sg `v2/real-time/api/weather-radar-images/70km` (as in `src/floodsense/radar/live.py`) | Singapore Open Data Licence v1.0 (site-wide page checked; dataset page unverified) | Radar calibration, nowcast, map layer |
+| PUB flood alerts | data.gov.sg `v2/real-time/api/weather/flood-alerts` | Singapore Open Data Licence v1.0 (site-wide page checked; dataset page unverified) | Live alert line, archive |
+| PUB flood-prone areas | data.gov.sg `d_c4aed98f1533eb3a66f65dbb1a30da46` | Singapore Open Data Licence v1.0 (site-wide page checked; dataset page unverified) | Trend chart in the app |
+| URA Master Plan 2019 Planning Area Boundary (No Sea) | data.gov.sg `d_4765db0e87b9c86336792efe8a1f7a66` | Singapore Open Data Licence v1.0 (site-wide page checked; dataset page unverified) | The 55 zones |
+| LTA MRT station exits | data.gov.sg `d_b39d3a0871985372d7e1637193335da5` (`src/floodsense/data/transport.py`) | Singapore Open Data Licence v1.0 (site-wide page checked; dataset page unverified) | MRT stations at risk |
+| CARTO basemap tiles (`carto-positron`, `carto-darkmatter`; `streamlit_app.py`) | CARTO; map data © OpenStreetMap contributors | OpenStreetMap data: ODbL; CARTO tile terms: unverified | App map background |
+| Google Fonts: Inter, JetBrains Mono (loaded in `streamlit_app.py`) | Google Fonts | SIL Open Font Licence (not checked at source; unverified) | App typography |
+| Copernicus GLO-30 DEM | AWS Open Data / Copernicus | Copernicus WorldDEM-30 licence (see Static zone features above) | Elevation features |
+| ESA WorldCover 2021 v200 | <https://doi.org/10.5281/zenodo.7254221> | CC BY 4.0 (see above) | Built-up share |
+| News and blog reports behind flood labels | The `source_name` and `source_url` columns of `data/reference/flood_events.csv` | Unverified (third-party publishers; only short evidence quotes are kept) | Flood labels |
+
+**Libraries** (direct dependencies in `pyproject.toml`; licence from the installed package metadata,
+21 Oct 2026)
+
+| Library | Licence |
+|---|---|
+| numpy | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 |
+| pandas | BSD 3-Clause |
+| scipy | BSD |
+| scikit-learn | BSD-3-Clause |
+| LightGBM | MIT |
+| joblib | BSD-3-Clause |
+| pydantic, pydantic-settings | MIT |
+| pyarrow | Apache-2.0 |
+| Streamlit | Apache-2.0 |
+| Plotly | MIT |
+| requests | Apache-2.0 |
+| Shapely | BSD 3-Clause |
+| databricks-sdk | Apache Software License (classifier; no licence text in the metadata) |
+| mlflow, mlflow-skinny (optional: training, serving) | Apache Software License (classifier) |
+| opencv-python-headless (optional: radar) | Apache 2.0 (the metadata does not cover OpenCV's bundled third-party libraries; unverified) |
+| rasterio (optional: static features) | BSD-3-Clause |
+| Dev only: pytest, ruff, mypy, pytest-cov, pre-commit, types-requests | MIT, MIT, MIT, MIT, MIT, Apache-2.0 |
+| Dev only: Playwright (e2e group) | Unverified (not installed when checked) |
+
+**Models**
+
+| Name | Source | Licence | How used |
+|---|---|---|---|
+| Llama 3.3 70B Instruct, via Databricks `ai_query` (the endpoint `databricks-meta-llama-3-3-70b-instruct` is the one the team's notes name; which endpoint drafted each candidate was not recorded, so unverified) | Databricks Foundation Model APIs | Llama community licence (terms not re-read; unverified) | Drafting flood-label candidates only. A person opens each source and signs the row; no LLM output is used as a label unchecked |
 
 ## Development
 
