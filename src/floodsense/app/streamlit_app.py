@@ -1140,9 +1140,9 @@ ANALYST_VIEW, RESIDENT_VIEW = "Analyst view", "Resident view"
 
 
 def resident_view_on() -> bool:
-    # The page opens on the Resident view (the answer first; the analyst detail is one click
-    # away). Set here, not in the header: the sidebar asks before the header is drawn.
-    return st.session_state.setdefault("view", RESIDENT_VIEW) == RESIDENT_VIEW
+    # The page opens on the Analyst view. Set here, not only in the header: the sidebar asks
+    # before the header is drawn.
+    return st.session_state.setdefault("view", ANALYST_VIEW) == RESIDENT_VIEW
 
 
 def zone_picker() -> str:
@@ -1412,14 +1412,14 @@ if mode == "Live Feed":
 # --- TOP HEADER & APPEARANCE SWITCH --------------------------------------------------------
 def render_app_header() -> None:
     # Top-right corner (CSS): the Analyst / Resident switch, then the theme toggle.
-    st.session_state.setdefault("view", RESIDENT_VIEW)
+    st.session_state.setdefault("view", ANALYST_VIEW)
     with st.container(
         key="top_controls", horizontal=True, vertical_alignment="center", gap="small"
     ):
         with st.container(key="view_switch", width="content"):
             st.segmented_control(
                 "View",
-                options=[RESIDENT_VIEW, ANALYST_VIEW],
+                options=[ANALYST_VIEW, RESIDENT_VIEW],
                 key="view",
                 label_visibility="collapsed",
             )
@@ -1677,10 +1677,14 @@ if all_no_data:  # an outage or a gap: no risk can be given, and none is guessed
     )
 
 
-# --- PUBLIC TRANSPORT AT RISK (RESIDENT VIEW) ------------------------------------------------
-def public_transport(zone: str, alerts: list[FloodAlert]) -> None:
+# --- PUBLIC TRANSPORT AT RISK (BOTH VIEWS) ----------------------------------------------------
+def public_transport(
+    zone: str, alerts: list[FloodAlert], chance_thresholds: dict[str, float] | None = None
+) -> None:
     """MRT/LRT stations with an exit in a Moderate or High area (or near an active PUB alert),
-    plus the chosen area's stations. Tiers only: the resident page shows no percentages."""
+    plus the chosen area's stations. With ``chance_thresholds`` (the Analyst view) the table adds
+    each station's chance; the Resident view shows tiers only, no percentages."""
+    show_chance = chance_thresholds is not None
     with st.container(border=True):
         st.subheader(":material/train: Public transport at risk")
         try:
@@ -1733,12 +1737,23 @@ def public_transport(zone: str, alerts: list[FloodAlert]) -> None:
                 "<tr>"
                 f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.station))}</td>'
                 f'<td style="{cell} {pick if r.selected else ""}">{_tier_chip(str(r.tier))}</td>'
-                f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
+                + (
+                    f'<td style="{cell} {pick if r.selected else ""}">'
+                    f"{'' if pd.isna(r.probability) else pct(r.probability, chance_thresholds)}</td>"
+                    if show_chance
+                    else ""
+                )
+                + f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
                 "</tr>"
                 for r in shown.itertuples(index=False)
             )
-            # Risk comes right after the station, so it stays on screen on a phone.
-            headers = ["Station", "Risk", "Planning area"]
+            # Risk (and chance) come right after the station, so they stay on screen on a phone.
+            headers = [
+                "Station",
+                "Risk",
+                *(["Chance (next hour)"] if show_chance else []),
+                "Planning area",
+            ]
             table_box = (
                 st.container() if not at_risk.empty else st.expander(f"Stations in {zone.title()}")
             )
@@ -1908,7 +1923,7 @@ if no_data_count:
         "(too few gauges reporting), so they are left out of the risk counts."
     )
 
-# --- 5 METRIC CARDS (DRAWN UNDER THE MAP AND ZONE DIAGNOSTIC) ---------------------------------
+# --- 5 METRIC CARDS ------------------------------------------------------------------------
 # Every card has the same three parts, each one line: label, value, footer (label | value).
 _LABEL = (
     f"font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:{tokens['text_muted']}; "
@@ -1948,6 +1963,55 @@ tier_thresholds: dict[str, float] | None = getattr(model, "thresholds", None) or
     None if (from_gold and model is None) else default_thresholds()
 )
 share = reporting_stations / total_stations if total_stations else 0.0
+kpi_cols = st.columns(5)
+with kpi_cols[0]:
+    kpi_card(
+        "High risk zones",
+        "High Risk",
+        f"{high_risk_count} / {NUM_ZONES}",
+        ("High from", pct(tier_thresholds["high"]))
+        if tier_thresholds
+        else ("Scored on", "Databricks"),
+    )
+with kpi_cols[1]:
+    kpi_card(
+        "Moderate risk zones",
+        "Moderate Risk",
+        f"{mod_risk_count} / {NUM_ZONES}",
+        ("Moderate from", pct(tier_thresholds["moderate"]))
+        if tier_thresholds
+        else ("Scored on", "Databricks"),
+    )
+with kpi_cols[2]:
+    kpi_card(
+        "Max 30-min rain",
+        "Max 30-min Rain",
+        f"{peak['rain_30m']:.1f} mm" if peak is not None else "—",
+        ("Heaviest", "No data")
+        if peak is None
+        else ("Heaviest", peak["zone"].title())
+        if peak["rain_30m"] > 0
+        else ("Heaviest", "Readings missing" if any_partial else "No rain"),
+    )
+with kpi_cols[3]:
+    kpi_card(
+        "Wet-ground index",
+        "Wet-Ground Index",
+        f"{wettest['rain_decay_72h']:.0f}" if wettest is not None else "—",
+        ("Wettest", "No data")
+        if wettest is None
+        else ("Wettest", wettest["zone"].title())
+        if wettest["rain_decay_72h"] > 0
+        else ("Wettest", "Readings missing" if any_partial else "All dry"),
+    )
+with kpi_cols[4]:
+    kpi_card(
+        "Gauges reporting",
+        "Gauges Live",
+        f"{reporting_stations} / {total_stations}" if total_stations else f"{reporting_stations}",
+        ("Reporting now", f"{share:.0%}") if total_stations else ("Source", "Databricks"),
+    )
+
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
 detail_col, map_col = st.columns([1.3, 1.7])
 
@@ -2145,7 +2209,8 @@ with map_col, st.container(border=True, key="map_card"):
         showlegend=False,  # the slim legend bar under the map replaces it
         **{map_layout_key: {"style": tokens["map_style"], "layers": map_layers}},
     )
-    st.plotly_chart(fig_map)
+    # No "Pan" button: dragging the map already pans it.
+    st.plotly_chart(fig_map, config={"modeBarButtonsToRemove": ["pan2d"]})
     if radar_mode:
         stops = ", ".join(f"rgb{c}" for c in RADAR_COLOURS)
         ticks = "".join(f'<span style="left:{pos}%;">{label}</span>' for pos, label in RADAR_TICKS)
@@ -2392,55 +2457,9 @@ with detail_col, st.container(border=True, key="zone_card"):
         st.caption("Risk uses rain in the last 60 minutes only.")
 
 
-# --- 5 METRIC CARDS ---------------------------------------------------------------------------
-kpi_cols = st.columns(5)
-with kpi_cols[0]:
-    kpi_card(
-        "High risk zones",
-        "High Risk",
-        f"{high_risk_count} / {NUM_ZONES}",
-        ("High from", pct(tier_thresholds["high"]))
-        if tier_thresholds
-        else ("Scored on", "Databricks"),
-    )
-with kpi_cols[1]:
-    kpi_card(
-        "Moderate risk zones",
-        "Moderate Risk",
-        f"{mod_risk_count} / {NUM_ZONES}",
-        ("Moderate from", pct(tier_thresholds["moderate"]))
-        if tier_thresholds
-        else ("Scored on", "Databricks"),
-    )
-with kpi_cols[2]:
-    kpi_card(
-        "Max 30-min rain",
-        "Max 30-min Rain",
-        f"{peak['rain_30m']:.1f} mm" if peak is not None else "—",
-        ("Heaviest", "No data")
-        if peak is None
-        else ("Heaviest", peak["zone"].title())
-        if peak["rain_30m"] > 0
-        else ("Heaviest", "Readings missing" if any_partial else "No rain"),
-    )
-with kpi_cols[3]:
-    kpi_card(
-        "Wet-ground index",
-        "Wet-Ground Index",
-        f"{wettest['rain_decay_72h']:.0f}" if wettest is not None else "—",
-        ("Wettest", "No data")
-        if wettest is None
-        else ("Wettest", wettest["zone"].title())
-        if wettest["rain_decay_72h"] > 0
-        else ("Wettest", "Readings missing" if any_partial else "All dry"),
-    )
-with kpi_cols[4]:
-    kpi_card(
-        "Gauges reporting",
-        "Gauges Live",
-        f"{reporting_stations} / {total_stations}" if total_stations else f"{reporting_stations}",
-        ("Reporting now", f"{share:.0%}") if total_stations else ("Source", "Databricks"),
-    )
+# --- PUBLIC TRANSPORT AT RISK -------------------------------------------------------------
+# With each station's chance; {} when the alert levels aren't known (gold without a local model).
+public_transport(selected_zone, active_pub_alerts, tier_thresholds or {})
 
 # --- HOW IT WAS TESTED (COLLAPSED) -----------------------------------------------------------
 # The live model's (version 3) validation results in three plain points, and, on a replayed day,

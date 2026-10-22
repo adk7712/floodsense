@@ -57,9 +57,9 @@ def test_streamlit_app_mode_toggle(offline):
     at.sidebar.button_group[0].set_value("Replay Storm")
     at.run(timeout=60)
     assert not at.exception
-    # The 5 number cards; public transport is on the Resident view.
+    # The 5 number cards; public transport says its counts in a sentence (no counters).
     assert len(at.metric) == 5
-    assert not any("Public transport at risk" in h.value for h in at.subheader)
+    assert any("Public transport at risk" in h.value for h in at.subheader)
 
 
 def test_streamlit_app_theme_toggle():
@@ -208,15 +208,16 @@ def test_without_the_store_the_recorded_storm_still_replays(monkeypatch):
     assert "Dunearn" in " ".join(md.value for md in at.markdown)
 
 
-def test_opens_on_the_resident_view():
+def test_opens_on_the_analyst_view():
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = "Replay Storm"
     at.session_state["replay_stage"] = "simulate"
     at.run(timeout=60)
     assert not at.exception
-    assert at.session_state["view"] == "Resident view"
-    assert len(at.selectbox) == 1  # the page's own area picker; the sidebar one steps aside
-    assert len(at.metric) == 0
+    assert at.session_state["view"] == "Analyst view"
+    assert at.button_group[0].options[0] == "Analyst view"  # first in the switch
+    assert len(at.selectbox) == 1  # the sidebar's area picker, drawn once
+    assert len(at.metric) == 5
 
 
 def test_the_headline_says_how_many_areas_are_at_risk():
@@ -515,12 +516,12 @@ def test_resident_view_switch_returns_to_the_analyst_view():
 
 def test_resident_area_selection_changes_the_shown_area():
     at = _resident(zone="BEDOK")
-    assert "Bedok, right now" in _resident_text(at)
+    assert "Bedok at 12:15, 17 Apr 2021" in _resident_text(at)  # a replay: never "right now"
     at.selectbox[0].set_value("BUKIT TIMAH")
     at.run(timeout=60)
     assert not at.exception
     text = _resident_text(at)
-    assert "Bukit Timah, right now" in text and "Bedok, right now" not in text
+    assert "Bukit Timah at 12:15" in text and "Bedok at" not in text and "right now" not in text
 
 
 @needs_store
@@ -679,6 +680,13 @@ def test_public_transport_is_on_the_resident_view_with_tiers_only():
     table = next(m.value for m in at.markdown if "<thead>" in m.value)
     # No percentages for residents (the table's own CSS has "width:100%", so check the cells).
     assert "Chance" not in table and "%</td>" not in table
+
+
+def test_the_analyst_transport_table_shows_each_station_s_chance():
+    at = _app()
+    assert any("Public transport at risk" in h.value for h in at.subheader)
+    table = next(m.value for m in at.markdown if "<thead>" in m.value)
+    assert "Chance (next hour)" in table and "%</td>" in table
 
 
 # --- live outage, gold failure, stale data, odd inputs (stress-test fixes) -------------------

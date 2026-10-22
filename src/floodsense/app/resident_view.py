@@ -221,6 +221,8 @@ def render_resident_view(
         st.warning(f"Out of date: the latest data is {stale_age} old, so this may not be current.")
     # One card, coloured by the chosen area's tier: its risk now, the rest of Singapore, and the
     # radar forecast for an hour from now (when there is radar for this time).
+    # A replay shows the replayed time, never "right now".
+    when_text = f" at {when:%H:%M}, {when:%d %b %Y}" if is_replay else ", right now"
     island = areas_at_risk(risk_now)
     soon = ""
     if risk_in_1h is not None:
@@ -238,7 +240,7 @@ def render_resident_view(
     st.markdown(
         f'<div class="fs-res-card" style="background:{bg}; border:2px solid {border};'
         f'{" opacity:0.55;" if stale_age else ""}">'
-        f'<div class="fs-res-small" style="color:{tokens["text_muted"]};">{name}, right now</div>'
+        f'<div class="fs-res-small" style="color:{tokens["text_muted"]};">{name}{when_text}</div>'
         f'<div class="fs-res-big" style="color:{colour};">{RISK_NOW[tier]}</div>'
         f'<div class="fs-res-island" style="color:{tokens["text_main"]};">'
         f"Across Singapore: {html.escape(island[0].lower() + island[1:])}.</div>"
