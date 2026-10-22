@@ -772,3 +772,23 @@ Run from branch `akul/features-22oct` (`9bf0210` plus the fixes below); master i
 - Compute outage (21 Oct 01:00 to 22 Oct 03:30 SGT): cause not found. `system.billing` and
   `system.lakeflow` aren't enabled on this workspace (enabling is a settings change), so usage
   can't be read; check the account usage page or email by hand.
+
+**Asset Bundle deployed, 22 Oct (Akul's decision, reversing "not before Demo Day").**
+`databricks bundle deploy`: 0 created, 5 changed, 0 deleted; 198 files uploaded to
+`/Workspace/Users/<login>/.bundle/floodsense/prod/files`. Live settings compared before and after:
+- The 3 jobs only gained the bundle marker and `edit_mode: UI_LOCKED`. Tasks, parameters and
+  schedules are unchanged: poller **PAUSED**, daily archiver and flood alerts **UNPAUSED**.
+- The pipeline only gained the bundle marker; `edition: ADVANCED` is now explicit.
+- The schema's properties are unchanged (`custom_max_retention_hours: 0` now shows). Every later
+  `bundle plan` lists "update schemas.floodsense_schema", because Databricks sets system
+  properties (owner, predictive optimisation) the bundle doesn't list. Harmless.
+- Not in the bundle and unchanged: the Databricks App, the scorecard job (`94062619945493`), the
+  Genie space, the secrets, model versions.
+
+**Changing a job from now on (e.g. A3 on 24 Oct, unpausing the poller):** the UI won't allow edits.
+1. In `databricks/bundle/jobs.yml`, change the job's `pause_status` (e.g. the poller's to `UNPAUSED`;
+   the flood-alerts job's to `PAUSED`).
+2. Run `databricks bundle plan -p akul` and check only that change (plus the schema line) shows.
+3. Run `databricks bundle deploy -p akul`.
+4. Commit the YAML change, so the repo matches what is live.
+A CLI `jobs update` also works but the next `bundle deploy` would undo it, so prefer the steps above.
