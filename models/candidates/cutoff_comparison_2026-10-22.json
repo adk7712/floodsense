@@ -1,0 +1,310 @@
+{
+  "generated_at": "2026-10-22T07:57:43.242235+00:00",
+  "run_date": "2026-10-22",
+  "git_sha": "f467db8",
+  "dirty": false,
+  "candidate": "rule_rain60",
+  "data": {
+    "labels": "verified rows only (flood_events.load_flood_events default)",
+    "development_events": 62,
+    "test_years_scored": false
+  },
+  "budgets": {
+    "high": 2.5,
+    "moderate": 11.0
+  },
+  "notes": [
+    "Comparison on out-of-fold 2020-2023 rule_rain60 predictions (cross-fitted calibration) to inform a team decision; it is not a re-selection. The false-alarm budget rule itself picked 0.00531 (Moderate) and 0.00706 (High).",
+    "2024-2026 is not scored. Intervals are 90% bootstrap intervals over events; with this few floods they are wide and the cut-offs are not statistically distinguishable.",
+    "approx_rain_60m_mm is a linear interpolation through the refit's two reported points (0.00531 -> 37.65 mm, 0.00706 -> 43.15 mm); indicative only, extrapolated outside that range.",
+    "Warning time is the reported start minus the start of the alert episode; floods with date-only reports have no warning time and are left out of the median."
+  ],
+  "zone_years": 220.0,
+  "validation_years": [
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "validation_events": 30,
+  "high_reference": {
+    "cutoff": 0.00706,
+    "cutoff_percent": 0.7060000000000001,
+    "floods_caught": 15,
+    "floods": 30,
+    "hit_rate": 0.5,
+    "hit_rate_ci90": [
+      0.36666666666666664,
+      0.6666666666666666
+    ],
+    "median_warning_minutes": 45.0,
+    "actionable_hits_15min": 6,
+    "false_episodes": 534,
+    "false_episodes_per_zone_year": 2.4272727272727272,
+    "false_alert_hours": 270.5833333333333
+  },
+  "moderate_cutoffs": [
+    {
+      "cutoff": 0.003,
+      "cutoff_percent": 0.3,
+      "floods_caught": 22,
+      "floods": 30,
+      "hit_rate": 0.7333333333333333,
+      "hit_rate_ci90": [
+        0.6,
+        0.8666666666666667
+      ],
+      "median_warning_minutes": 28.0,
+      "actionable_hits_15min": 9,
+      "false_episodes": 2490,
+      "false_episodes_per_zone_year": 11.318181818181818,
+      "false_alert_hours": 1652.25,
+      "caught_here_not_at_high": [
+        "2020-04-30-serangoon-lorong-gambir",
+        "2020-06-23-tampines-upper-changi-rd",
+        "2020-08-14-outram-craig-rd",
+        "2021-08-20-tampines-tampines-ave-10",
+        "2021-08-24-bukit-panjang-cashew-rd",
+        "2021-11-09-bukit-timah-kings-rd",
+        "2022-02-27-bedok-bedok-north-ave-3"
+      ],
+      "n_caught_here_not_at_high": 7,
+      "approx_rain_60m_mm": 30.390000000000004
+    },
+    {
+      "cutoff": 0.00399,
+      "cutoff_percent": 0.39899999999999997,
+      "floods_caught": 20,
+      "floods": 30,
+      "hit_rate": 0.6666666666666666,
+      "hit_rate_ci90": [
+        0.5333333333333333,
+        0.8
+      ],
+      "median_warning_minutes": 26.0,
+      "actionable_hits_15min": 9,
+      "false_episodes": 1592,
+      "false_episodes_per_zone_year": 7.236363636363636,
+      "false_alert_hours": 987.6666666666666,
+      "caught_here_not_at_high": [
+        "2020-04-30-serangoon-lorong-gambir",
+        "2020-06-23-tampines-upper-changi-rd",
+        "2020-08-14-outram-craig-rd",
+        "2021-11-09-bukit-timah-kings-rd",
+        "2022-02-27-bedok-bedok-north-ave-3"
+      ],
+      "n_caught_here_not_at_high": 5,
+      "approx_rain_60m_mm": 33.50142857142857
+    },
+    {
+      "cutoff": 0.00531,
+      "cutoff_percent": 0.5309999999999999,
+      "floods_caught": 19,
+      "floods": 30,
+      "hit_rate": 0.6333333333333333,
+      "hit_rate_ci90": [
+        0.5,
+        0.7666666666666667
+      ],
+      "median_warning_minutes": 33.0,
+      "actionable_hits_15min": 6,
+      "false_episodes": 975,
+      "false_episodes_per_zone_year": 4.431818181818182,
+      "false_alert_hours": 553.5833333333334,
+      "caught_here_not_at_high": [
+        "2020-04-30-serangoon-lorong-gambir",
+        "2020-06-23-tampines-upper-changi-rd",
+        "2021-11-09-bukit-timah-kings-rd",
+        "2022-02-27-bedok-bedok-north-ave-3"
+      ],
+      "n_caught_here_not_at_high": 4,
+      "approx_rain_60m_mm": 37.65
+    }
+  ],
+  "floods_that_differ_0.003_vs_0.00531": {
+    "a": 0.003,
+    "b": 0.00531,
+    "floods": [
+      {
+        "event_id": "2020-04-30-hougang-tampines-rd",
+        "zone": "HOUGANG",
+        "change": "earlier at a",
+        "a_first_alert": "2020-04-30 15:40:00+08:00",
+        "b_first_alert": "2020-04-30 15:50:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2020-04-30-serangoon-lorong-gambir",
+        "zone": "SERANGOON",
+        "change": "earlier at a",
+        "a_first_alert": "2020-04-30 15:45:00+08:00",
+        "b_first_alert": "2020-04-30 16:00:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2020-04-30-toa-payoh-lichi-ave",
+        "zone": "TOA PAYOH",
+        "change": "earlier at a",
+        "a_first_alert": "2020-04-30 15:45:00+08:00",
+        "b_first_alert": "2020-04-30 15:50:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2020-06-23-bedok-new-upper-changi-rd",
+        "zone": "BEDOK",
+        "change": "earlier at a",
+        "a_first_alert": "2020-06-23 07:45:00+08:00",
+        "b_first_alert": "2020-06-23 07:50:00+08:00",
+        "a_warning_minutes": 45.0,
+        "b_warning_minutes": 40.0
+      },
+      {
+        "event_id": "2020-06-23-tampines-upper-changi-rd",
+        "zone": "TAMPINES",
+        "change": "earlier at a",
+        "a_first_alert": "2020-06-23 08:05:00+08:00",
+        "b_first_alert": "2020-06-23 08:20:00+08:00",
+        "a_warning_minutes": 25.0,
+        "b_warning_minutes": 10.0
+      },
+      {
+        "event_id": "2020-08-14-outram-craig-rd",
+        "zone": "OUTRAM",
+        "change": "caught only at a",
+        "a_first_alert": "2020-08-14 10:05:00+08:00",
+        "b_first_alert": null,
+        "a_warning_minutes": -5.0,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2020-11-02-hougang-hougang-ave-3",
+        "zone": "HOUGANG",
+        "change": "earlier at a",
+        "a_first_alert": "2020-11-02 15:15:00+08:00",
+        "b_first_alert": "2020-11-02 15:20:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2021-04-17-bukit-timah-dunearn-rd",
+        "zone": "BUKIT TIMAH",
+        "change": "earlier at a",
+        "a_first_alert": "2021-04-17 12:29:00+08:00",
+        "b_first_alert": "2021-04-17 12:40:00+08:00",
+        "a_warning_minutes": 79.0,
+        "b_warning_minutes": 64.0
+      },
+      {
+        "event_id": "2021-04-17-jurong-east-unnamed-road",
+        "zone": "JURONG EAST",
+        "change": "earlier at a",
+        "a_first_alert": "2021-04-17 12:55:00+08:00",
+        "b_first_alert": "2021-04-17 13:05:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2021-07-12-sengkang-tpe-slip-road-punggol-rd",
+        "zone": "SENGKANG",
+        "change": "earlier at a",
+        "a_first_alert": "2021-07-12 17:55:00+08:00",
+        "b_first_alert": "2021-07-12 18:05:00+08:00",
+        "a_warning_minutes": 65.0,
+        "b_warning_minutes": 55.0
+      },
+      {
+        "event_id": "2021-08-20-tampines-tampines-ave-10",
+        "zone": "TAMPINES",
+        "change": "caught only at a",
+        "a_first_alert": "2021-08-20 07:35:00+08:00",
+        "b_first_alert": null,
+        "a_warning_minutes": 5.0,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2021-08-24-bukit-panjang-cashew-rd",
+        "zone": "BUKIT PANJANG",
+        "change": "caught only at a",
+        "a_first_alert": "2021-08-24 10:25:00+08:00",
+        "b_first_alert": null,
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2021-08-30-hougang-hougang-ave-8",
+        "zone": "HOUGANG",
+        "change": "earlier at a",
+        "a_first_alert": "2021-08-30 09:40:00+08:00",
+        "b_first_alert": "2021-08-30 09:50:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2021-08-30-punggol-punggol-way",
+        "zone": "PUNGGOL",
+        "change": "earlier at a",
+        "a_first_alert": "2021-08-30 10:10:00+08:00",
+        "b_first_alert": "2021-08-30 10:20:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2021-11-09-bukit-timah-kings-rd",
+        "zone": "BUKIT TIMAH",
+        "change": "earlier at a",
+        "a_first_alert": "2021-11-09 15:10:00+08:00",
+        "b_first_alert": "2021-11-09 15:20:00+08:00",
+        "a_warning_minutes": 20.0,
+        "b_warning_minutes": 10.0
+      },
+      {
+        "event_id": "2022-02-27-bedok-bedok-north-ave-3",
+        "zone": "BEDOK",
+        "change": "earlier at a",
+        "a_first_alert": "2022-02-27 13:55:00+08:00",
+        "b_first_alert": "2022-02-27 14:05:00+08:00",
+        "a_warning_minutes": 5.0,
+        "b_warning_minutes": -5.0
+      },
+      {
+        "event_id": "2022-03-07-western-water-catchment-cemetery-central",
+        "zone": "WESTERN WATER CATCHMENT",
+        "change": "earlier at a",
+        "a_first_alert": "2022-03-07 15:15:00+08:00",
+        "b_first_alert": "2022-03-07 15:25:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2022-12-11-sengkang-kpe-buangkok-east-dr",
+        "zone": "SENGKANG",
+        "change": "earlier at a",
+        "a_first_alert": "2022-12-11 09:40:00+08:00",
+        "b_first_alert": "2022-12-11 09:45:00+08:00",
+        "a_warning_minutes": 31.0,
+        "b_warning_minutes": 26.0
+      },
+      {
+        "event_id": "2023-07-20-bukit-timah-dunearn-rd",
+        "zone": "BUKIT TIMAH",
+        "change": "earlier at a",
+        "a_first_alert": "2023-07-20 09:15:00+08:00",
+        "b_first_alert": "2023-07-20 09:20:00+08:00",
+        "a_warning_minutes": null,
+        "b_warning_minutes": null
+      },
+      {
+        "event_id": "2023-11-28-jurong-west-boon-lay-way",
+        "zone": "JURONG WEST",
+        "change": "earlier at a",
+        "a_first_alert": "2023-11-28 15:25:00+08:00",
+        "b_first_alert": "2023-11-28 15:30:00+08:00",
+        "a_warning_minutes": 17.0,
+        "b_warning_minutes": 12.0
+      }
+    ]
+  }
+}

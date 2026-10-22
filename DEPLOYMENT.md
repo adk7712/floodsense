@@ -137,6 +137,8 @@ The pipeline had passed the local Spark run (section 9) before any of these:
 - **Promoting a model to `champion`** is done for version 3 (promoted 18 Oct, adk signed off 18 Oct;
   section 21). Gold serves whatever the alias points to (section 17), so any later promotion is
   a matter of moving the alias.
+- **Version 4 (decided 22 Oct, not registered):** the refit on 92 labels, Moderate 0.40%
+  (section 23). Akul registers it as `candidate`; promotion after adk signs off.
 - **Model card for version 3:** done 22 Oct as `models/model_card_v3.json`, built from the refit
   summary. `models/model_card.json` still describes version 1 (Moderate 0.30%, git `cac91ca`); it
   is written by the training code, so it is kept as the record of the tested model.
@@ -588,3 +590,20 @@ databricks workspace import /Workspace/Users/<login>/floodsense/telegram_bot.py 
     --file databricks/jobs/telegram_bot.py --format AUTO --overwrite
 databricks jobs reset --json '{"job_id": 986423263843293, "new_settings": <poller_job.json, login and warehouse filled in>}'
 ```
+
+## 23. Candidate model version 4: the refit on 92 labels (decided 22 Oct 2026, not registered)
+
+adk decided on 22 Oct to register the refit of `rule_rain60` on all 92 verified labels (62 floods in
+2017–2023). The budget rule now gives Moderate **0.40%** (about 32.9 mm in 60 min), with High
+unchanged at 0.71% (about 43.4 mm) (`models/candidates/rule_rain60_refit_2026-10-22.json`,
+`models/model_card_v4.json`). Cross-validation results and the reasons are in
+`docs/ROUND2_HANDOFF.md` §0 (22 Oct, later).
+
+- Not done yet: registration (expected version 4, alias `candidate`), adk's sign-off, promotion.
+- To register (same path as section 21):
+  `python databricks/register_model.py --model-path models/candidates/rule_rain60_refit_2026-10-22.joblib --summary models/candidates/rule_rain60_refit_2026-10-22.json --alias candidate`.
+  The `.joblib` is gitignored; regenerate it on `f467db8` with
+  `python -m floodsense.models.refit_champion --date 2026-10-22`.
+- To promote: move `champion` to the new version, rebuild and upload the wheel, run the pipeline
+  once, replace `models/flood_model.joblib` and archive version 3 under `models/archive/`.
+- To roll back: move `champion` to version 3.

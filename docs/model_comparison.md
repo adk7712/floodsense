@@ -122,6 +122,11 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
   - The two floods lost are 2021-08-20 Tampines Ave 10 and 2021-08-24 Cashew Rd.
   - In exchange, false Moderate alerts fall from 11.29 to 4.52 per zone-year.
 - adk signed off on version 3 on 18 Oct, and Akul promoted it to `champion`.
+- **Version 4 (decided 22 Oct, not yet registered):** the same rule refitted on all 92 verified labels
+  (62 floods in 2017–2023). The budget rule moves Moderate to 0.40% (about 32.9 mm); High stays
+  0.71%. On the same 2020–2023 folds (30 floods) it catches 20 at Moderate (90% CI 53–80%) at 7.24
+  false episodes per zone-year, against 19 (50–77%) at 4.43 for the 0.53% cut-off. The event score
+  is 0.500 for both: not a measurable improvement (`models/model_card_v4.json`).
 
 **Published final-test result (version 1, 2024 to Sep 2026, 30 floods, scored once)**
 

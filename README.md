@@ -14,6 +14,11 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 >   **0.71%** (about 43 mm), set by the false-alarm budget rule on 88 verified flood reports (18 Oct).
 >   In 2020–2023 cross-validation (28 floods) it catches 14 at High (90% CI 36–64%) and 18 at
 >   Moderate (50–79%), at 2.5 and 4.5 false alarms per zone-year.
+>   **Decided 22 Oct, not yet registered:** version 4, the same rule refitted on all 92 verified labels;
+>   the budget rule moves Moderate to **0.40%** (about 33 mm), High stays 0.71%. In 2020–2023
+>   cross-validation (30 floods) it catches 20 at Moderate (90% CI 53–80%) at 7.2 false alarms per
+>   zone-year, against 19 (50–77%) at 4.4 for version 3's cut-off: not a measurable improvement
+>   (`models/model_card_v4.json`).
 > - **Test result** (the previous model, version 1: same rule, Moderate from 0.30%, fitted on the 36
 >   development floods of 2017–2023; 66 was the total verified labels then, with 30 held out):
 >   scored once on held-out floods from 2024 to Sep 2026 (30 floods):
@@ -234,7 +239,7 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
 ### Flood events (`data/reference/flood_events.csv`)
 
 92 verified flood reports (one row per place and time, so one storm can have several rows), 2017 to Sep 2026, across 35 planning areas: 62 in 2017–2023 (training and
-cross-validation; 30 of them in 2020–2023) and 30 in 2024–2026 (the test set). No row is waiting for its second check. The current model (version 3) was fitted on the first 88; the 4 rows verified on 22 Oct are not in it. Each
+cross-validation; 30 of them in 2020–2023) and 30 in 2024–2026 (the test set). No row is waiting for its second check. The current model (version 3) was fitted on the first 88; the 4 rows verified on 22 Oct are not in it. Version 4 (decided 22 Oct, not yet registered) is fitted on all 92. Each
 row has:
 - a `source_url` and `source_name`
 - an `evidence_quote` copied from the source, naming the place and time
@@ -288,7 +293,8 @@ How the numbers are kept honest:
   table before the test set was scored. On the 36 development floods of 2017–2023 (the first 66 labels, 30 of them held out) they gave Moderate 0.30% and High
   0.71% (version 1, the tested model). Re-applied to 88 verified labels on 18 Oct, the same rule
   gives Moderate 0.53% and High 0.71% (version 3, live): at 0.30%, Moderate had gone over its budget
-  (11.3 false episodes per zone-year against 11). The budgets themselves never changed.
+  (11.3 false episodes per zone-year against 11). On all 92 verified labels (22 Oct) the rule gives
+  Moderate 0.40% and High 0.71% (version 4, decided, not yet registered). The budgets themselves never changed.
 
 Runs are logged to MLflow (`sqlite:///mlflow.db` by default; `uv run mlflow ui --backend-store-uri
 sqlite:///mlflow.db`).
