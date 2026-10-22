@@ -751,3 +751,24 @@ Run from branch `akul/features-22oct` (`9bf0210` plus the fixes below); master i
   bundle or CLI), and it lists a properties update on the schema (the live schema carries system
   properties the bundle doesn't). **Decided (Akul, 22 Oct): not deployed before Demo Day; it stays
   bound.** Until a deploy, edit and unpause the jobs as before (UI or CLI).
+
+**Later on 22 Oct: model download check and a manual poller run.**
+- The champion (version 3) downloads and loads fine from the laptop (mlflow 3.16.1). Only the
+  scorecard job's direct S3 download fails. Setting
+  `MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC=true` in the job made no difference
+  (probably an older mlflow on the serverless image); undone. The model file on the artifacts
+  volume is still **version 1** (2 Oct), so it can't stand in for the champion. Scorecard job
+  still failing, still paused.
+- Poller run `425831022323729` by hand, schedule kept **PAUSED**: `poll_rainfall` and
+  `refresh_pipeline` succeeded, so **the pipeline still loads the champion from the registry**.
+  Gold's newest step 15:25 SGT, 55 zones, 89 gauges, all Low.
+- **Careful with `python_params`:** it replaces the arguments of *every* Python task in the job.
+  The section 19 command (`"python_params": ["--lookback-minutes", "1200"]`) dated from before the
+  Telegram task, so the bot got only those two arguments and failed (`--warehouse-id` missing).
+  Repaired by rerunning `telegram_alerts` alone with its full argument list (succeeded; nothing
+  posted, all zones Low). For a lookback refresh, pass both lists, or rerun the bot task as above.
+- No subscriptions file yet (nobody has messaged the bot). Whether a webhook is set is still
+  unconfirmed: test with `/start` in Telegram before the next run.
+- Compute outage (21 Oct 01:00 to 22 Oct 03:30 SGT): cause not found. `system.billing` and
+  `system.lakeflow` aren't enabled on this workspace (enabling is a settings change), so usage
+  can't be read; check the account usage page or email by hand.

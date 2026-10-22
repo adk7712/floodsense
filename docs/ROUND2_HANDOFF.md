@@ -37,7 +37,7 @@ Items marked "adk" still need adk's agreement or action.
 | 2 | Resident wording: tier + action + time window, **no "N times" multiple** to residents; a hedged "over 100 times the risk of an ordinary rainy hour, based on 8 past floods" only on a slide, if at all. Turn on `RISK_WORDING_DRAFT` once both have read the strings (**adk**) | Flag still off |
 | 3 | "Second look" caption on any replay of a 2024–2026 day (storm buttons and the 30 Sep 2026 radar day) | `replay_days.second_look_note`, shown with the replay caption; test added |
 | 4 | Radar results (Jul–Sep 2026 data): no "second look" label, but say plainly they use 2026 radar, never flood labels | README "Radar" line |
-| 5 | Vulnerable packages: upgrade after Demo Day; name them in the limitations | Recorded |
+| 5 | Vulnerable packages: upgrade after Demo Day; not on the limitations slide (fixable, Akul 22 Oct) | Recorded |
 | 6 | Bot with an incomplete gold step: keep sending nothing | Recorded |
 | 7 | Drop the "Why" column in both views | Kept as adk built it; phone and dark checked (below) |
 | 8 | Freeze items: closed (no freeze since 18 Oct; CLAUDE.md rule 3 already says so) | Recorded |
