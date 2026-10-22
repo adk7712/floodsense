@@ -56,7 +56,8 @@ SMALL_N = 10  # below this many scored alerts a rate says almost nothing
 
 CAVEAT = (
     "Live monitoring, not an accuracy result: few alerts, scores rescored from archived gauge "
-    "readings, no quiet periods scored. Do not read the rate as the model's hit rate."
+    "readings, no quiet periods scored. Do not read the rate as the model's hit rate. Uses 2026 "
+    "data inside the 2024-2026 test window, never for tuning: any rate is a second look."
 )
 
 SCORECARD_COLUMNS = [

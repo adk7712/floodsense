@@ -699,6 +699,24 @@ Deploy steps (not done yet; they change the workspace, so they need Akul's OK):
    2021-04-17 --dry-run`) to read the message text; a real private alert needs a real rise.
 9. To remove your test data, send `/unsubscribe all`.
 
+**Demo Day: fast replies (agreed 22 Oct).** On the poller's 30-minute schedule a `/subscribe` reply
+can take up to 30 minutes, and none comes while the job is paused. For the demo, run the bot on the
+demo laptop instead, checking every 60 seconds:
+
+1. Make sure the laptop can read gold, as the app does when it runs locally against Databricks.
+   Check that `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set in the local `.env`. Don't print
+   them.
+2. Stop the Databricks side from handling the same messages: either keep the poller job paused, or
+   remove `--subscriptions-file` from its `telegram_alerts` task for the demo. Two bots reading
+   `getUpdates` take messages from each other, and both would post channel alerts.
+3. Start the bot:
+   `uv run python -m floodsense.alerts.telegram_bot live --interval-seconds 60 --subscriptions-file data/processed/telegram_subscriptions.json`
+4. In Telegram send `/subscribe Bukit Timah`; the reply should arrive within about a minute.
+5. Stop it with Ctrl+C after the demo. To delete the demo subscriptions, send `/unsubscribe all`
+   first.
+
+Not rehearsed yet: run through it once before Demo Day.
+
 ## 24. Deploy run, 22 Oct 2026 (Akul's session)
 
 Run from branch `akul/features-22oct` (`9bf0210` plus the fixes below); master is `f0de215`.

@@ -2,7 +2,8 @@
 -- Source: workspace.floodsense.pub_scorecard (written by databricks/jobs/pub_scorecard.py).
 -- LIVE MONITORING, not an accuracy result: few alerts. Keep the caption under the tile.
 -- Tile caption: "Live monitoring against PUB alerts since 6 Oct 2026. Few alerts, rescored with the
--- current champion model; not an accuracy result."
+-- current champion model; not an accuracy result. Uses 2026 data inside the 2024-2026 test window,
+-- never for tuning; any rate is a second look."
 -- Times are Singapore time. Add these as datasets in the existing dashboard by hand (the
 -- .lvdash.json is not edited by this change).
 
