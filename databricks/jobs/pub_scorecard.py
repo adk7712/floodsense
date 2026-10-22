@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     from pyspark.sql import types as T
 
     from floodsense.ingestion.flood_alerts import FloodAlert, zone_for_point
-    from floodsense.models.scoring import load_registered_model, registered_version
+    from floodsense.models.artifact import load_registered_model, registered_version
     from floodsense.monitoring.pub_scorecard import (
         CAVEAT,
         build_scorecard,

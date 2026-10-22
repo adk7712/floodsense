@@ -698,3 +698,38 @@ Deploy steps (not done yet; they change the workspace, so they need Akul's OK):
 8. To test an alert without waiting for rain, run the bot locally against a replay (`replay --date
    2021-04-17 --dry-run`) to read the message text; a real private alert needs a real rise.
 9. To remove your test data, send `/unsubscribe all`.
+
+## 24. Deploy run, 22 Oct 2026 (Akul's session)
+
+Run from branch `akul/features-22oct` (`9bf0210` plus the fixes below); master is `f0de215`.
+
+- **Wheel** rebuilt and uploaded to `/Volumes/workspace/floodsense/artifacts/wheels/` (04:11 SGT).
+  It now has `floodsense.monitoring` and `floodsense.alerts.subscriptions`. Nothing has run on it
+  yet; the pipeline picks it up at the next poller run.
+- **Telegram subscriptions on:** the poller job's `telegram_alerts` task now also gets
+  `--subscriptions-file /Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json`
+  (`jobs reset`, schedule still **PAUSED**). `databricks/jobs/poller_job.json` and
+  `databricks/bundle/jobs.yml` match. `telegram_bot.py` re-imported. Not checked: whether a webhook
+  is set on the bot (it would block `getUpdates`); the first poller run will show it.
+- **PUB scorecard job** `floodsense-pub-scorecard` created, id `94062619945493`, schedule
+  **PAUSED**. Two manual runs **failed**:
+  1. an import from the wrong module (`load_registered_model` lives in `models/artifact.py`); fixed
+     in `databricks/jobs/pub_scorecard.py` and re-imported;
+  2. then `MlflowException`: every model artifact download from Unity Catalog storage returned
+     S3 `400 Bad Request` (HeadObject). The pipeline uses the same loader and worked on 18 Oct, so
+     the cause is the job's environment. **Not investigated further; the table
+     `workspace.floodsense.pub_scorecard` does not exist yet.**
+- **Dashboard** text updated to Moderate 0.53% (the only difference from the committed file) and
+  republished (04:13 SGT).
+- **Genie space** "FloodSense risk (gold)" created, id `01f1cd8bf8de1d5fba454efa5909044a`, on the
+  gold table and warehouse `dfa0305abf58b59e`, with instructions (thresholds, UTC timestamps,
+  "not an official warning") and four sample questions. Not shared; not tried yet.
+- **v3 parity re-export: not done.** The proof replays 17 Apr 2021 through the pipeline with a
+  full refresh, which would wipe the live bronze, silver and gold tables (silver's history is what
+  the scorecard re-scores). It needs a separate pipeline; team decision.
+- **Asset Bundle:** all 11 resources **bound** (`bundle deployment bind`; this changes no
+  resource). `bundle plan`: 0 to add, 5 to change, 0 to delete. **Not deployed**: a deploy would
+  set the three jobs to `edit_mode: UI_LOCKED` (no edits or unpausing in the UI, only through the
+  bundle or CLI), and it lists a properties update on the schema (the live schema carries system
+  properties the bundle doesn't). **Decided (Akul, 22 Oct): not deployed before Demo Day; it stays
+  bound.** Until a deploy, edit and unpause the jobs as before (UI or CLI).

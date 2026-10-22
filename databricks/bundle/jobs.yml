@@ -56,6 +56,8 @@ resources:
               - "--once"
               - "--state-file"
               - /Volumes/workspace/floodsense/artifacts/telegram_state.json
+              - "--subscriptions-file"
+              - /Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json
 
     daily_archiver:
       name: floodsense-daily-archiver
