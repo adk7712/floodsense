@@ -588,3 +588,207 @@ databricks workspace import /Workspace/Users/<login>/floodsense/telegram_bot.py 
     --file databricks/jobs/telegram_bot.py --format AUTO --overwrite
 databricks jobs reset --json '{"job_id": 986423263843293, "new_settings": <poller_job.json, login and warehouse filled in>}'
 ```
+
+## Asset Bundles (A8.2)
+
+`databricks.yml` and `databricks/bundle/` describe the existing Databricks setup as code, read from
+the live settings on 22 Oct 2026. **The bundle has NOT been deployed and nothing has been bound.**
+`databricks bundle validate -p akul` passes. Deploying without binding first would create
+duplicate jobs, a second pipeline and so on.
+
+**What is covered**
+
+| Bundle key | File | Live resource |
+|---|---|---|
+| `jobs.rainfall_poller` | `jobs.yml` | job `floodsense-rainfall-poller`, id `986423263843293` (PAUSED) |
+| `jobs.daily_archiver` | `jobs.yml` | job `floodsense-daily-archiver`, id `486214899373176` (UNPAUSED) |
+| `jobs.flood_alerts` | `jobs.yml` | job `floodsense-flood-alerts`, id `477250824276803` (UNPAUSED) |
+| `pipelines.floodsense` | `pipeline.yml` | pipeline `floodsense`, id `c32feb3d-5e5f-4c78-8219-e3acf131e804` |
+| `dashboards.live_risk` | `dashboard.yml` | AI/BI dashboard, id `01f1c168d5ba1a44819705ab969bf3ea` |
+| `schemas.floodsense_schema` | `unity_catalog.yml` | schema `workspace.floodsense` |
+| `volumes.artifacts`, `autoloader`, `landing`, `radar` | `unity_catalog.yml` | the four volumes |
+| `registered_models.flood_model` | `unity_catalog.yml` | `workspace.floodsense.flood_model` |
+| `apps.floodsense_app` | `app.yml` (**opt-in**, not in `include`) | app `floodsense`, id `933a4397-9418-4a08-a0af-3fe7b3acfffe` |
+
+Your login is never stored: paths use `${workspace.current_user.userName}`. The warehouse id,
+wheel path, catalog and schema are variables at the top of `databricks.yml`. The only secret
+reference is the app's `floodsense/data_gov_api_key` (in `app.yml`); no secret value is in the repo.
+Schema, volumes and model have `prevent_destroy`, so `bundle destroy` cannot drop them.
+
+**What is not covered**
+
+- Secret scope `floodsense` and its values (data.gov.sg key, Telegram token and chat id): create by hand.
+- Model versions and the `candidate`/`champion` aliases (use `databricks/register_model.py`).
+- Volume contents: the wheel, model file, reference data, landing files, radar frames, Telegram state file.
+- Tables the pipeline writes (bronze, silver, gold).
+- The uploaded scripts in `/Workspace/Users/<login>/floodsense/` (`poll_rainfall.py`, `telegram_bot.py`,
+  `archive_*.py`, `lakeflow_pipeline.py`). The jobs and pipeline point at them; the bundle does not upload them.
+- The SQL warehouse itself, and the app's code (still shipped with `databricks sync`, section 16).
+  `app.yml` is opt-in because bundle sync would upload the whole repo and ignores `sync_exclude.txt`.
+- `databricks/jobs/telegram_alerts_job.json`, the paused fallback job. It does not exist in the workspace.
+- Binding of schemas, volumes and models was not tried against the workspace. If `bind` refuses one,
+  delete that block from `unity_catalog.yml`; nothing else depends on it.
+
+**Steps to bind and deploy (do these on your own, in order)**
+
+1. **Check the schedules first.** Open Workflows in the workspace (or run
+   `databricks jobs get <id> -p akul`). Today: poller **PAUSED** (it must stay paused until 24 Oct),
+   archiver UNPAUSED, flood-alerts UNPAUSED. The bundle states exactly these. If any live job differs
+   from that list, fix `pause_status` in `databricks/bundle/jobs.yml` before going on.
+2. Open a terminal in the repo and run `databricks bundle validate -p akul`. It must say
+   "Validation OK!".
+3. Bind each resource to what already exists. Answer `y` when asked:
+   ```
+   databricks bundle deployment bind rainfall_poller 986423263843293 -p akul
+   databricks bundle deployment bind daily_archiver 486214899373176 -p akul
+   databricks bundle deployment bind flood_alerts 477250824276803 -p akul
+   databricks bundle deployment bind floodsense c32feb3d-5e5f-4c78-8219-e3acf131e804 -p akul
+   databricks bundle deployment bind live_risk 01f1c168d5ba1a44819705ab969bf3ea -p akul
+   databricks bundle deployment bind floodsense_schema workspace.floodsense -p akul
+   databricks bundle deployment bind artifacts workspace.floodsense.artifacts -p akul
+   databricks bundle deployment bind autoloader workspace.floodsense.autoloader -p akul
+   databricks bundle deployment bind landing workspace.floodsense.landing -p akul
+   databricks bundle deployment bind radar workspace.floodsense.radar -p akul
+   databricks bundle deployment bind flood_model workspace.floodsense.flood_model -p akul
+   ```
+   (Only if you include `app.yml`: `databricks bundle deployment bind floodsense_app floodsense -p akul`.)
+4. Look at the plan before changing anything: `databricks bundle plan -p akul`. Every resource
+   should say "update" or "skip", never "create". If you see a "create" for something that already
+   exists, stop and ask adk or me; it means a bind was missed.
+5. Run `databricks bundle deploy -p akul`. This overwrites the live settings with the files in the repo
+   (and the dashboard draft with the committed `.lvdash.json`).
+6. Check the result straight away: `databricks jobs get 986423263843293 -p akul` must still show
+   `"pause_status": "PAUSED"`; the other two UNPAUSED. If the poller is unpaused by mistake, pause it
+   in Workflows at once.
+7. Do not run `databricks bundle destroy`. Do not run `bundle run` for the poller before 24 Oct.
+
+## 23. Telegram subscriptions (22 Oct 2026)
+
+People can message @fs_tele_alert_bot to get a private alert for the planning areas they pick:
+`/subscribe Bukit Timah`, `/unsubscribe Bukit Timah`, `/unsubscribe all`, `/list`, `/start`,
+`/help`. At most 5 areas per chat. Alerts use the same rules as the channel (only on a rise to
+Moderate or High, one per area per hour, nothing on missing data, no all-clear). Email sign-up is
+**not built** (it needs an email provider).
+
+How it works: the bot is a batch job, so each run of the `telegram_alerts` task first reads new
+messages (`getUpdates`), handles the commands, replies, then sends alerts to the channel and to
+each area's subscribers. People therefore wait up to one poller interval (30 minutes) for a reply.
+Everything is kept in one JSON file: chat id, area and subscribed-at time, plus the id of the last
+message handled. No names or usernames. Without `--subscriptions-file` the bot behaves as before.
+
+Where the file lives: on Databricks `/Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json`
+(next to `telegram_state.json`, where the bot's other state already is). Locally
+`data/processed/telegram_subscriptions.json` (inside the gitignored `data/processed/`).
+
+Deploy steps (not done yet; they change the workspace, so they need Akul's OK):
+
+1. Merge this branch after adk has reviewed it, and build the wheel as in the earlier sections.
+2. Upload the new wheel and the updated task script to the workspace, using the same two commands
+   as section 22 (wheel upload, then `databricks workspace import ... telegram_bot.py --overwrite`).
+3. In `databricks/jobs/poller_job.json`, add two more parameters to the `telegram_alerts` task,
+   after the existing `--state-file` value:
+   `"--subscriptions-file", "/Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json"`.
+4. Apply the job settings with `databricks jobs reset`, as in section 22.
+5. Check that no webhook is set on the bot (a webhook blocks `getUpdates`). In a browser open
+   `https://api.telegram.org/bot<token>/getWebhookInfo` with the token from the secrets scope and
+   check that `url` is empty. Do not paste the token anywhere else.
+6. In Telegram, message the bot `/start`, then `/subscribe Bukit Timah`.
+7. Run the poller job once by hand. The `telegram_alerts` task should succeed and you should get a
+   reply to `/start` and `/subscribe`. Then send `/list` and run it again to see the reply.
+8. To test an alert without waiting for rain, run the bot locally against a replay (`replay --date
+   2021-04-17 --dry-run`) to read the message text; a real private alert needs a real rise.
+9. To remove your test data, send `/unsubscribe all`.
+
+**Demo Day: fast replies (agreed 22 Oct).** On the poller's 30-minute schedule a `/subscribe` reply
+can take up to 30 minutes, and none comes while the job is paused. For the demo, run the bot on the
+demo laptop instead, checking every 60 seconds:
+
+1. Make sure the laptop can read gold, as the app does when it runs locally against Databricks.
+   Check that `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set in the local `.env`. Don't print
+   them.
+2. Stop the Databricks side from handling the same messages: either keep the poller job paused, or
+   remove `--subscriptions-file` from its `telegram_alerts` task for the demo. Two bots reading
+   `getUpdates` take messages from each other, and both would post channel alerts.
+3. Start the bot:
+   `uv run python -m floodsense.alerts.telegram_bot live --interval-seconds 60 --subscriptions-file data/processed/telegram_subscriptions.json`
+4. In Telegram send `/subscribe Bukit Timah`; the reply should arrive within about a minute.
+5. Stop it with Ctrl+C after the demo. To delete the demo subscriptions, send `/unsubscribe all`
+   first.
+
+Not rehearsed yet: run through it once before Demo Day.
+
+## 24. Deploy run, 22 Oct 2026 (Akul's session)
+
+Run from branch `akul/features-22oct` (`9bf0210` plus the fixes below); master is `f0de215`.
+
+- **Wheel** rebuilt and uploaded to `/Volumes/workspace/floodsense/artifacts/wheels/` (04:11 SGT).
+  It now has `floodsense.monitoring` and `floodsense.alerts.subscriptions`. Nothing has run on it
+  yet; the pipeline picks it up at the next poller run.
+- **Telegram subscriptions on:** the poller job's `telegram_alerts` task now also gets
+  `--subscriptions-file /Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json`
+  (`jobs reset`, schedule still **PAUSED**). `databricks/jobs/poller_job.json` and
+  `databricks/bundle/jobs.yml` match. `telegram_bot.py` re-imported. Not checked: whether a webhook
+  is set on the bot (it would block `getUpdates`); the first poller run will show it.
+- **PUB scorecard job** `floodsense-pub-scorecard` created, id `94062619945493`, schedule
+  **PAUSED**. Two manual runs **failed**:
+  1. an import from the wrong module (`load_registered_model` lives in `models/artifact.py`); fixed
+     in `databricks/jobs/pub_scorecard.py` and re-imported;
+  2. then `MlflowException`: every model artifact download from Unity Catalog storage returned
+     S3 `400 Bad Request` (HeadObject). The pipeline uses the same loader and worked on 18 Oct, so
+     the cause is the job's environment. **Not investigated further; the table
+     `workspace.floodsense.pub_scorecard` does not exist yet.**
+- **Dashboard** text updated to Moderate 0.53% (the only difference from the committed file) and
+  republished (04:13 SGT).
+- **Genie space** "FloodSense risk (gold)" created, id `01f1cd8bf8de1d5fba454efa5909044a`, on the
+  gold table and warehouse `dfa0305abf58b59e`, with instructions (thresholds, UTC timestamps,
+  "not an official warning") and four sample questions. Not shared; not tried yet.
+- **v3 parity re-export: not done.** The proof replays 17 Apr 2021 through the pipeline with a
+  full refresh, which would wipe the live bronze, silver and gold tables (silver's history is what
+  the scorecard re-scores). It needs a separate pipeline; team decision.
+- **Asset Bundle:** all 11 resources **bound** (`bundle deployment bind`; this changes no
+  resource). `bundle plan`: 0 to add, 5 to change, 0 to delete. **Not deployed**: a deploy would
+  set the three jobs to `edit_mode: UI_LOCKED` (no edits or unpausing in the UI, only through the
+  bundle or CLI), and it lists a properties update on the schema (the live schema carries system
+  properties the bundle doesn't). **Decided (Akul, 22 Oct): not deployed before Demo Day; it stays
+  bound.** Until a deploy, edit and unpause the jobs as before (UI or CLI).
+
+**Later on 22 Oct: model download check and a manual poller run.**
+- The champion (version 3) downloads and loads fine from the laptop (mlflow 3.16.1). Only the
+  scorecard job's direct S3 download fails. Setting
+  `MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC=true` in the job made no difference
+  (probably an older mlflow on the serverless image); undone. The model file on the artifacts
+  volume is still **version 1** (2 Oct), so it can't stand in for the champion. Scorecard job
+  still failing, still paused.
+- Poller run `425831022323729` by hand, schedule kept **PAUSED**: `poll_rainfall` and
+  `refresh_pipeline` succeeded, so **the pipeline still loads the champion from the registry**.
+  Gold's newest step 15:25 SGT, 55 zones, 89 gauges, all Low.
+- **Careful with `python_params`:** it replaces the arguments of *every* Python task in the job.
+  The section 19 command (`"python_params": ["--lookback-minutes", "1200"]`) dated from before the
+  Telegram task, so the bot got only those two arguments and failed (`--warehouse-id` missing).
+  Repaired by rerunning `telegram_alerts` alone with its full argument list (succeeded; nothing
+  posted, all zones Low). For a lookback refresh, pass both lists, or rerun the bot task as above.
+- No subscriptions file yet (nobody has messaged the bot). Whether a webhook is set is still
+  unconfirmed: test with `/start` in Telegram before the next run.
+- Compute outage (21 Oct 01:00 to 22 Oct 03:30 SGT): cause not found. `system.billing` and
+  `system.lakeflow` aren't enabled on this workspace (enabling is a settings change), so usage
+  can't be read; check the account usage page or email by hand.
+
+**Asset Bundle deployed, 22 Oct (Akul's decision, reversing "not before Demo Day").**
+`databricks bundle deploy`: 0 created, 5 changed, 0 deleted; 198 files uploaded to
+`/Workspace/Users/<login>/.bundle/floodsense/prod/files`. Live settings compared before and after:
+- The 3 jobs only gained the bundle marker and `edit_mode: UI_LOCKED`. Tasks, parameters and
+  schedules are unchanged: poller **PAUSED**, daily archiver and flood alerts **UNPAUSED**.
+- The pipeline only gained the bundle marker; `edition: ADVANCED` is now explicit.
+- The schema's properties are unchanged (`custom_max_retention_hours: 0` now shows). Every later
+  `bundle plan` lists "update schemas.floodsense_schema", because Databricks sets system
+  properties (owner, predictive optimisation) the bundle doesn't list. Harmless.
+- Not in the bundle and unchanged: the Databricks App, the scorecard job (`94062619945493`), the
+  Genie space, the secrets, model versions.
+
+**Changing a job from now on (e.g. A3 on 24 Oct, unpausing the poller):** the UI won't allow edits.
+1. In `databricks/bundle/jobs.yml`, change the job's `pause_status` (e.g. the poller's to `UNPAUSED`;
+   the flood-alerts job's to `PAUSED`).
+2. Run `databricks bundle plan -p akul` and check only that change (plus the schema line) shows.
+3. Run `databricks bundle deploy -p akul`.
+4. Commit the YAML change, so the repo matches what is live.
+A CLI `jobs update` also works but the next `bundle deploy` would undo it, so prefer the steps above.

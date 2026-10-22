@@ -1,0 +1,54 @@
+# Unity Catalog objects that already exist. Contents (volume files, model versions and aliases,
+# tables written by the pipeline) are NOT managed by the bundle.
+# prevent_destroy stops `bundle destroy` / a rename from dropping them.
+resources:
+  schemas:
+    floodsense_schema:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: "FloodSense: per-zone flash-flood risk for Singapore (DAISI 2026 Track B2). Sources: NEA rainfall and PUB flood alerts via data.gov.sg; URA Master Plan 2019 planning areas; PUB Flood Prone Areas. Repo: github.com/adk7712/floodsense"
+      lifecycle:
+        prevent_destroy: true
+
+  volumes:
+    artifacts:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: artifacts
+      volume_type: MANAGED
+      comment: "floodsense wheel, trained model file and reference data (URA polygons, sourced flood events) used by the pipeline."
+      lifecycle:
+        prevent_destroy: true
+    autoloader:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: autoloader
+      volume_type: MANAGED
+      comment: "Auto Loader schema and checkpoint state for the floodsense pipeline (bronze rainfall and PUB alerts). Managed by the pipeline; not data."
+      lifecycle:
+        prevent_destroy: true
+    landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: landing
+      volume_type: MANAGED
+      comment: "Raw API payloads exactly as fetched: rainfall/ (NEA 5-min gauges, data.gov.sg) and flood_alerts/ (PUB, data.gov.sg). Read by Auto Loader."
+      lifecycle:
+        prevent_destroy: true
+    radar:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: radar
+      volume_type: MANAGED
+      comment: "NEA rain-area radar frames (data.gov.sg weather-radar-images, 70km and 240km), one Parquet per day and size. The API keeps only ~3 months, so this is the archive."
+      lifecycle:
+        prevent_destroy: true
+
+  registered_models:
+    flood_model:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: flood_model
+      comment: "Calibrated 60-minute rainfall rule: chance of a reported flash flood in the next hour per URA planning area. Trained on NEA rainfall 2017-2023 and 66 sourced flood events; scored once on 2024-Sep 2026 (30 floods). Model card and test report are logged with each version."
+      lifecycle:
+        prevent_destroy: true

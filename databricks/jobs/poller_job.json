@@ -65,7 +65,9 @@
           "live",
           "--once",
           "--state-file",
-          "/Volumes/workspace/floodsense/artifacts/telegram_state.json"
+          "/Volumes/workspace/floodsense/artifacts/telegram_state.json",
+          "--subscriptions-file",
+          "/Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json"
         ]
       },
       "timeout_seconds": 240

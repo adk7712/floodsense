@@ -1,0 +1,45 @@
+# Databricks Asset Bundle for FloodSense (plan item A8.2).
+#
+# This describes the setup that ALREADY EXISTS in the workspace (read from the live settings on
+# 22 Oct 2026). It has NOT been deployed. Deploying it without binding first would create
+# duplicate jobs, a second pipeline and so on; follow "Asset Bundles (A8.2)" at the end of
+# DEPLOYMENT.md (bind each resource, check the plan, then deploy).
+#
+# No secret values live here. The only secret reference is the app's resource in
+# databricks/bundle/app.yml (scope `floodsense`, key `data_gov_api_key`).
+bundle:
+  name: floodsense
+
+include:
+  - databricks/bundle/unity_catalog.yml
+  - databricks/bundle/pipeline.yml
+  - databricks/bundle/jobs.yml
+  - databricks/bundle/dashboard.yml
+  # databricks/bundle/app.yml is NOT included on purpose: bundle sync would upload the whole
+  # repo, and the app is deployed with `databricks sync` (DEPLOYMENT.md section 16). Add the
+  # line below only if you decide to let the bundle own the app.
+  # - databricks/bundle/app.yml
+
+variables:
+  # The folder in the workspace that holds the uploaded job scripts and the pipeline source
+  # (poll_rainfall.py, telegram_bot.py, lakeflow_pipeline.py ...). Defaults to the signed-in
+  # user's floodsense folder, so no email address is stored in git.
+  workspace_dir:
+    description: Workspace folder with the uploaded job scripts and pipeline source.
+    default: /Workspace/Users/${workspace.current_user.userName}/floodsense
+  warehouse_id:
+    description: SQL warehouse used by the dashboard, the Telegram task and the app.
+    default: dfa0305abf58b59e
+  wheel_path:
+    description: The floodsense wheel on the artifacts volume (built and uploaded by hand).
+    default: /Volumes/workspace/floodsense/artifacts/wheels/floodsense-0.1.0-py3-none-any.whl
+  catalog:
+    default: workspace
+  schema:
+    default: floodsense
+
+targets:
+  # One target, no `mode`: resource names stay exactly as they are live (no [dev user] prefix).
+  # Run with the CLI profile: databricks bundle validate -p akul
+  prod:
+    default: true

@@ -18,3 +18,25 @@ ADVICE = {
 DISCLAIMER = "FloodSense complements, and does not replace, PUB's flood alerts."
 # COPY CHANGE FOR REVIEW (T1): honesty line shown with the disclaimer (Telegram footer, Resident view).
 HONESTY_LINE = "FloodSense is not an official warning; alerts can be late or missed; follow PUB."
+
+# --- Telegram subscriptions (per-area private alerts) --------------------------------------------
+MAX_AREAS_PER_CHAT = 5
+PRIVACY_NOTE = (
+    "We store only your chat ID and the areas you pick, to send you alerts. "
+    "Send /unsubscribe all to delete them."
+)
+HELP_TEXT = (
+    "FloodSense sends you a private message when the flash-flood risk in a Singapore planning "
+    "area you pick rises to Moderate or High.\n\n"
+    "Commands:\n"
+    "/subscribe <area>: get alerts for an area, for example /subscribe Bukit Timah\n"
+    "/unsubscribe <area>: stop alerts for one area\n"
+    "/unsubscribe all: stop all alerts and delete your data\n"
+    "/list: show the areas you follow\n"
+    "/help: show this message\n\n"
+    f"You can follow up to {MAX_AREAS_PER_CHAT} areas. Alerts follow the same rules as the "
+    "FloodSense channel: a message only when the risk rises, and at most one per area per hour "
+    "(a rise from Moderate to High is let through).\n\n"
+    "The bot checks for messages on a schedule, so replies and alerts can take up to 30 minutes.\n\n"
+    f"{HONESTY_LINE}\n\n{PRIVACY_NOTE}"
+)

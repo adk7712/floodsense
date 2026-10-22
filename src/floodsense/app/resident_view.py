@@ -39,10 +39,10 @@ PARTIAL_NOTE = (
 PUB_ALERTS_UNAVAILABLE = "PUB flood alerts can't be checked right now."
 FORECAST_CAVEAT = "Forecast from radar; flood accuracy not yet tested."
 
-# DRAFT wording (T2), off until adk signs off the wording and the figure. COPY CHANGE FOR REVIEW.
-# Each tier gets a verb and a time window. PUB-style "avoid ... for at least one hour" is left
-# out: no sourced PUB wording has been checked yet, so it is UNVERIFIED and not drafted here.
-RISK_WORDING_DRAFT = False
+# Action line per tier (T2): a verb and a time window. Turned on 22 Oct (team decision; adk to
+# review the strings). PUB-style "avoid ... for at least one hour" is left out: no sourced PUB
+# wording has been checked yet, so it is UNVERIFIED and not drafted here.
+RISK_WORDING_DRAFT = True
 DRAFT_TIER_LINE = {
     "High": "Flooding is likelier than usual in the next hour. Act now.",
     "Moderate": "Flooding is possible in the next hour. Prepare now.",
@@ -56,6 +56,9 @@ TierStyle = Callable[[str, bool], tuple[str, str, str]]
 
 def risk_multiple_line(tier: str, path: Path = RISK_MULTIPLE_FILE) -> str | None:
     """The "N times the usual flood risk for a rainy hour" line, from the 2017–2023 figures.
+
+    Not shown to residents (team decision, 22 Oct: 8 floods, a weak "usual" baseline and no
+    per-area figure); kept for the slide, where the caveats fit.
 
     Reads the saved result (``docs/results/risk_multiple_2017_2023.py``) and shows its own
     ``display.phrase`` only when its rule allows it; None for Low, a missing file or a hidden
@@ -197,9 +200,6 @@ def render_resident_view(
 
     if RISK_WORDING_DRAFT and tier in DRAFT_TIER_LINE:
         st.markdown(f"**{DRAFT_TIER_LINE[tier]}**")
-        multiple = risk_multiple_line(tier)
-        if multiple:
-            st.caption(multiple)
 
     if risk_in_1h is not None:
         tier_1h = _tier_of(risk_in_1h, zone)
