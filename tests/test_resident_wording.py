@@ -1,6 +1,6 @@
 """
-FloodSense - Resident-view draft wording (T2): off by default, and the "N times" line only
-shows what the saved 2017–2023 result allows.
+FloodSense - Resident-view wording (T2): the action line is on, the "N times" line is never shown
+to residents, and it only says what the saved 2017–2023 result allows.
 """
 
 import json
@@ -18,8 +18,11 @@ def _file(tmp_path: Path, show: bool) -> Path:
     return path
 
 
-def test_draft_wording_is_off_by_default():
-    assert rv.RISK_WORDING_DRAFT is False
+def test_action_line_is_on_and_has_a_time_window():
+    assert rv.RISK_WORDING_DRAFT is True
+    for tier in ("High", "Moderate"):
+        assert "next hour" in rv.DRAFT_TIER_LINE[tier]
+    assert "Low" not in rv.DRAFT_TIER_LINE
 
 
 def test_multiple_line_uses_the_saved_phrase(tmp_path):
