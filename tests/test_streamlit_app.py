@@ -29,10 +29,12 @@ def offline(monkeypatch):
 
 
 def _app(mode: str = "Replay Storm", stage: str = "simulate") -> AppTest:
-    """The app in ``mode`` (it opens in Live Feed by default; most tests replay real storms).
-    ``stage`` is the replay sidebar step: "choose" (date and storms) or "simulate" (area, time)."""
+    """The Analyst view in ``mode`` (the app opens in Live Feed on the Resident view; most tests
+    replay real storms on the Analyst page). ``stage`` is the replay sidebar step: "choose" (date
+    and storms) or "simulate" (area, time)."""
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = mode
+    at.session_state["view"] = "Analyst view"
     at.session_state["replay_stage"] = stage
     at.run(timeout=60)
     assert not at.exception
@@ -55,8 +57,9 @@ def test_streamlit_app_mode_toggle(offline):
     at.sidebar.button_group[0].set_value("Replay Storm")
     at.run(timeout=60)
     assert not at.exception
-    # 5 KPI cards, plus 3 transport counters: 12:15 on 17 Apr 2021 has Moderate areas with MRT.
-    assert len(at.metric) == 8
+    # The 5 number cards; public transport is on the Resident view.
+    assert len(at.metric) == 5
+    assert not any("Public transport at risk" in h.value for h in at.subheader)
 
 
 def test_streamlit_app_theme_toggle():
@@ -133,13 +136,14 @@ def test_diagnostics_use_real_model_and_current_status():
     text = " ".join(md.value for md in at.markdown) + " ".join(c.value for c in at.caption)
     assert "placeholder" not in text and "boundary polygons to come" not in text
     assert "High from" in text
-    # H2: the held-out figures are version 1's, and nothing about them is stale or "next".
-    assert "Version 1 (Moderate from 0.30%) on 2024–Sep 2026" in text
-    assert "version 3 has not been scored on these years" in text
+    # H2: the live model's figures are its 2020–2023 validation; the held-out test is version 1's.
+    assert "the live model's method and thresholds caught 18 of 28" in text
+    assert "scored once, with version 1" in text
+    assert "(version 3) has not been scored on it" in text
     assert "radar nowcasting is next" not in text and "60.8M" not in text
     from floodsense.data.flood_events import load_flood_events
 
-    assert f"**Flood labels (sourced):** {len(load_flood_events())} events" in text
+    assert f"Flood labels: {len(load_flood_events())} sourced events" in text
     assert "DAISI Challenge" not in " ".join(c.value for c in at.sidebar.caption)
 
 
@@ -202,6 +206,48 @@ def test_without_the_store_the_recorded_storm_still_replays(monkeypatch):
     assert len(at.sidebar.date_input) == 0
     assert at.select_slider[0].value == "12:15"
     assert "Dunearn" in " ".join(md.value for md in at.markdown)
+
+
+def test_opens_on_the_resident_view():
+    at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Replay Storm"
+    at.session_state["replay_stage"] = "simulate"
+    at.run(timeout=60)
+    assert not at.exception
+    assert at.session_state["view"] == "Resident view"
+    assert len(at.selectbox) == 1  # the page's own area picker; the sidebar one steps aside
+    assert len(at.metric) == 0
+
+
+def test_the_headline_says_how_many_areas_are_at_risk():
+    at = _app()
+    high, moderate = (int(m.value.split(" / ")[0]) for m in at.metric[:2])
+    text = " ".join(md.value for md in at.markdown)
+    if high:
+        assert f"{high} of 55 areas at High risk" in text
+    elif moderate:
+        assert f"{moderate} of 55 areas at Moderate risk, none at High" in text
+    else:
+        assert "No area at Moderate or High risk" in text
+    assert "Floods reported this day:" in text and "Bukit Timah (13:44 approx.)" in text
+    assert "What to do" not in text  # the residents' advice stays on the Resident view
+
+
+@needs_store
+def test_a_test_set_day_keeps_its_second_look_label_in_view():
+    from datetime import date
+
+    at = AppTest.from_file(APP_PATH)
+    at.session_state["mode"] = "Replay Storm"
+    at.session_state["replay_stage"] = "simulate"
+    at.session_state["view"] = "Analyst view"
+    at.session_state["replay_date"] = date(2024, 11, 22)
+    at.run(timeout=60)
+    assert not at.exception
+    # A top-level caption, not one folded inside an expander.
+    main = [c.value for c in at.main.caption if c.value]
+    folded = [c.value for e in at.expander for c in e.caption]
+    assert any("second look" in c for c in main if c not in folded)
 
 
 def test_opens_in_live_mode_by_default(offline):
@@ -587,8 +633,7 @@ def _linked(slug: str | None, view: str | None = None) -> AppTest:
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = "Replay Storm"
     at.session_state["replay_stage"] = "simulate"
-    if view:
-        at.session_state["view"] = view
+    at.session_state["view"] = view or "Analyst view"
     if slug is not None:
         at.query_params["area"] = slug
     at.run(timeout=60)
@@ -620,10 +665,20 @@ def test_area_link_does_not_override_a_later_choice():
 
 
 def test_transport_table_pins_the_selected_area_first_even_when_low():
-    at = _linked("bedok")
+    at = _linked("bedok", "Resident view")
     table = next(m.value for m in at.markdown if "<thead>" in m.value)
     first_row = table.split("<tbody>")[1].split("</tr>")[0]
     assert "Bedok" in first_row and "Low" in first_row
+
+
+def test_public_transport_is_on_the_resident_view_with_tiers_only():
+    at = _resident()  # 12:15 on 17 Apr 2021 has Moderate areas with MRT exits
+    assert any("Public transport at risk" in h.value for h in at.subheader)
+    text = _resident_text(at)
+    assert "**Stations with an exit at risk:**" in text and "Moderate areas" in text
+    table = next(m.value for m in at.markdown if "<thead>" in m.value)
+    # No percentages for residents (the table's own CSS has "width:100%", so check the cells).
+    assert "Chance" not in table and "%</td>" not in table
 
 
 # --- live outage, gold failure, stale data, odd inputs (stress-test fixes) -------------------
@@ -700,6 +755,7 @@ def _all_text(at: AppTest) -> str:
 def _live_app(**state) -> AppTest:
     at = AppTest.from_file(APP_PATH, default_timeout=120)
     at.session_state["mode"] = "Live Feed"
+    at.session_state["view"] = "Analyst view"
     for key, value in state.items():
         at.session_state[key] = value
     at.run()
@@ -821,6 +877,7 @@ def test_an_unknown_area_link_says_so_and_the_url_follows_the_area(monkeypatch):
     _live_feed(monkeypatch, _now())
     at = AppTest.from_file(APP_PATH, default_timeout=120)
     at.session_state["mode"] = "Live Feed"
+    at.session_state["view"] = "Analyst view"
     at.session_state["use_data_gov"] = True
     at.query_params["area"] = "atlantis [x](http://e.invalid)"
     at.run()
@@ -884,6 +941,7 @@ def test_a_failed_model_load_is_a_warning_and_gold_hides_the_fallback_levels(mon
 
     replay = AppTest.from_file(APP_PATH, default_timeout=120)
     replay.session_state["mode"] = "Replay Storm"
+    replay.session_state["view"] = "Analyst view"
     replay.run(timeout=60)
     assert any("could not be loaded" in w.value for w in replay.warning)
     st.cache_resource.clear()  # don't leave the failed load cached for the other tests
