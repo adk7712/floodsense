@@ -18,6 +18,7 @@ volume for the job. Email sign-up is not built.
 import json
 import logging
 import os
+import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -60,33 +61,50 @@ class SubscriptionStore(Protocol):
 
 
 class JsonSubscriptionStore:
-    """Subscriptions and the last handled update id in one JSON file. A missing file is empty; a
-    corrupt one is logged and treated as empty (nobody is messaged wrongly, people re-subscribe)."""
+    """Subscriptions and the last handled update id in one JSON file. A missing file is empty.
+    Each save first copies the previous file to ``<name>.bak``. A corrupt file is kept aside as
+    ``<name>.corrupt`` (never overwritten unread) and the ``.bak`` copy is loaded instead; if that
+    is unreadable too, the store starts empty (nobody is messaged wrongly, people re-subscribe)."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.backup = path.with_name(path.name + ".bak")
         self._rows: list[dict[str, object]] = []
         self._offset: int | None = None
         self._load()
 
+    @staticmethod
+    def _read(path: Path) -> tuple[list[dict[str, object]], int | None]:
+        raw = json.loads(path.read_text())
+        rows: list[dict[str, object]] = [
+            {
+                "chat_id": int(r["chat_id"]),
+                "area": str(r["area"]),
+                "subscribed_at": str(r["subscribed_at"]),
+            }
+            for r in raw["subscriptions"]
+        ]
+        offset = raw.get("last_update_id")
+        return rows, None if offset is None else int(offset)
+
     def _load(self) -> None:
         if not self.path.exists():
             return
+        unreadable = (OSError, ValueError, TypeError, KeyError, AttributeError)
         try:
-            raw = json.loads(self.path.read_text())
-            rows = [
-                {
-                    "chat_id": int(r["chat_id"]),
-                    "area": str(r["area"]),
-                    "subscribed_at": str(r["subscribed_at"]),
-                }
-                for r in raw["subscriptions"]
-            ]
-            offset = raw.get("last_update_id")
-            self._offset = None if offset is None else int(offset)
-            self._rows = rows
-        except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
-            logger.warning("Subscription file %s unreadable (%s); starting empty", self.path, exc)
+            self._rows, self._offset = self._read(self.path)
+            return
+        except unreadable as exc:
+            logger.warning("Subscription file %s unreadable (%s)", self.path, exc)
+        try:
+            shutil.copy2(self.path, self.path.with_name(self.path.name + ".corrupt"))
+        except OSError as exc:
+            logger.warning("Could not keep a copy of the unreadable file (%s)", exc)
+        try:
+            self._rows, self._offset = self._read(self.backup)
+            logger.warning("Loaded the backup %s instead", self.backup)
+        except unreadable as exc:
+            logger.warning("Backup %s unreadable too (%s); starting empty", self.backup, exc)
             self._rows, self._offset = [], None
 
     def areas_for(self, chat_id: int) -> list[str]:
@@ -121,8 +139,11 @@ class JsonSubscriptionStore:
         self._offset = update_id
 
     def save(self) -> None:
-        """Write atomically (temp file in the same folder, then rename). Raises OSError."""
+        """Write atomically (temp file in the same folder, then rename), after copying the
+        previous file to the backup. Raises OSError."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.exists():
+            shutil.copy2(self.path, self.backup)
         data = {"version": 1, "last_update_id": self._offset, "subscriptions": self._rows}
         tmp_name: str | None = None
         try:

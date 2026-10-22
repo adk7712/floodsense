@@ -139,6 +139,23 @@ def test_corrupt_file_starts_empty(tmp_path: Path, caplog: pytest.LogCaptureFixt
     with caplog.at_level(logging.WARNING, logger="FloodSense.Subscriptions"):
         s = subs.JsonSubscriptionStore(path)
     assert s.areas_for(1) == [] and s.last_update_id() is None and "unreadable" in caplog.text
+    assert (tmp_path / "sub.json.corrupt").read_text() == "{not json"
+
+
+def test_corrupt_file_falls_back_to_the_backup(tmp_path: Path) -> None:
+    path = tmp_path / "sub.json"
+    s = subs.JsonSubscriptionStore(path)
+    s.add(5, "BEDOK", T0)
+    s.set_last_update_id(41)
+    s.save()  # first save: nothing to back up yet
+    s.add(6, "YISHUN", T0)
+    s.save()  # the backup now holds the first save
+    path.write_text("{not json")
+    again = subs.JsonSubscriptionStore(path)
+    assert again.chats_for("BEDOK") == [5] and again.last_update_id() == 41
+    assert (tmp_path / "sub.json.corrupt").exists()
+    again.save()  # saving after a fallback keeps the corrupt copy aside
+    assert (tmp_path / "sub.json.corrupt").read_text() == "{not json"
 
 
 def test_process_updates_skips_groups_and_old_ids(store: subs.JsonSubscriptionStore) -> None:
