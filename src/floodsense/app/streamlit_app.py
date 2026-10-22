@@ -27,9 +27,11 @@ from shapely.geometry import mapping, shape
 from floodsense.app import replay_days
 from floodsense.app.resident_view import (
     RESIDENT_CSS,
+    areas_at_risk,
     escape_markdown,
     pct,
     render_resident_view,
+    reported_floods_line,
     show_pub_alerts,
 )
 from floodsense.common.config import settings
@@ -1138,7 +1140,9 @@ ANALYST_VIEW, RESIDENT_VIEW = "Analyst view", "Resident view"
 
 
 def resident_view_on() -> bool:
-    return st.session_state.get("view") == RESIDENT_VIEW
+    # The page opens on the Analyst view. Set here, not only in the header: the sidebar asks
+    # before the header is drawn.
+    return st.session_state.setdefault("view", ANALYST_VIEW) == RESIDENT_VIEW
 
 
 def zone_picker() -> str:
@@ -1422,7 +1426,11 @@ def render_app_header() -> None:
         with st.container(key="theme_toggle", width="content"):
             is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
     with st.container(key="app_header"):
-        st.title("FloodSense Intelligence Center")
+        st.title("FloodSense")
+        st.caption(
+            "The chance of a flash flood in the next hour, for each of Singapore's 55 planning "
+            "areas."
+        )
     if is_dark_active != IS_DARK:
         st.session_state["theme"] = "dark" if is_dark_active else "light"
         st.rerun()
@@ -1454,6 +1462,7 @@ stale = False  # live data older than settings.gold_stale_minutes
 older_zones = 0  # gold zones whose row is older than the newest
 from_gold = False  # Live risk read from the Databricks gold table (scored there, not here)
 day_events: list[FloodEvent] | None = None  # reported floods for the replayed day
+second_look: str | None = None  # the "second look" label for a replayed 2024–2026 test-set day
 if mode == "Live Feed":
     features: pd.DataFrame | None = None
     if live_source == DATABRICKS:
@@ -1515,7 +1524,7 @@ if mode == "Live Feed":
         f"color: {live_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
         f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
         + (
-            "● Live: scored on Databricks (gold table)</span>"
+            "● Live: scored on Databricks</span>"
             if from_gold
             else f"● Live: {int(features['reporting_stations'].iloc[0])} of {total_stations} gauges "
             "reporting (data.gov.sg)</span>"
@@ -1529,9 +1538,7 @@ if mode == "Live Feed":
         f"`{view_time:%d %b %Y %H:%M} SGT` "
         f"<span style='color: {age_color}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: {600 if stale else 400}; white-space: nowrap;'>· {age_text(age)} old</span>"
     )
-    if from_gold:
-        history_note = "Scored on Databricks with the 72 hours of readings before it."
-    else:
+    if not from_gold:
         history_note = (
             f"Rolling features use the last {settings.live_history_hours:g} h of live readings, so "
             "the 72-hour wet-ground index is understated."
@@ -1620,9 +1627,7 @@ elif replay_days.store_available():
         f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
         f"`{view_time:%d %b %Y %H:%M} SGT`"
     )
-    history_note = "Features include the 72 hours of real readings before the day."
-    if second_look := replay_days.second_look_note(replay_day):
-        history_note = f"{second_look} {history_note}"
+    second_look = replay_days.second_look_note(replay_day)
     if view.step_share < replay_days.SPARSE_SHARE:
         replay_warning = (
             f"NEA's record for this day is patchy: only {view.step_share:.0%} of 5-minute steps "
@@ -1653,7 +1658,6 @@ else:
         f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
         f"`{view_time:%d %b %Y %H:%M} SGT`"
     )
-    history_note = "Features include the 72 hours of real readings before the replay window."
     day_events = replay_days.events_on(replay_days.PINNED_STORM, flood_events())
 
 # Gold arrives scored by the pipeline: show its probabilities and tiers as they are.
@@ -1671,6 +1675,110 @@ if all_no_data:  # an outage or a gap: no risk can be given, and none is guessed
         f"{'right now' if mode == 'Live Feed' else 'at this time'}.",
         icon=":material/cloud_off:",
     )
+
+
+# --- PUBLIC TRANSPORT AT RISK (BOTH VIEWS) ----------------------------------------------------
+def public_transport(
+    zone: str, alerts: list[FloodAlert], chance_thresholds: dict[str, float] | None = None
+) -> None:
+    """MRT/LRT stations with an exit in a Moderate or High area (or near an active PUB alert),
+    plus the chosen area's stations. With ``chance_thresholds`` (the Analyst view) the table adds
+    each station's chance; the Resident view shows tiers only, no percentages."""
+    show_chance = chance_thresholds is not None
+    with st.container(border=True):
+        st.subheader(":material/train: Public transport at risk")
+        try:
+            at_risk = stations_at_risk(df_results, alerts)
+        except FileNotFoundError as exc:
+            st.warning(str(exc))
+            at_risk = None
+        if at_risk is not None and at_risk.empty:
+            st.markdown(
+                "No MRT/LRT station has an exit in a Moderate or High area"
+                + (" or near an active PUB flood alert" if mode == "Live Feed" else "")
+                + " right now."
+            )
+        elif at_risk is not None:
+            counts = at_risk["tier"].value_counts()
+            parts = [
+                f"{n} in {tier} areas"
+                for tier in ("High", "Moderate")
+                if (n := int(counts.get(tier, 0)))
+            ]
+            if near := int(at_risk["near_alert"].sum()):
+                parts.append(f"{near} near an active PUB alert")
+            st.markdown(f"**Stations with an exit at risk:** {', '.join(parts)}.")
+        if at_risk is not None:
+            shown = pin_zone_stations(at_risk, zone, df_results)
+
+            # An HTML table rather than st.dataframe: the dataframe is drawn on a canvas that the
+            # page's light/dark styling can't reach.
+            def _tier_chip(tier: str) -> str:
+                bg, border, text = (
+                    tier_style(tier, IS_DARK)
+                    if tier != "PUB alert"
+                    else tier_style("High", IS_DARK)
+                )
+                return (
+                    f'<span style="background:{bg}; border:1px solid {border}; color:{text}; '
+                    f'padding:1px 8px; border-radius:9999px; font-weight:600;">{html.escape(tier)}</span>'
+                )
+
+            cell = (
+                f"padding:7px 10px; border-bottom:1px solid {c_border_subtle}; white-space:nowrap;"
+            )
+            head = (
+                f"position:sticky; top:0; background:{c_subtle}; color:{c_muted}; "
+                f"text-align:left; font-weight:600; {cell}"
+            )
+            # The selected area's stations are pinned to the top and tinted (also when it is Low).
+            pick = f"background:{c_accent_muted}; font-weight:600;"
+            rows_html = "".join(
+                "<tr>"
+                f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.station))}</td>'
+                f'<td style="{cell} {pick if r.selected else ""}">{_tier_chip(str(r.tier))}</td>'
+                + (
+                    f'<td style="{cell} {pick if r.selected else ""}">'
+                    f"{'' if pd.isna(r.probability) else pct(r.probability, chance_thresholds)}</td>"
+                    if show_chance
+                    else ""
+                )
+                + f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
+                "</tr>"
+                for r in shown.itertuples(index=False)
+            )
+            # Risk (and chance) come right after the station, so they stay on screen on a phone.
+            headers = [
+                "Station",
+                "Risk",
+                *(["Chance (next hour)"] if show_chance else []),
+                "Planning area",
+            ]
+            table_box = (
+                st.container() if not at_risk.empty else st.expander(f"Stations in {zone.title()}")
+            )
+            table_box.markdown(
+                f'<div style="max-height:380px; overflow:auto; border:1px solid {c_border}; '
+                f'border-radius:10px; background:{c_surface};">'
+                f'<table style="width:100%; border-collapse:collapse; font-size:0.85rem; '
+                f"font-family:'Inter', sans-serif; color:{c_main}; margin:0;\">"
+                "<thead><tr>"
+                + "".join(f'<th style="{head}">{h}</th>' for h in headers)
+                + f"</tr></thead><tbody>{rows_html}</tbody></table></div>",
+                unsafe_allow_html=True,
+            )
+        st.caption(
+            "Stations with an exit in a Moderate or High area or near an active PUB alert, plus the "
+            f"selected area's stations. This shows exposure, not service disruptions. Exit locations: "
+            f"{MRT_SOURCE}."
+            + (
+                " Today's station list is used for every replay, so stations that opened after the "
+                "replayed day can appear."
+                if mode != "Live Feed"
+                else ""
+            )
+        )
+
 
 # --- RESIDENT VIEW -------------------------------------------------------------------------
 if resident_view_on():
@@ -1698,23 +1806,17 @@ if resident_view_on():
             pub_alerts=resident_alerts or [],
             pub_alerts_unavailable=resident_alerts_error is not None,
             stale_age=age_text(age) if stale else None,
+            day_events=day_events,
         )
+        public_transport(resident_zone, resident_alerts or [])
     sync_area_param(resident_zone)
     st.stop()
 sync_area_param(selected_zone)
 
-# --- TOP BAR & SCOPE INDICATORS -----------------------------------------------------------
+# --- TOP BAR -------------------------------------------------------------------------------
+# Only what changes how the page should be read stays in view (warnings, the "second look"
+# label); where the numbers come from goes under "More numbers and data sources".
 st.markdown(status_line, unsafe_allow_html=True)
-st.markdown(
-    f'<div style="background: {tokens["badge_bg"]}; border: 1px solid {tokens["badge_border"]}; border-radius: 9999px; '
-    f"padding: 5px 16px; margin: 8px 0 18px 0; display: inline-flex; align-items: center; "
-    f"gap: 8px; font-size: 0.78rem; font-family: 'Inter', sans-serif; color: {tokens['badge_text']};\">"
-    "  <span>📍 Singapore Urban Flash-Flood Risk</span>"
-    f'  <span style="color: {tokens["text_dim"]};">•</span>'
-    "  <span>55 URA Planning Areas</span>"
-    "</div>",
-    unsafe_allow_html=True,
-)
 if replay_warning:
     st.warning(replay_warning, icon=":material/warning:")
 if stale:
@@ -1727,18 +1829,18 @@ if older_zones:
         f"{older_zones} of {NUM_ZONES} areas have older readings than the rest; the age above is "
         "for the oldest."
     )
-# Where the risk comes from: the model's caption (a warning when it could not load), then how much
-# history the rolling features had.
+if second_look:
+    st.caption(second_look)
 if model is None and not from_gold:
     st.warning(model_caption, icon=":material/model_training:")
-    st.caption(history_note)
-elif model is None:
+elif model is None:  # says why the alert levels and the storm rarity are missing
     st.caption(
         "Risk is scored on Databricks. The local model isn't loaded, so alert levels and the "
-        f"storm-rarity figure are not shown. {history_note}"
+        "storm-rarity figure are not shown."
     )
-else:
-    st.caption(history_note if from_gold else f"{model_caption} {history_note}")
+# The data.gov.sg fallback has only a few hours of history, which understates the risk.
+if mode == "Live Feed" and not from_gold:
+    st.caption(history_note)
 
 active_pub_alerts: list[FloodAlert] = []  # live PUB alerts (none in Replay: no history)
 if mode == "Live Feed":
@@ -1761,12 +1863,6 @@ if mode == "Live Feed":
             f"**{len(pub_alerts)} active PUB flash-flood alert(s)**\n\n" + "\n".join(lines),
             icon=":material/flood:",
         )
-    else:
-        st.caption(
-            ":material/check_circle: No active PUB flash-flood alerts in the last 3 hours "
-            "(PUB via data.gov.sg; refreshes every 2 min). The page reloads live readings every "
-            f"{LIVE_REFRESH.total_seconds() / 60:g} min."
-        )
 
 high_risk_count = int((df_results["risk_tier"] == "High").sum())
 mod_risk_count = int((df_results["risk_tier"] == "Moderate").sum())
@@ -1783,7 +1879,51 @@ wettest = (
     with_rain.sort_values("rain_decay_72h", ascending=False).iloc[0] if len(with_rain) else None
 )
 
-# --- 5 TOP KPI METRIC CARDS ---------------------------------------------------------------
+# --- HEADLINE: HOW MANY AREAS ARE AT RISK ---------------------------------------------------
+headline = areas_at_risk(df_results)
+worst_tier = (
+    NO_DATA_TIER
+    if all_no_data
+    else "High"
+    if high_risk_count
+    else "Moderate"
+    if mod_risk_count
+    else "Low"
+)
+if peak is None:
+    rain_line = "Rainfall unknown: no gauge readings."  # missing, never shown as dry
+elif peak["rain_30m"] > 0:
+    rain_line = (
+        f"Heaviest rain: {peak['zone'].title()}, {peak['rain_30m']:.1f} mm in the last 30 min."
+    )
+else:
+    rain_line = "Some rain readings are missing." if any_partial else "No rain in the last 30 min."
+sub_lines = [rain_line]
+if day_events:  # a replay: what was actually reported that day, next to what the model says
+    sub_lines.append(reported_floods_line(day_events))
+when_label = "Right now" if mode == "Live Feed" else f"At {view_time:%H:%M}, {view_time:%d %b %Y}"
+head_bg, head_border, head_text = tier_style(worst_tier, IS_DARK)
+st.markdown(
+    f'<div style="background:{head_bg}; border:1px solid {head_border}; border-radius:12px; '
+    f"padding:14px 18px; margin:10px 0 12px 0; font-family:'Inter', sans-serif;\">"
+    f'<div style="font-size:0.72rem; font-weight:700; color:{tokens["text_muted"]}; '
+    f'text-transform:uppercase; letter-spacing:0.05em;">{when_label}</div>'
+    f'<div style="font-size:1.5rem; font-weight:700; color:{head_text}; line-height:1.25; '
+    f'margin:4px 0 6px 0;">{html.escape(headline)}</div>'
+    + "".join(
+        f'<div style="font-size:0.92rem; color:{tokens["text_main"]};">{html.escape(line)}</div>'
+        for line in sub_lines
+    )
+    + "</div>",
+    unsafe_allow_html=True,
+)
+if no_data_count:
+    st.caption(
+        f"{no_data_count} {'area has' if no_data_count == 1 else 'areas have'} no data "
+        "(too few gauges reporting), so they are left out of the risk counts."
+    )
+
+# --- 5 METRIC CARDS ------------------------------------------------------------------------
 # Every card has the same three parts, each one line: label, value, footer (label | value).
 _LABEL = (
     f"font-size:0.68rem; font-family:'Inter', sans-serif; font-weight:700; color:{tokens['text_muted']}; "
@@ -1872,21 +2012,14 @@ with kpi_cols[4]:
         ("Reporting now", f"{share:.0%}") if total_stations else ("Source", "Databricks"),
     )
 
-if no_data_count:
-    st.caption(
-        f"{no_data_count} {'area has' if no_data_count == 1 else 'areas have'} no data "
-        "(too few gauges reporting), so they are left out of the risk counts."
-    )
-
 # --- MAP & ZONE DETAILS --------------------------------------------------------------------
-map_col, detail_col = st.columns([1.7, 1.3])
+detail_col, map_col = st.columns([1.3, 1.7])
 
 with map_col, st.container(border=True, key="map_card"):
     st.markdown(
         f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">'
         f'  <div style="display: flex; align-items: center; gap: 8px;">'
-        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Singapore Urban Risk Map</span>"
-        f"    <span style=\"background: {tokens['bg_subtle']}; border: 1px solid {tokens['border_main']}; color: {tokens['text_muted']}; font-family: 'Inter', sans-serif; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 9999px;\">55 URA ZONES</span>"
+        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Risk map</span>"
         f"  </div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -2076,7 +2209,8 @@ with map_col, st.container(border=True, key="map_card"):
         showlegend=False,  # the slim legend bar under the map replaces it
         **{map_layout_key: {"style": tokens["map_style"], "layers": map_layers}},
     )
-    st.plotly_chart(fig_map)
+    # No "Pan" button: dragging the map already pans it.
+    st.plotly_chart(fig_map, config={"modeBarButtonsToRemove": ["pan2d"]})
     if radar_mode:
         stops = ", ".join(f"rgb{c}" for c in RADAR_COLOURS)
         ticks = "".join(f'<span style="left:{pos}%;">{label}</span>' for pos, label in RADAR_TICKS)
@@ -2140,7 +2274,7 @@ with detail_col, st.container(border=True, key="zone_card"):
         f'<div style="margin: 8px 0 12px 0;">'
         f'  <div style="font-weight: 600; color: {tokens["text_main"]}; font-size: 0.95rem;">'
         f'📍 {selected_zone.title()} <span style="color: {tokens["text_muted"]}; font-weight: 500;">'
-        f"· {zone_data['region']} Region · change in the sidebar</span></div>"
+        f"· {zone_data['region']} Region · change it in the sidebar</span></div>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -2324,92 +2458,36 @@ with detail_col, st.container(border=True, key="zone_card"):
 
 
 # --- PUBLIC TRANSPORT AT RISK -------------------------------------------------------------
-with st.container(border=True):
-    st.subheader(":material/train: Public transport at risk")
-    try:
-        at_risk = stations_at_risk(df_results, active_pub_alerts)
-    except FileNotFoundError as exc:
-        st.warning(str(exc))
-        at_risk = None
-    if at_risk is not None and at_risk.empty:
-        st.caption(
-            "No MRT/LRT station has an exit in a Moderate or High area"
-            + (" or near an active PUB flood alert" if mode == "Live Feed" else "")
-            + " right now."
-        )
-    if at_risk is not None:
-        if not at_risk.empty:
-            counts = at_risk["tier"].value_counts()
-            t_cols = st.columns(3)
-            t_cols[0].metric("Stations in High areas", int(counts.get("High", 0)))
-            t_cols[1].metric("Stations in Moderate areas", int(counts.get("Moderate", 0)))
-            t_cols[2].metric("Stations near a PUB alert", int(at_risk["near_alert"].sum()))
-        shown = pin_zone_stations(at_risk, selected_zone, df_results)
+# With each station's chance; {} when the alert levels aren't known (gold without a local model).
+public_transport(selected_zone, active_pub_alerts, tier_thresholds or {})
 
-        # An HTML table rather than st.dataframe: the dataframe is drawn on a canvas that the
-        # page's light/dark styling can't reach.
-        def _tier_chip(tier: str) -> str:
-            bg, border, text = (
-                tier_style(tier, IS_DARK) if tier != "PUB alert" else tier_style("High", IS_DARK)
-            )
-            return (
-                f'<span style="background:{bg}; border:1px solid {border}; color:{text}; '
-                f'padding:1px 8px; border-radius:9999px; font-weight:600;">{html.escape(tier)}</span>'
-            )
-
-        cell = f"padding:7px 10px; border-bottom:1px solid {c_border_subtle}; white-space:nowrap;"
-        head = (
-            f"position:sticky; top:0; background:{c_subtle}; color:{c_muted}; "
-            f"text-align:left; font-weight:600; {cell}"
-        )
-        # The selected area's stations are pinned to the top and tinted (also when it is Low).
-        pick = f"background:{c_accent_muted}; font-weight:600;"
-        rows_html = "".join(
-            "<tr>"
-            f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.station))}</td>'
-            f'<td style="{cell} {pick if r.selected else ""}">{_tier_chip(str(r.tier))}</td>'
-            f'<td style="{cell} {pick if r.selected else ""}">'
-            f"{'' if pd.isna(r.probability) else pct(r.probability, tier_thresholds)}</td>"
-            f'<td style="{cell} {pick if r.selected else ""}">{html.escape(str(r.zone).title())}</td>'
-            "</tr>"
-            for r in shown.itertuples(index=False)
-        )
-        # Risk and chance come right after the station, so they stay on screen on a phone.
-        headers = ["Station", "Risk", "Chance (next hour)", "Planning area"]
-        st.markdown(
-            f'<div style="max-height:380px; overflow:auto; border:1px solid {c_border}; '
-            f'border-radius:10px; background:{c_surface};">'
-            f'<table style="width:100%; border-collapse:collapse; font-size:0.85rem; '
-            f"font-family:'Inter', sans-serif; color:{c_main}; margin:0;\">"
-            "<thead><tr>"
-            + "".join(f'<th style="{head}">{h}</th>' for h in headers)
-            + f"</tr></thead><tbody>{rows_html}</tbody></table></div>",
-            unsafe_allow_html=True,
-        )
-    st.caption(
-        f"Stations with an exit in a planning area rated Moderate or High, or within an active PUB "
-        f"alert circle, plus the selected area's stations at any tier (exit locations: "
-        f"{MRT_SOURCE}). This shows exposure, not observed service disruptions."
-        + (
-            " Today's station list is used for every replay, so stations that opened after the "
-            "replayed day can appear."
-            if mode != "Live Feed"
-            else ""
-        )
-    )
-
-# --- CONTEXT & PROTOTYPE STATUS -----------------------------------------------------------
-context_col, status_col = st.columns(2)
+# --- HOW IT WAS TESTED (COLLAPSED) -----------------------------------------------------------
+# The live model's (version 3) validation results in three plain points, and, on a replayed day,
+# the sources for the floods the headline lists. Figures: models/candidates/
+# cutoff_comparison_2026-10-17.json (88 labels, 28 floods in the 2020–2023 folds; the set version 3
+# was signed off on); version 3 has no score on the 2024–2026 test.
 _n_events = len(flood_events())
 event_count_text = f"{_n_events} sourced events" if _n_events else "sourced events"
-if replay_days.store_available():
-    _store_first, _store_last = store_range()
-    rain_store_text = f"{_store_first.year} to {_store_last:%d %b %Y}"
-else:
-    rain_store_text = "2017 onward"
-
-with context_col, st.container(border=True):
-    st.subheader(":material/water_drop: Hydrological Context & Archive")
+with st.expander("How it was tested"):
+    st.markdown(
+        "- **Checked on floods it hadn't seen.** In cross-validation on 2020–2023 (each year "
+        "scored by a model fitted only on the years before it), the live model's method and "
+        "thresholds caught 18 of 28 reported floods at Moderate (90% CI 50–79%) and 14 of 28 at "
+        "High (36–64%).\n"
+        "- **Warnings come before the report.** The median warning was 33 min ahead at Moderate "
+        "and 45 min at High.\n"
+        "- **False alarms per area per year:** about 4.5 at Moderate (budget 11) and 2.5 at High "
+        "(right at its budget of 2.5). A false "
+        "alarm here is one with no *reported* flood after it, and many floods go unreported, so "
+        "this overstates them."
+    )
+    st.caption(
+        "The 2024–2026 test set was scored once, with version 1: 21 of 30 floods at Moderate "
+        "(90% CI 57–83%), 12 of 30 at High (27–53%), median warnings 15 and 10 min. The live "
+        "model (version 3) has not been scored on it, and the two sets of figures aren't directly "
+        f"comparable. Flood labels: {event_count_text}, each with a source link, a quoted "
+        "sentence and a human sign-off."
+    )
     if day_events is not None:
         if day_events:
             lines = []
@@ -2436,64 +2514,6 @@ with context_col, st.container(border=True):
                 f"**Reported floods this day:** none in our {event_count_text}. Many floods are "
                 "never reported, so this doesn't mean none happened."
             )
-    st.markdown(
-        "- **Flood-prone land:** about 3,200 ha in the 1970s, under 25 ha by 2025. "
-        "([MSE, 4 Feb 2025](https://www.mse.gov.sg/latest-news/oral-reply-on-drainage-improvement-feb2025/))\n"
-        "- **PUB monitoring:** more than 1,000 water-level sensors and over 500 CCTV cameras. "
-        "([PUB](https://www.pub.gov.sg/Public/KeyInitiatives/Flood-Resilience/Flood-Forecasting-and-Monitoring))"
-    )
-    with st.expander("PUB flood-prone areas, 2022–2025", expanded=False):
-        from floodsense.data.flood_prone import build_trend_chart, load_flood_prone_areas
-
-        try:
-            flood_prone = load_flood_prone_areas()
-        except FileNotFoundError as exc:
-            st.warning(str(exc))
-        else:
-            fig_trend = build_trend_chart(flood_prone)
-            fig_trend.update_layout(
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                title=dict(font=dict(color=tokens["text_main"], family="Inter, sans-serif")),
-                yaxis=dict(
-                    gridcolor=tokens["grid_color"], tickfont=dict(color=tokens["text_muted"])
-                ),
-                xaxis=dict(tickfont=dict(color=tokens["text_muted"])),
-            )
-            st.plotly_chart(
-                fig_trend,
-                use_container_width=True,
-                config={"displayModeBar": False},
-            )
-            first, last = flood_prone.iloc[0], flood_prone.iloc[-1]
-            st.caption(
-                f"PUB's published flood-prone land fell from {first.flood_prone_hectares:g} ha in "
-                f"{first.year} to {last.flood_prone_hectares:g} ha in {last.year}. The land that "
-                "stays flood-prone is small, but flash floods still happen outside it when "
-                "intense rain overwhelms local drains."
-            )
-
-with status_col, st.container(border=True):
-    st.subheader(":material/construction: Prototype Status & Verification")
-    st.markdown(
-        f"- **Rainfall (real):** NEA 5-minute gauge readings, {rain_store_text}, "
-        "mapped to zones with distance weights that re-balance when gauges drop out.\n"
-        f"- **Flood labels (sourced):** {_n_events or 'not loaded'} events, each with a source "
-        "link, a quoted sentence and a human sign-off.\n"
-        "- **Model:** a calibrated 60-minute-rainfall rule. Only T3 (rain30 for Moderate) met its "
-        "pre-registered margin (+3 floods at Moderate, 90% CI +4 to +21 percentage points, at 8.74 "
-        "false Moderate episodes per zone-year against a budget of 11); it is not in use and "
-        "awaits a team decision. T1 (0.518) and T2 (0.446) did not meet theirs. A post-hoc static "
-        "run (prior SD 0.1, chosen after seeing the data) scored 0.509, slightly above the rule's "
-        "0.500. At 10 false alerts per zone-year, rule_rain30 caught 21 of 28 validation floods, "
-        "LightGBM 19, the registered static candidate (rule_rain60_static) 19, and the rule 18.\n"
-        "- **Version 1 (Moderate from 0.30%) on 2024–Sep 2026:** held-out test, 30 floods, 90% "
-        "confidence intervals. High caught 12 (40%, 27–53%), median warning 10 min, 4 warned 15+ "
-        "min ahead (13%, 3–23%); Moderate caught 21 (70%, 57–83%), median warning 15 min, 10 "
-        "warned 15+ min ahead (33%, 20–47%). Gauges alone give little lead time. The current "
-        "version 3 has not been scored on these years.\n"
-        "- **Zones:** the 55 URA Master Plan 2019 planning areas."
-    )
 
 # --- FOOTER --------------------------------------------------------------------------------
 st.markdown(

@@ -18,6 +18,7 @@ import pandas as pd
 import streamlit as st
 
 from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
+from floodsense.common.schemas import FloodEvent
 from floodsense.ingestion.flood_alerts import FloodAlert
 from floodsense.models.scoring import NO_DATA_TIER, risk_tier
 
@@ -78,6 +79,39 @@ def risk_multiple_line(tier: str, path: Path = RISK_MULTIPLE_FILE) -> str | None
         )
     except (OSError, KeyError, ValueError, TypeError):
         return None
+
+
+def areas_at_risk(table: pd.DataFrame) -> str:
+    """How many planning areas are at High or Moderate risk, in one line. Shared by the Analyst
+    headline and the Resident card, so the two views always say the same thing."""
+    tiers = table["risk_tier"]
+    high, moderate = int((tiers == "High").sum()), int((tiers == "Moderate").sum())
+    if (tiers == NO_DATA_TIER).all():
+        return "Risk unknown: too few rain gauges are reporting"
+    if high:
+        return f"{high} of {len(tiers)} areas at High risk" + (
+            f", {moderate} more at Moderate" if moderate else ""
+        )
+    if moderate:
+        return f"{moderate} of {len(tiers)} areas at Moderate risk, none at High"
+    return "No area at Moderate or High risk"
+
+
+def reported_floods_line(events: list[FloodEvent]) -> str:
+    """The floods reported on a replayed day, in time order, with each one's time as precise as
+    its source gives it. Shared by the Analyst headline and the Resident card."""
+    reported = [
+        f"{e.ura_planning_area.title()} "
+        + (
+            "(time not reported)"
+            if e.time_precision == "day_only"
+            else f"({e.timestamp_start:%H:%M}"
+            + {"exact": "", "pub_issued": ", PUB alert time"}.get(e.time_precision, " approx.")
+            + ")"
+        )
+        for e in sorted(events, key=lambda e: (e.timestamp_start, e.ura_planning_area))
+    ]
+    return f"Floods reported this day: {', '.join(dict.fromkeys(reported))}."
 
 
 def _tier_of(table: pd.DataFrame, zone: str) -> str:
@@ -158,12 +192,14 @@ def render_resident_view(
     pub_alerts: list[FloodAlert] | None = None,
     pub_alerts_unavailable: bool = False,
     stale_age: str | None = None,
+    day_events: list[FloodEvent] | None = None,
 ) -> str:
     """Draw the resident page and return the chosen planning area.
 
     ``pub_alerts_unavailable``: the PUB alert fetch failed (said so, instead of showing nothing).
     ``stale_age``: how old the data is, as text, when it is past the stale limit; the tier is then
-    drawn faded under an "out of date" line."""
+    drawn faded under an "out of date" line. ``day_events``: the floods reported on a replayed day
+    (None in Live), listed in the card under the Singapore-wide line."""
     names = sorted(risk_now["ura_planning_area"])
     st.markdown('<div class="fs-res-step">Your area</div>', unsafe_allow_html=True)
     zone = str(
@@ -183,12 +219,38 @@ def render_resident_view(
 
     if stale_age:
         st.warning(f"Out of date: the latest data is {stale_age} old, so this may not be current.")
+    # One card, coloured by the chosen area's tier: its risk now, the rest of Singapore, and the
+    # radar forecast for an hour from now (when there is radar for this time).
+    # A replay shows the replayed time, never "right now".
+    when_text = f" at {when:%H:%M}, {when:%d %b %Y}" if is_replay else ", right now"
+    island = areas_at_risk(risk_now)
+    soon = ""
+    if risk_in_1h is not None:
+        tier_1h = _tier_of(risk_in_1h, zone)
+        _, border_1h, colour_1h = tier_style(tier_1h, is_dark)
+        soon = (
+            f'<div class="fs-res-soon" style="border-top:1px solid {border}; '
+            f'color:{tokens["text_main"]};">In 1 hour: '
+            f'<span class="fs-res-chip" style="color:{colour_1h}; border:2px solid {border_1h}; '
+            f'background:{tokens["bg_surface"]};">'
+            f"{'Unknown' if tier_1h == NO_DATA_TIER else tier_1h}</span>"
+            f'<span class="fs-res-note" style="color:{tokens["text_muted"]};">'
+            f"{FORECAST_CAVEAT}</span></div>"
+        )
     st.markdown(
         f'<div class="fs-res-card" style="background:{bg}; border:2px solid {border};'
         f'{" opacity:0.55;" if stale_age else ""}">'
-        f'<div class="fs-res-small" style="color:{tokens["text_muted"]};">{name}, right now</div>'
+        f'<div class="fs-res-small" style="color:{tokens["text_muted"]};">{name}{when_text}</div>'
         f'<div class="fs-res-big" style="color:{colour};">{RISK_NOW[tier]}</div>'
-        "</div>",
+        f'<div class="fs-res-island" style="color:{tokens["text_main"]};">'
+        f"Across Singapore: {html.escape(island[0].lower() + island[1:])}.</div>"
+        + (
+            f'<div class="fs-res-reported" style="color:{tokens["text_main"]};">'
+            f"{html.escape(reported_floods_line(day_events))}</div>"
+            if day_events
+            else ""
+        )
+        + f"{soon}</div>",
         unsafe_allow_html=True,
     )
 
@@ -200,18 +262,6 @@ def render_resident_view(
 
     if RISK_WORDING_DRAFT and tier in DRAFT_TIER_LINE:
         st.markdown(f"**{DRAFT_TIER_LINE[tier]}**")
-
-    if risk_in_1h is not None:
-        tier_1h = _tier_of(risk_in_1h, zone)
-        _, border_1h, colour_1h = tier_style(tier_1h, is_dark)
-        st.markdown(
-            '<div class="fs-res-line">'
-            f'<span style="color:{tokens["text_main"]};">In 1 hour: </span>'
-            f'<span class="fs-res-chip" style="color:{colour_1h}; border:2px solid {border_1h};">'
-            f"{'Unknown' if tier_1h == NO_DATA_TIER else tier_1h}</span></div>",
-            unsafe_allow_html=True,
-        )
-        st.caption(FORECAST_CAVEAT)
 
     st.markdown('<div class="fs-res-step">What to do</div>', unsafe_allow_html=True)
     st.markdown(
@@ -237,8 +287,12 @@ RESIDENT_CSS = """
 .fs-res-small { font-size: 1.15rem; font-weight: 600; }
 .fs-res-big { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.15;
               margin-top: 6px; }
-.fs-res-line { font-size: 1.5rem; font-weight: 700; margin: 10px 0 2px 0; }
+.fs-res-island { font-size: 1.1rem; font-weight: 600; margin-top: 12px; }
+.fs-res-reported { font-size: 1.05rem; margin-top: 6px; }
+.fs-res-soon { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+               font-size: 1.3rem; font-weight: 700; margin-top: 16px; padding-top: 14px; }
 .fs-res-chip { display: inline-block; padding: 2px 16px; border-radius: 9999px; }
+.fs-res-note { flex-basis: 100%; font-size: 0.95rem; font-weight: 400; }
 .fs-res-advice { font-size: 1.35rem; line-height: 1.5; padding: 18px 22px; border-radius: 10px; }
 .fs-res-foot { font-size: 1rem; margin-top: 28px; line-height: 1.6; }
 .st-key-resident_page div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,

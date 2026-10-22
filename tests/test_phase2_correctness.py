@@ -261,6 +261,7 @@ def test_app_kpis_do_not_change_when_only_the_zone_changes():
     at = AppTest.from_file(APP_PATH)
     at.session_state["mode"] = "Replay Storm"  # the app opens in Live Feed
     at.session_state["replay_stage"] = "simulate"  # area and time controls
+    at.session_state["view"] = "Analyst view"  # the app opens on the Resident view
     at.run(timeout=60)
     assert not at.exception
     baseline = _kpis(at)
