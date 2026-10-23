@@ -502,7 +502,7 @@ def _tiers_at(time_label: str) -> dict[str, str]:
 def test_resident_view_renders_plain_language_and_hides_the_analyst_page():
     at = _resident()
     text = _resident_text(at)
-    assert "Your area" in text and "What to do" in text
+    assert "What to do" in text
     assert "flash flood" in text and "(Singapore time)" in text
     assert "complements, and does not replace, PUB's flood alerts" in text
     assert "not an official warning; alerts can be late or missed; follow PUB." in text
@@ -510,7 +510,8 @@ def test_resident_view_renders_plain_language_and_hides_the_analyst_page():
     for jargon in ("probability", "calibrated", "IDW", "(experimental)"):
         assert jargon.lower() not in text.lower()
     assert len(at.metric) == 0  # no KPI cards, charts or map: the analyst page is not drawn
-    assert at.selectbox[0].value == "BUKIT TIMAH"
+    # One area picker, in the sidebar as in the Analyst view (none on the page).
+    assert len(at.selectbox) == 1 and at.sidebar.selectbox[0].value == "BUKIT TIMAH"
 
 
 def test_resident_view_switch_returns_to_the_analyst_view():

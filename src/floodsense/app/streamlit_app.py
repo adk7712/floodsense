@@ -245,12 +245,20 @@ div[data-testid="stSidebarCollapsedControl"],
     transition: all 0.15s ease !important;
 }}
 
-/* Live mode's "Advanced" button sits at the bottom of the sidebar; its toggle opens to the right,
-   as one piece with the button and the same height. */
+/* The "Advanced" button is the last item in the sidebar, at the panel's bottom; it scrolls with
+   the panel. Its toggles open to the right, as one piece with the button. */
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"]:has(> [data-testid="stLayoutWrapper"] > .st-key-advanced_menu) {{
+    min-height: calc(100dvh - 2.25rem) !important;  /* the panel's height below its header */
+}}
+[data-testid="stSidebarUserContent"] {{
+    padding-bottom: 0 !important;  /* Advanced keeps its own space below */
+}}
+[data-testid="stLayoutWrapper"]:has(> .st-key-advanced_menu) {{
+    order: 999 !important;  /* drawn early in the script, shown last in the sidebar */
+    margin-top: auto !important;  /* at the panel's bottom when the sidebar is short */
+    padding: 1rem 0 1.25rem 0 !important;
+}}
 .st-key-advanced_menu {{
-    position: absolute !important;
-    bottom: 1.25rem !important;
-    left: 1.5rem !important;
     width: max-content !important;
     flex-wrap: nowrap !important;
     align-items: stretch !important;
@@ -1128,10 +1136,7 @@ def resident_view_on() -> bool:
 
 
 def zone_picker() -> str:
-    """The planning-area selector for the Zone Diagnostic (sidebar). The resident view has its
-    own selector on the page, so the sidebar one steps aside (same session key)."""
-    if resident_view_on():
-        return str(st.session_state["zone"])
+    """The planning-area selector for the Zone Diagnostic (sidebar), in both views."""
     st.sidebar.subheader(":material/tune: Zone Diagnostic")
     return str(
         st.sidebar.selectbox("Select Planning Area", options=sorted(URA_PLANNING_AREAS), key="zone")
@@ -1860,6 +1865,7 @@ if resident_view_on():
     )
     with st.container(key="resident_page"):
         resident_zone = render_resident_view(
+            zone=selected_zone,
             risk_now=df_results,
             risk_in_1h=resident_forecast,
             when=view_time,
