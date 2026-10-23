@@ -182,6 +182,7 @@ def show_pub_alerts(alerts: list[FloodAlert] | None, zone: str) -> None:
 
 def render_resident_view(
     *,
+    zone: str,
     risk_now: pd.DataFrame,
     risk_in_1h: pd.DataFrame | None,
     when: datetime,
@@ -194,24 +195,13 @@ def render_resident_view(
     stale_age: str | None = None,
     day_events: list[FloodEvent] | None = None,
 ) -> str:
-    """Draw the resident page and return the chosen planning area.
+    """Draw the resident page for ``zone`` (picked in the sidebar, as in the Analyst view) and
+    return it.
 
     ``pub_alerts_unavailable``: the PUB alert fetch failed (said so, instead of showing nothing).
     ``stale_age``: how old the data is, as text, when it is past the stale limit; the tier is then
     drawn faded under an "out of date" line. ``day_events``: the floods reported on a replayed day
     (None in Live), listed in the card under the Singapore-wide line."""
-    names = sorted(risk_now["ura_planning_area"])
-    st.markdown('<div class="fs-res-step">Your area</div>', unsafe_allow_html=True)
-    zone = str(
-        st.selectbox(
-            "Choose your area",
-            options=names,
-            key="zone",
-            format_func=str.title,
-            label_visibility="collapsed",
-            placeholder="Type to search for your area",
-        )
-    )
     tier = _tier_of(risk_now, zone)
     coverage = _coverage_of(risk_now, zone)
     bg, border, colour = tier_style(tier, is_dark)
