@@ -50,11 +50,11 @@ def test_streamlit_app_default_render():
 
 def test_streamlit_app_mode_toggle(offline):
     at = _app()
-    at.sidebar.button_group[0].set_value("Live Feed")
+    at.button_group(key="mode").set_value("Live Feed")
     at.run(timeout=60)
     assert not at.exception
 
-    at.sidebar.button_group[0].set_value("Replay Storm")
+    at.button_group(key="mode").set_value("Replay Storm")
     at.run(timeout=60)
     assert not at.exception
     # The 5 number cards; public transport says its counts in a sentence (no counters).
@@ -62,17 +62,24 @@ def test_streamlit_app_mode_toggle(offline):
     assert any("Public transport at risk" in h.value for h in at.subheader)
 
 
+def _open_advanced(at: AppTest) -> None:
+    """The Light/Dark toggle sits in the sidebar's Advanced menu."""
+    at.button(key="advanced_btn").click()
+    at.run(timeout=60)
+
+
 def test_streamlit_app_theme_toggle():
     at = _app()
-    assert at.toggle[0].value is False
+    _open_advanced(at)
+    assert at.toggle(key="dark_mode_switch").value is False
     assert at.session_state["theme"] == "light"
 
-    at.toggle[0].set_value(True)
+    at.toggle(key="dark_mode_switch").set_value(True)
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["theme"] == "dark"
 
-    at.toggle[0].set_value(False)
+    at.toggle(key="dark_mode_switch").set_value(False)
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["theme"] == "light"
@@ -87,9 +94,10 @@ def test_streamlit_app_theme_toggle_preserves_session_state():
     assert not at.exception
     assert at.selectbox[0].value == "BEDOK"
     assert at.select_slider[0].value == "11:30"
+    _open_advanced(at)
 
     # Switch theme to Dark
-    at.toggle[0].set_value(True)
+    at.toggle(key="dark_mode_switch").set_value(True)
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["theme"] == "dark"
@@ -97,7 +105,7 @@ def test_streamlit_app_theme_toggle_preserves_session_state():
     assert at.select_slider[0].value == "11:30"
 
     # Switch back to Light
-    at.toggle[0].set_value(False)
+    at.toggle(key="dark_mode_switch").set_value(False)
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["theme"] == "light"
@@ -215,7 +223,7 @@ def test_opens_on_the_analyst_view():
     at.run(timeout=60)
     assert not at.exception
     assert at.session_state["view"] == "Analyst view"
-    assert at.button_group[0].options[0] == "Analyst view"  # first in the switch
+    assert at.button_group(key="view").options[0] == "Analyst view"  # first in the switch
     assert len(at.selectbox) == 1  # the sidebar's area picker, drawn once
     assert len(at.metric) == 5
 
@@ -255,7 +263,7 @@ def test_opens_in_live_mode_by_default(offline):
     at = AppTest.from_file(APP_PATH)
     at.run(timeout=60)
     assert not at.exception
-    assert at.sidebar.button_group[0].value == "Live Feed"
+    assert at.button_group(key="mode").value == "Live Feed"
     assert any(
         "can't reach NEA's rain gauges" in e.value for e in at.error
     )  # offline: says so, no fake rain
@@ -507,7 +515,7 @@ def test_resident_view_renders_plain_language_and_hides_the_analyst_page():
 
 def test_resident_view_switch_returns_to_the_analyst_view():
     at = _resident()
-    at.button_group[0].set_value("Analyst view")
+    at.button_group(key="view").set_value("Analyst view")
     at.run(timeout=60)
     assert not at.exception
     assert "/ 55" in at.metric[0].value

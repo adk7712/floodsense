@@ -827,3 +827,29 @@ How it was done (same path as section 21), for the record:
   once, replace `models/flood_model.joblib` and archive version 3 under `models/archive/`.
 - To roll back: move `champion` to version 3, restore `models/archive/flood_model_v3_2026-10-18.joblib`
   as `models/flood_model.joblib`, and change the dashboard and Genie text back to 0.53%.
+
+## 26. "Ask FloodSense": Genie in the app (23 Oct 2026, not deployed yet)
+
+The app's top-right "Ask FloodSense" panel sends questions to the Genie space **FloodSense risk
+(gold)** (`01f1cd8bf8de1d5fba454efa5909044a`) through `floodsense.serving.genie`. Genie reads the
+gold table, so it answers about live data only, also in Replay (the panel says so).
+
+- **Config:** a fifth app resource, `genie-space` (CAN_RUN), in `databricks/app/app.json` and its
+  bundle mirror `databricks/bundle/app.yml`; `app.yaml` passes it as `GENIE_SPACE_ID`. Locally the
+  space ID comes from `settings.genie_space_id` (`FLOODSENSE_GENIE_SPACE_ID` overrides it) and the
+  CLI profile signs in.
+- **Permissions:** the app's service principal also needs CAN_USE on the warehouse the Genie space
+  runs on and SELECT on gold; both are already app resources if the space uses the same warehouse.
+  Check this in the space's settings before deploying.
+- **Checked locally:** a live question ("Top 5 areas by flood probability right now") returned a
+  text answer, a table and the SQL, in about 40 s.
+
+Steps to deploy (not run yet; needs Akul's go-ahead):
+
+1. Add the resource to the existing app: in the workspace, open **Compute > Apps > floodsense >
+   Edit**, add a **Genie space** resource named `genie-space`, pick "FloodSense risk (gold)",
+   permission **Can run**, and save. (`apps create` in section 16 only applies to a new app.)
+2. Upload the source and deploy, as in section 16 steps 2 and 3.
+3. Open the app, click **Ask FloodSense** and ask an example question. If it says "Genie couldn't
+   answer", run `databricks apps logs floodsense` and look for the `Genie unavailable` line.
+4. Stop the app when done: `databricks apps stop floodsense`.
