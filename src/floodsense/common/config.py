@@ -77,8 +77,8 @@ class Settings(BaseSettings):
     # False-alarm budgets (false High / Moderate alert episodes per zone per year), chosen by the
     # team on 2026-10-01 from the 2020-2023 out-of-fold trade-off curve (23 validation floods).
     # With version 1 that gave High ~44 mm/h (caught 12/23) and Moderate ~30 mm/h (caught 17/23);
-    # those are v1 numbers. The current model's own thresholds (0.00531 Moderate, 0.00706 High for
-    # v3) come from the same budget rule. A "false" alarm is one not followed by a *reported*
+    # those are v1 numbers. The current model's own thresholds (0.00399 Moderate, 0.00706 High for
+    # v4) come from the same budget rule. A "false" alarm is one not followed by a *reported*
     # flood, so these overstate true false alarms.
     false_alarm_budget_high: float | None = 2.5
     false_alarm_budget_moderate: float | None = 11.0

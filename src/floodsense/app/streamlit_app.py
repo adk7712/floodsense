@@ -2462,29 +2462,31 @@ with detail_col, st.container(border=True, key="zone_card"):
 public_transport(selected_zone, active_pub_alerts, tier_thresholds or {})
 
 # --- HOW IT WAS TESTED (COLLAPSED) -----------------------------------------------------------
-# The live model's (version 3) validation results in three plain points, and, on a replayed day,
+# The live model's (version 4) validation results in three plain points, and, on a replayed day,
 # the sources for the floods the headline lists. Figures: models/candidates/
-# cutoff_comparison_2026-10-17.json (88 labels, 28 floods in the 2020–2023 folds; the set version 3
-# was signed off on); version 3 has no score on the 2024–2026 test.
+# cutoff_comparison_2026-10-22.json (92 labels, 30 floods in the 2020–2023 folds; the set version 4
+# was signed off on); version 4 has no score on the 2024–2026 test.
 _n_events = len(flood_events())
 event_count_text = f"{_n_events} sourced events" if _n_events else "sourced events"
 with st.expander("How it was tested"):
     st.markdown(
         "- **Checked on floods it hadn't seen.** In cross-validation on 2020–2023 (each year "
         "scored by a model fitted only on the years before it), the live model's method and "
-        "thresholds caught 18 of 28 reported floods at Moderate (90% CI 50–79%) and 14 of 28 at "
-        "High (36–64%).\n"
-        "- **Warnings come before the report.** The median warning was 33 min ahead at Moderate "
-        "and 45 min at High.\n"
-        "- **False alarms per area per year:** about 4.5 at Moderate (budget 11) and 2.5 at High "
-        "(right at its budget of 2.5). A false "
+        "thresholds caught 20 of 30 reported floods at Moderate (90% CI 53–80%) and 15 of 30 at "
+        "High (37–67%).\n"
+        "- **Warnings come before the report.** The median warning was 26 min ahead at Moderate "
+        "and 45 min at High. At Moderate, every flood the previous cut-off also caught is warned "
+        "at the same time or earlier; one flood caught only now came late, which lowers the "
+        "median.\n"
+        "- **False alarms per area per year:** about 7.2 at Moderate (budget 11) and 2.4 at High "
+        "(budget 2.5). A false "
         "alarm here is one with no *reported* flood after it, and many floods go unreported, so "
         "this overstates them."
     )
     st.caption(
         "The 2024–2026 test set was scored once, with version 1: 21 of 30 floods at Moderate "
         "(90% CI 57–83%), 12 of 30 at High (27–53%), median warnings 15 and 10 min. The live "
-        "model (version 3) has not been scored on it, and the two sets of figures aren't directly "
+        "model (version 4) has not been scored on it, and the two sets of figures aren't directly "
         f"comparable. Flood labels: {event_count_text}, each with a source link, a quoted "
         "sentence and a human sign-off."
     )

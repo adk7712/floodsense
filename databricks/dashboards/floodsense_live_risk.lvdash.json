@@ -48,7 +48,7 @@
             "multilineTextboxSpec": {
               "lines": [
                 "# FloodSense - Live Flood Risk for Singapore\n",
-                "**How to read this:** Risk is the calibrated chance of a reported flash flood in the next hour, per planning area, from NEA 5-minute rain gauges. Moderate from 0.53%, High from 0.71%. On a dry day every area stays Low and the chance is close to 0% - that is the correct answer."
+                "**How to read this:** Risk is the calibrated chance of a reported flash flood in the next hour, per planning area, from NEA 5-minute rain gauges. Moderate from 0.40%, High from 0.71%. On a dry day every area stays Low and the chance is close to 0% - that is the correct answer."
               ]
             }
           },

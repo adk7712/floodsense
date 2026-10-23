@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 23 Oct 2026, Akul's side (version 4 registered and promoted to `champion`; §0). Before that: 22 Oct 2026, later, adk's session (refit on 92 labels, decided to register as version 4; §0, branch `refit-92-labels`, NOT committed). Before that: 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -23,7 +23,70 @@
 
 ---
 
-## 0. Latest sessions: 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 23 Oct (Akul), 22 Oct, later (adk), 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 23 Oct (Akul): version 4 is champion
+
+adk signed off on version 4 (relayed by Akul, 23 Oct), after explaining the warning time: at 0.40%
+every flood both cut-offs catch is warned at the same time or earlier; the median falls (33 → 26
+min) only because the one extra catch (2020-08-14 Craig Rd) came 10 min after the reported start.
+
+- Refit regenerated on `e10a648` (same code as `f467db8`): identical thresholds, training rows and
+  CV score to adk's run. Registered as **version 4** (registry file byte-identical); **`champion`
+  moved 3 → 4**. `models/flood_model.joblib` = version 4; version 3 archived as
+  `models/archive/flood_model_v3_2026-10-18.joblib`. DEPLOYMENT §25.
+- Wheel rebuilt and uploaded; gold refreshed by one poller run (schedule kept **PAUSED**).
+- Served-model text now says version 4 / Moderate 0.40%: README status block, `model_card_v4.json`,
+  `docs/model_comparison.md`, the app's "How it was tested" panel (30 floods: Moderate 20/30, 90% CI
+  53–80%; High 15/30, 37–67%; 7.2 and 2.4 false episodes per zone-year), code comments, the
+  dashboard (through the bundle) and the Genie instructions.
+- Not changed: the 2024–2026 test result is still version 1's; version 4 has not been scored on it.
+- Deck (adk): use version 4's numbers above, and "earlier or equal warning for every flood both
+  cut-offs catch" rather than "26 against 33 min".
+- Threshold-update proposal (`akul/threshold-update-rule`, `docs/threshold_update_rule.md`) is
+  waiting on adk's review; it would apply from the next refit, not to version 4.
+
+### 22 Oct, later (adk): refit on 92 labels, decided to register it. Branch `refit-92-labels`, NOT committed
+
+**Decision (adk, 22 Oct): register the refit as `candidate` (expected version 4); promote it to
+`champion` after adk signs off on the registered version.** Reason: the budget rule, applied to all
+92 verified labels, now picks Moderate 0.40%, and thresholds come from that rule (CLAUDE.md rule 7),
+as they did for version 3. It is **not** a measurable improvement. This supersedes "it is not
+refitted" in the 22 Oct (Akul) block below.
+
+- Ran `python -m floodsense.models.refit_champion --date 2026-10-22` on clean `f467db8` (master).
+  2017–2023 only; 2024–2026 not scored. 62 verified floods in 2017–2023 (v3: 58).
+  Output: `models/candidates/rule_rain60_refit_2026-10-22.json` (the `.joblib` is gitignored).
+- Thresholds: **Moderate 0.53% → 0.40%** (≈37.7 → 32.9 mm in 60 min); High unchanged at 0.71%
+  (≈43.4 mm). Cross-validation event score 0.500, the same as version 3.
+- Cross-validation on 2020–2023, 30 floods, same folds (`models/candidates/cutoff_comparison_2026-10-22.json`, clean):
+
+  | | High 0.71% | Moderate 0.40% (refit) | Moderate 0.53% (v3 cut-off) |
+  |---|---|---|---|
+  | Floods caught | 15 of 30 (90% CI 37–67%) | 20 of 30 (53–80%) | 19 of 30 (50–77%) |
+  | False episodes per zone-year (budget 2.5 / 11) | 2.43 | 7.24 | 4.43 |
+  | Median warning | 45 min | 26 min | 33 min |
+
+  One more flood caught for about 3 more false Moderate alerts per zone-year and 7 min less warning.
+  The intervals overlap almost entirely. One of the extra catches (2020-08-14 Craig Rd) is a new label.
+- Model card: `models/model_card_v4.json` (status: decided, not registered). `model_card_v3.json`
+  stays as the served model's card until promotion.
+- README, DEPLOYMENT §6/§25 and `docs/model_comparison.md` said version 4 is decided and pending (updated to live on 23 Oct).
+  The text that describes the served model (0.53%, version 3) is left as it is until promotion.
+
+**Waiting on Akul (in order):**
+1. Regenerate the file on `f467db8` with `python -m floodsense.models.refit_champion --date 2026-10-22`
+   (or take adk's copy), check the thresholds match the JSON, and register it with
+   `databricks/register_model.py --model-path models/candidates/rule_rain60_refit_2026-10-22.joblib --summary models/candidates/rule_rain60_refit_2026-10-22.json --alias candidate`.
+   Record the version number in `model_card_v4.json` if it isn't 4.
+2. After adk signs off: move `champion` to the new version, rebuild the wheel, run the pipeline
+   once, replace `models/flood_model.joblib` (archive version 3 as
+   `models/archive/flood_model_v3_2026-10-18.joblib`), then update the served-model text (README
+   status block, DEPLOYMENT §21/§23, `model_comparison.md` versions table, `scoring.py` and
+   `config.py` comments, `tests/test_streamlit_app.py` "version 3" caption).
+
+**Open:** CLAUDE.md rule 3 still says the model freezes on 23 Oct 18:00 SGT; this file says the
+freeze was dropped on 18 Oct. If the freeze holds, steps 1 and 2 must be done by then.
 
 ### 22 Oct (Akul): team decisions on adk's open items. Branch `akul/decisions-22oct`, not pushed
 
@@ -678,8 +741,8 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
 | B4.2 | Re-run selection on 2020–2023 only | adk | Done; re-run on 88 labels done 17 Oct (on `rerun-88-labels`, pushed) | `docs/candidate_selection_2026-10.md`; `rule_rain60` still wins (0.500; next `rule_rain30` 0.491, `lightgbm` 0.438) |
 | B4.2b | Candidate that uses static features; re-run LR and LightGBM | adk | Done; 88-label result on `rerun-88-labels` | On 88 labels the static features are mixed, not adopted (High 8/28 vs 14/28; Moderate 19/28 vs 18/28 at twice the false episodes); LR and LightGBM still behind |
 | B4.3 | Radar via A1.6, without retraining | adk | Done | Radar GO (17 Oct): the forecast risk uses the nowcast with the current model, no retraining |
-| B4.4 | Register the candidate with alias `candidate` | Akul | Done 18 Oct | The refit (Moderate 0.53%) is `workspace.floodsense.flood_model` **version 3, alias `candidate`**. Version 2 is the same model with a differently named file: superseded, do not promote. History at the time (18 Oct, before the promotion): `champion` was still version 1. It is version 3 since 18 Oct (B4.5) |
-| B4.5 | Freeze and set thresholds (~~before the freeze~~; freeze dropped 18 Oct) | adk | Done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk signed off on 18 Oct** (relayed by Akul). The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
+| B4.4 | Register the candidate with alias `candidate` | Akul | Done 18 Oct (version 3); **reopened 22 Oct**: register the refit on 92 labels (Moderate 0.40%, expected version 4; §0, 22 Oct later) | The refit (Moderate 0.53%) is `workspace.floodsense.flood_model` **version 3, alias `candidate`**. Version 2 is the same model with a differently named file: superseded, do not promote. History at the time (18 Oct, before the promotion): `champion` was still version 1. It is version 3 since 18 Oct (B4.5) |
+| B4.5 | Freeze and set thresholds (~~before the freeze~~; freeze dropped 18 Oct) | adk | **Reopened 22 Oct:** adk decided Moderate 0.40% (budget rule on 92 labels); sign-off on the registered version pending. Before that, done 18 Oct: **Moderate 0.53%**, High 0.71% (the budget rule on 88 labels); promoted early by Akul | `champion` → version 3 on 18 Oct, gold rebuilt, `models/flood_model.joblib` = version 3 (DEPLOYMENT.md §21). **adk signed off on 18 Oct** (relayed by Akul). The published test result was measured with version 1 at 0.30%; any re-score is a "second look" |
 | B4.6 | Report CV results; label any 2024–2026 use a "second look" | adk | Done so far | No second look taken |
 | B5 | Stakeholder feedback (optional) | adk | Open, optional | Show the Resident view's "What to do" line to one real user for 10–15 min; record answers word for word, with consent. Quote on a slide only if it happened |
 | B7 | Mentor suggestions round 2: runoff-weighted rain, kriged mean + 1 SD, rain30 for Moderate (pre-registered, 2020–2023 CV) | adk | Done 18 Oct, decision open | `docs/mentor_tests_2026-10.md`; pre-registration `538924b`. T1 and T2 not adopted; T3 meets its margin but its gain is +3 floods at Moderate (mostly the same ones in every test) at about twice the false Moderate episodes. Headline counts (90% CI): baseline High 14/28 (36–64%), Moderate 18/28 (50–79%); T1 High 15/28 (39–68%), Moderate 21/28 (61–89%); T2 High 14/28 (36–64%), Moderate 21/28 (61–89%); T3 Moderate 21/28 (61–89%). Recommendation: keep `rule_rain60`. Team decision on T3. Deferred (adk, 18 Oct): bare-earth DEM, not before Demo Day (reasons in §0 B7). Review pending (Akul) |

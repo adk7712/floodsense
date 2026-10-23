@@ -134,14 +134,16 @@ The pipeline had passed the local Spark run (section 9) before any of these:
   to protect the daily compute cap.
 - **Telegram alerts** run as the poller's third task (section 22), so they only post while the
   poller is unpaused.
-- **Promoting a model to `champion`** is done for version 3 (promoted 18 Oct, adk signed off 18 Oct;
-  section 21). Gold serves whatever the alias points to (section 17), so any later promotion is
-  a matter of moving the alias.
-- **Model card for version 3:** done 22 Oct as `models/model_card_v3.json`, built from the refit
+- **Promoting a model to `champion`** is done for version 4 (promoted 23 Oct, adk signed off 23 Oct;
+  section 25); version 3 was promoted on 18 Oct (section 21). Gold serves whatever the alias points
+  to (section 17), so any later promotion is a matter of moving the alias.
+- **Model cards:** version 4 (served) is `models/model_card_v4.json`; version 3 is
+  `models/model_card_v3.json`, built from its refit
   summary. `models/model_card.json` still describes version 1 (Moderate 0.30%, git `cac91ca`); it
   is written by the training code, so it is kept as the record of the tested model.
-- **A version 3 parity export** (section 17): the committed Databricks replay export was produced
-  by version 1. Re-exporting needs a Databricks run, which is paused to save free-plan credits.
+- **A parity export on the served model** (section 17): the committed Databricks replay export was
+  produced by version 1. Re-exporting needs a separate pipeline (a full refresh would wipe the live
+  tables); planned after Demo Day.
 
 ## 7. Answers to plan §9
 
@@ -208,7 +210,7 @@ DATABRICKS_CONFIG_PROFILE=akul .venv/bin/python databricks/register_model.py   #
 - *History (6 Oct):* registered as **`workspace.floodsense.flood_model` version 1, alias `champion`**
   (status READY); at that time each re-run added a version and moved `champion`. That is no longer
   so: `register_model.py` now defaults to the alias `candidate`, and only the team moves `champion`.
-  The current champion is **version 3** (section 21).
+  The current champion is **version 4** (section 25).
 - Check: `models:/workspace.floodsense.flood_model@champion`, loaded back with `mlflow.pyfunc`, scores
   the 17 Apr 2021 replay (4,675 rows) identically to the joblib model: max probability difference 0,
   tiers identical (4,113 Low, 367 Moderate, 195 High).
@@ -792,3 +794,36 @@ Run from branch `akul/features-22oct` (`9bf0210` plus the fixes below); master i
 3. Run `databricks bundle deploy -p akul`.
 4. Commit the YAML change, so the repo matches what is live.
 A CLI `jobs update` also works but the next `bundle deploy` would undo it, so prefer the steps above.
+
+## 25. Model version 4: the refit on 92 labels (registered and promoted 23 Oct 2026)
+
+adk decided on 22 Oct to register the refit of `rule_rain60` on all 92 verified labels (62 floods in
+2017–2023). The budget rule now gives Moderate **0.40%** (about 32.9 mm in 60 min), with High
+unchanged at 0.71% (about 43.4 mm) (`models/candidates/rule_rain60_refit_2026-10-22.json`,
+`models/model_card_v4.json`). Cross-validation results and the reasons are in
+`docs/ROUND2_HANDOFF.md` §0 (22 Oct, later).
+
+**Done 23 Oct (Akul; adk's sign-off relayed by Akul):**
+- Regenerated the refit on `e10a648` (same model, feature and label code as `f467db8`). Thresholds,
+  millimetre equivalents, training rows and the cross-validation score were identical to adk's
+  run; adk's clean summary JSON is the one committed.
+- Registered as **version 4** (alias `candidate`); the registry's `flood_model.joblib` is
+  byte-identical to the local file (sha256 `7753568b…`) and loads with Moderate 0.00399 and High
+  0.00706.
+- Moved `champion` from version 3 to **version 4**. `models/flood_model.joblib` is now version 4;
+  version 3 is archived as `models/archive/flood_model_v3_2026-10-18.joblib`.
+- Wheel rebuilt from `e10a648` and uploaded; one poller run by hand (schedule kept **PAUSED**, no
+  `python_params`) to refresh gold with version 4: run `1032780050111629`, 23 Oct 12:55–13:00 SGT,
+  SUCCESS. The schedule was checked afterwards and is still PAUSED.
+- Dashboard text (Moderate from 0.40%) deployed through the bundle (published 23 Oct 13:01 SGT);
+  Genie instructions updated (12:56 SGT: "Moderate starts at 0.399%, High at 0.706%").
+
+How it was done (same path as section 21), for the record:
+- To register:
+  `python databricks/register_model.py --model-path models/candidates/rule_rain60_refit_2026-10-22.joblib --summary models/candidates/rule_rain60_refit_2026-10-22.json --alias candidate`.
+  The `.joblib` is gitignored; regenerate it on `f467db8` with
+  `python -m floodsense.models.refit_champion --date 2026-10-22`.
+- To promote: move `champion` to the new version, rebuild and upload the wheel, run the pipeline
+  once, replace `models/flood_model.joblib` and archive version 3 under `models/archive/`.
+- To roll back: move `champion` to version 3, restore `models/archive/flood_model_v3_2026-10-18.joblib`
+  as `models/flood_model.joblib`, and change the dashboard and Genie text back to 0.53%.

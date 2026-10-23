@@ -10,8 +10,8 @@ run for this page.
 
 - **The model in use is `rule_rain60`.** It looks at one number: how much rain fell in a zone in the
   last 60 minutes. It turns that into a chance of a reported flood in the next hour.
-  - The live copy is **version 3**, registered as `champion` in Databricks Unity Catalog.
-  - It warns at **Moderate** from about 38 mm of rain in an hour, and at **High** from about 43 mm.
+  - The live copy is **version 4** (since 23 Oct), registered as `champion` in Databricks Unity Catalog.
+  - It warns at **Moderate** from about 33 mm of rain in an hour, and at **High** from about 43 mm.
 - **Why this one:** no alternative has replaced it under rules we fixed before looking at the results.
   - Only T3 (rain30 for Moderate) met its pre-registered margin (+3 floods at Moderate, 90% CI +4 to
     +21 percentage points, at 8.74 false Moderate episodes per zone-year against a budget of 11); it
@@ -104,12 +104,12 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 
 **Versions**
 
-| | Version 1 (1 Oct) | Version 3 (live since 18 Oct) |
-|---|---|---|
-| Trained on | 66 verified labels (36 floods in 2017–2023) | 88 verified labels (58 floods in 2017–2023) |
-| Moderate warning from | 0.30% chance, about 29.5 mm in 60 min (indicative; handoff §2/§0) | **0.53% chance, about 38 mm** (37.7 mm) |
-| High warning from | 0.71% chance, about 44 mm (indicative; version 1's own calibration; handoff §2) | **0.71% chance, about 43 mm** (43.2 mm) |
-| Scored on the 2024–2026 test set? | Yes, once | **No.** A re-score would be a "second look" |
+| | Version 1 (1 Oct) | Version 3 (18–23 Oct) | Version 4 (live since 23 Oct) |
+|---|---|---|---|
+| Trained on | 66 verified labels (36 floods in 2017–2023) | 88 verified labels (58 floods in 2017–2023) | 92 verified labels (62 floods in 2017–2023) |
+| Moderate warning from | 0.30% chance, about 29.5 mm in 60 min (indicative; handoff §2/§0) | 0.53% chance, about 38 mm (37.7 mm) | **0.40% chance, about 33 mm** (32.9 mm) |
+| High warning from | 0.71% chance, about 44 mm (indicative; version 1's own calibration; handoff §2) | 0.71% chance, about 43 mm (43.2 mm) | **0.71% chance, about 43 mm** (43.4 mm) |
+| Scored on the 2024–2026 test set? | Yes, once | No | **No.** A re-score would be a "second look" |
 
 - The chances look small because floods are rare in any given zone-hour. What matters is how they
   rank hours against each other.
@@ -122,6 +122,15 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
   - The two floods lost are 2021-08-20 Tampines Ave 10 and 2021-08-24 Cashew Rd.
   - In exchange, false Moderate alerts fall from 11.29 to 4.52 per zone-year.
 - adk signed off on version 3 on 18 Oct, and Akul promoted it to `champion`.
+- **Version 4 (live since 23 Oct):** the same rule refitted on all 92 verified labels
+  (62 floods in 2017–2023). The budget rule moves Moderate to 0.40% (about 32.9 mm); High stays
+  0.71%. On the same 2020–2023 folds (30 floods) it catches 20 at Moderate (90% CI 53–80%) at 7.24
+  false episodes per zone-year, against 19 (50–77%) at 4.43 for the 0.53% cut-off. The event score
+  is 0.500 for both: not a measurable improvement (`models/model_card_v4.json`).
+  - Every flood both cut-offs catch is warned at the same time or earlier at 0.40%. The median
+    warning still falls (33 → 26 min) because the one extra catch, 2020-08-14 Craig Rd, came 10 min
+    after the reported start.
+  - adk signed off on 23 Oct, and Akul registered it as version 4 and promoted it to `champion`.
 
 **Published final-test result (version 1, 2024 to Sep 2026, 30 floods, scored once)**
 
@@ -450,7 +459,7 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 - **A model trained on radar:** not possible with about 3 months of radar.
 - **LightGBM or logistic regression with 100+ floods:** can't be tested until more floods are
   verified.
-- **Re-scoring version 3 on the 2024–2026 test set:** not done. It would be a "second look".
+- **Re-scoring version 3 or 4 on the 2024–2026 test set:** not done. It would be a "second look".
 
 ## What we learned
 

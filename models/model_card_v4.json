@@ -1,0 +1,60 @@
+{
+  "model": "workspace.floodsense.flood_model",
+  "version": 4,
+  "version_note": "Registered by Akul on 23 Oct 2026 as version 4 (the registry's file is byte-identical to the regenerated refit, sha256 7753568b...).",
+  "alias": "champion (and candidate)",
+  "promoted": "2026-10-23 (Akul), after adk's sign-off (relayed by Akul); version 3 archived as models/archive/flood_model_v3_2026-10-18.joblib",
+  "decided": "2026-10-22 (adk): register the refit on 92 verified labels as candidate",
+  "candidate": "rule_rain60",
+  "what_changed_from_v3": "Same rule_rain60 model, refitted on the 62 verified 2017-2023 floods (v3: 58; the 4 verified on 22 Oct are added). The budget rule (unchanged: 2.5 false High, 11 false Moderate episodes per zone-year) now puts Moderate at 0.399% instead of 0.531%; High stays at 0.706%. Not a measurable improvement: the cross-validation event score is 0.500 for both.",
+  "thresholds": {
+    "moderate": 0.00399,
+    "high": 0.00706
+  },
+  "thresholds_percent": {
+    "moderate": 0.399,
+    "high": 0.706
+  },
+  "rain_60m_mm_equivalent": {
+    "moderate": 32.9,
+    "high": 43.400000000000006
+  },
+  "calibration_method": "platt",
+  "budgets": {
+    "high": 2.5,
+    "moderate": 11.0
+  },
+  "training": {
+    "rows": 5480033,
+    "from": "2017-01-01 12:25:00+08:00",
+    "to": "2023-12-31 23:40:00+08:00",
+    "verified_events_2017_to_2023": 62,
+    "validation_years": [
+      2020,
+      2021,
+      2022,
+      2023
+    ],
+    "oof_event_score": 0.5
+  },
+  "cross_validation_2020_2023": {
+    "validation_floods": 30,
+    "high_0.706pct": "15 of 30 (90% CI 37-67%), 2.43 false episodes per zone-year, median warning 45 min",
+    "moderate_0.399pct": "20 of 30 (90% CI 53-80%), 7.24 false episodes per zone-year, median warning 26 min",
+    "moderate_0.531pct_v3_cutoff_same_folds": "19 of 30 (90% CI 50-77%), 4.43 false episodes per zone-year, median warning 33 min",
+    "note": "Out-of-fold predictions of this refit; one of the extra Moderate catches (2020-08-14 Craig Rd) is one of the 4 new labels. The intervals overlap almost entirely.",
+    "source": "models/candidates/cutoff_comparison_2026-10-22.json"
+  },
+  "test_years_scored": false,
+  "test_result_note": "The published 2024-2026 test result (High 12/30, Moderate 21/30 at 0.30%) was measured once with version 1 and does not describe version 4. Scoring version 4 on 2024-2026 would be a 'second look'.",
+  "source": {
+    "refit_summary": "models/candidates/rule_rain60_refit_2026-10-22.json",
+    "refit_artifact": "models/candidates/rule_rain60_refit_2026-10-22.joblib (gitignored; regenerate with python -m floodsense.models.refit_champion --date 2026-10-22 on f467db8)",
+    "refit_git_sha": "f467db8",
+    "refit_dirty": false,
+    "generated_at": "2026-10-22T07:48:00.537827+00:00",
+    "registry_facts": "docs/ROUND2_HANDOFF.md section 0 (22 Oct, adk) and section 4b (B4.4, B4.5)"
+  },
+  "v3_card": "models/model_card_v3.json (served 18-23 Oct)",
+  "warning_time_note": "At 0.399% every flood both cut-offs catch is warned at the same time or earlier than at 0.531%. The median falls (33 -> 26 min) because the one extra catch, 2020-08-14 Craig Rd, came 10 min after the reported start; only floods with a known start time have a warning time (10 of 19 at 0.531%, 11 of 20 at 0.399%). Explained by adk, 23 Oct."
+}

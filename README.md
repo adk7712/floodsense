@@ -4,16 +4,19 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 
 > **Status: working prototype on real data, running on Databricks.**
 > - **Model:** a calibrated 60-minute-rainfall rule (`models/flood_model.joblib`, registered in Unity
->   Catalog as `workspace.floodsense.flood_model@champion`, version 3). Only T3 (rain30 for Moderate) met its pre-registered margin
+>   Catalog as `workspace.floodsense.flood_model@champion`, version 4 since 23 Oct). Only T3 (rain30 for Moderate) met its pre-registered margin
 >   (+3 floods at Moderate, 90% CI +4 to +21 percentage points, at 8.74 false Moderate episodes per zone-year against a budget of 11); it is
 >   not in use and awaits a team decision. T1 (0.518) and T2 (0.446) did not meet theirs. A post-hoc
 >   static run (prior SD 0.1, chosen after seeing the data) scored 0.509, slightly above the rule's
 >   0.500. At 10 false alerts per zone-year, rule_rain30 caught 21 of 28 validation floods, LightGBM
 >   19, the registered static candidate (rule_rain60_static) 19, and the rule 18
->   (`docs/candidate_selection_2026-10.md`). Moderate from **0.53%** (about 38 mm in 60 min), High from
->   **0.71%** (about 43 mm), set by the false-alarm budget rule on 88 verified flood reports (18 Oct).
->   In 2020–2023 cross-validation (28 floods) it catches 14 at High (90% CI 36–64%) and 18 at
->   Moderate (50–79%), at 2.5 and 4.5 false alarms per zone-year.
+>   (`docs/candidate_selection_2026-10.md`). Moderate from **0.40%** (about 33 mm in 60 min), High from
+>   **0.71%** (about 43 mm), set by the false-alarm budget rule on all 92 verified flood reports
+>   (version 4: refitted 22 Oct, signed off by adk and promoted 23 Oct). In 2020–2023
+>   cross-validation (30 floods) it catches 15 at High (90% CI 37–67%) and 20 at Moderate (53–80%),
+>   at 2.4 and 7.2 false alarms per zone-year. Version 3's Moderate cut-off (0.53%) caught 19
+>   (50–77%) at 4.4 on the same folds: not a measurable difference. At 0.40% every flood both
+>   cut-offs catch is warned at the same time or earlier (`models/model_card_v4.json`).
 > - **Test result** (the previous model, version 1: same rule, Moderate from 0.30%, fitted on the 36
 >   development floods of 2017–2023; 66 was the total verified labels then, with 30 held out):
 >   scored once on held-out floods from 2024 to Sep 2026 (30 floods):
@@ -24,14 +27,15 @@ FloodSense estimates zone-level flash-flood risk for Singapore's 55 URA planning
 >
 >   Details and 90% intervals are in `models/final_report.json` and `models/model_card.json`, which
 >   describe version 1 only (kept as `models/archive/flood_model_v1_2026-10-01.joblib`). The card for
->   version 3 (the served model) is `models/model_card_v3.json`. The current model hasn't been scored on the
+>   version 4 (the served model) is `models/model_card_v4.json`; version 3 is archived as
+>   `models/archive/flood_model_v3_2026-10-18.joblib` (card `models/model_card_v3.json`). The current model hasn't been scored on the
 >   test years; doing so would be a "second look".
 > - **Databricks** (Free Edition, `DEPLOYMENT.md`):
 >   - a Lakeflow pipeline (bronze → silver → gold) is built to score every zone every 5 minutes with
 >     the model loaded from Unity Catalog. Its poller is paused to save free-plan Databricks credits.
 >     With no Databricks warehouse configured (the current setup) the app reads data.gov.sg
 >     directly; with one configured it reads gold and warns when gold is stale. Parity with local scoring on the 17 April 2021
->     storm was shown for version 1 only; a version 3 re-export is pending (`DEPLOYMENT.md` §17)
+>     storm was shown for version 1 only; a re-export on the served model is planned after Demo Day (`DEPLOYMENT.md` §17)
 >   - Lakeflow Jobs: a rainfall poller (lands NEA readings and PUB alerts, then runs the pipeline), a
 >     daily archiver (radar frames and gauge readings) and a 15-minute PUB-alert saver
 >   - the app runs as a Databricks App and reads gold through a SQL warehouse; an AI/BI dashboard
@@ -234,7 +238,7 @@ centre is inside the Master Plan 2019 polygon. A zone with no valid pixel stops 
 ### Flood events (`data/reference/flood_events.csv`)
 
 92 verified flood reports (one row per place and time, so one storm can have several rows), 2017 to Sep 2026, across 35 planning areas: 62 in 2017–2023 (training and
-cross-validation; 30 of them in 2020–2023) and 30 in 2024–2026 (the test set). No row is waiting for its second check. The current model (version 3) was fitted on the first 88; the 4 rows verified on 22 Oct are not in it. Each
+cross-validation; 30 of them in 2020–2023) and 30 in 2024–2026 (the test set). No row is waiting for its second check. The current model (version 4, live since 23 Oct) is fitted on all 92; version 3 was fitted on the first 88. Each
 row has:
 - a `source_url` and `source_name`
 - an `evidence_quote` copied from the source, naming the place and time
@@ -287,8 +291,9 @@ How the numbers are kept honest:
   `FLOODSENSE_FALSE_ALARM_BUDGET_MODERATE`). The team picked them from the validation trade-off
   table before the test set was scored. On the 36 development floods of 2017–2023 (the first 66 labels, 30 of them held out) they gave Moderate 0.30% and High
   0.71% (version 1, the tested model). Re-applied to 88 verified labels on 18 Oct, the same rule
-  gives Moderate 0.53% and High 0.71% (version 3, live): at 0.30%, Moderate had gone over its budget
-  (11.3 false episodes per zone-year against 11). The budgets themselves never changed.
+  gives Moderate 0.53% and High 0.71% (version 3): at 0.30%, Moderate had gone over its budget
+  (11.3 false episodes per zone-year against 11). On all 92 verified labels (22 Oct) the rule gives
+  Moderate 0.40% and High 0.71% (version 4, live since 23 Oct). The budgets themselves never changed.
 
 Runs are logged to MLflow (`sqlite:///mlflow.db` by default; `uv run mlflow ui --backend-store-uri
 sqlite:///mlflow.db`).

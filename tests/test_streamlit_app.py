@@ -137,9 +137,9 @@ def test_diagnostics_use_real_model_and_current_status():
     assert "placeholder" not in text and "boundary polygons to come" not in text
     assert "High from" in text
     # H2: the live model's figures are its 2020–2023 validation; the held-out test is version 1's.
-    assert "the live model's method and thresholds caught 18 of 28" in text
+    assert "the live model's method and thresholds caught 20 of 30" in text
     assert "scored once, with version 1" in text
-    assert "(version 3) has not been scored on it" in text
+    assert "(version 4) has not been scored on it" in text
     assert "radar nowcasting is next" not in text and "60.8M" not in text
     from floodsense.data.flood_events import load_flood_events
 
@@ -666,10 +666,18 @@ def test_area_link_does_not_override_a_later_choice():
 
 
 def test_transport_table_pins_the_selected_area_first_even_when_low():
+    from floodsense.data.transport import load_station_exits
+
     at = _linked("bedok", "Resident view")
     table = next(m.value for m in at.markdown if "<thead>" in m.value)
-    first_row = table.split("<tbody>")[1].split("</tr>")[0]
-    assert "Bedok" in first_row and "Low" in first_row
+    rows = [r for r in table.split("<tbody>")[1].split("</tr>") if "<td" in r]
+    exits = load_station_exits()
+    in_bedok = set(exits.loc[exits["zone"] == "BEDOK", "station"])
+    pinned = [any(f">{s}<" in r for s in in_bedok) for r in rows]
+    # Every station with an exit in Bedok comes before any other station (most urgent first), and
+    # Bedok's own stations are listed at Bedok's tier even though Bedok is Low.
+    assert pinned[: sum(pinned)] == [True] * sum(pinned) and sum(pinned) >= 2
+    assert any("Bedok MRT" in r and "Low" in r for r in rows[: sum(pinned)])
 
 
 def test_public_transport_is_on_the_resident_view_with_tiers_only():

@@ -3,7 +3,7 @@ FloodSense - Turning zone features into flood probabilities and risk tiers.
 
 One place for the probability -> tier mapping, shared by the app, backtests and evaluation.
 Models carry their own feature list and (once selected under the false-alarm budget) their own
-thresholds (0.00531 Moderate / 0.00706 High for v3); ``settings.risk_*`` are heuristic-only
+thresholds (0.00399 Moderate / 0.00706 High for v4); ``settings.risk_*`` are heuristic-only
 fallbacks, used when a model has none, or for the heuristic.
 """
 
@@ -71,7 +71,7 @@ def score_zone_features(features: pd.DataFrame, model: Any | None) -> pd.DataFra
     probs = predict_probabilities(scored, model)
     thresholds = getattr(model, "thresholds", None) or default_thresholds()
     # Unrounded: calibrated flood probabilities sit around 0.001-0.03, so rounding before the
-    # tiers are applied would move zones across the 0.00531 / 0.00706 thresholds. Round for display.
+    # tiers are applied would move zones across the 0.00399 / 0.00706 thresholds. Round for display.
     scored["flood_probability"] = probs
     scored["risk_tier"] = [risk_tier(p, thresholds) for p in probs]
     return scored

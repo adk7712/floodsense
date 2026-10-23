@@ -462,10 +462,10 @@ def _summary(alerts: list[tb.Alert]) -> list[tuple[str, str, str]]:
 
 def test_replay_complete_data_sequence_is_unchanged() -> None:
     alerts = list(tb.detect_alerts(_bukit_timah_steps(False), include_all_clear=True))
-    assert _summary(alerts) == [
-        ("12:35", "Low", "Moderate"),
+    assert _summary(alerts) == [  # version 4 (Moderate from 0.399%)
+        ("12:30", "Low", "Moderate"),
         ("12:45", "Moderate", "High"),
-        ("13:45", "Moderate", "Low"),
+        ("13:55", "Moderate", "Low"),
     ]
 
 
@@ -473,8 +473,8 @@ def test_replay_outage_sends_no_all_clear_while_partial_and_high_once_complete()
     steps = _bukit_timah_steps(True)
     by_time = {f"{t:%H:%M}": (tiers, cov) for t, tiers, cov in steps}  # type: ignore[misc]
     assert by_time["12:50"][0] == {"BUKIT TIMAH": NO_DATA_TIER}
-    assert by_time["13:10"][1] == {"BUKIT TIMAH": "partial"}
-    assert by_time["13:10"][0] == {"BUKIT TIMAH": "Low"}  # the understated rain the old bot trusted
+    assert by_time["13:15"][1] == {"BUKIT TIMAH": "partial"}
+    assert by_time["13:15"][0] == {"BUKIT TIMAH": "Low"}  # the understated rain the old bot trusted
     det = tb.AlertDetector(include_all_clear=True)
     alerts: list[tb.Alert] = []
     for snap in steps:
@@ -484,8 +484,8 @@ def test_replay_outage_sends_no_all_clear_while_partial_and_high_once_complete()
         if snap[2]["BUKIT TIMAH"] != "ok":
             assert all(a.tier != "Low" for a in got)  # no all-clear on gappy data
         alerts += got
-    assert _summary(alerts)[0] == ("12:35", "Low", "Moderate")
-    assert not any(a.timestamp == at(70) and a.tier == "Low" for a in alerts)  # 13:10
+    assert _summary(alerts)[0] == ("12:30", "Low", "Moderate")
+    assert not any(a.timestamp == at(75) and a.tier == "Low" for a in alerts)  # 13:15
     # complete data now shows High: the bot sends it
     late = det.feed(at(125), {"BUKIT TIMAH": "High"}, {"BUKIT TIMAH": "ok"})
     assert [a.tier for a in late] == ["High"]
