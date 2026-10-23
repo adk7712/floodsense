@@ -261,7 +261,8 @@ div[data-testid="stSidebarCollapsedControl"],
 .st-key-advanced_menu {{
     width: max-content !important;
     flex-wrap: nowrap !important;
-    align-items: stretch !important;
+    /* The button keeps its place when it opens: the taller toggle panel grows upwards beside it */
+    align-items: flex-end !important;
     gap: 0 !important;
 }}
 .st-key-advanced_menu button {{
@@ -911,6 +912,10 @@ button[data-variant="segmented_control"][aria-pressed="true"],
     border-color: var(--primary) !important;
     box-shadow: none !important;
 }}
+.st-key-advanced_btn_open button:hover {{
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+}}
 div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
 div[data-testid="stButtonGroup"] button[aria-checked="true"] *,
 button[data-variant="segmented_control"][aria-checked="true"] *,
@@ -1387,11 +1392,12 @@ for _key in list(st.session_state):
 selected_zone = str(st.session_state["zone"])
 live_source = DATA_GOV
 if mode == "Live Feed":
-    selected_zone = zone_picker()
     # Databricks by default; a copy with no warehouse set up (e.g. CI) starts on data.gov.sg.
     st.session_state.setdefault("use_data_gov", not warehouse_id())
-# Settings stay out of the way: an "Advanced" button pinned to the bottom of the sidebar slides
-# its toggles out to the right (CSS): the theme, and in Live Feed the data.gov.sg fallback.
+# Settings stay out of the way: an "Advanced" button at the bottom of the sidebar slides its
+# toggles out to the right (CSS): the theme, and in Live Feed the data.gov.sg fallback. It is drawn
+# at the same place in the script in both modes (before the area picker), so a rerun keeps it as
+# one element instead of drawing a second one and moving it; CSS shows it last.
 st.session_state.setdefault("advanced_open", False)
 advanced_open = st.session_state["advanced_open"]
 with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=None):
@@ -1410,6 +1416,7 @@ with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=
             st.session_state["theme"] = "dark" if is_dark_active else "light"
             st.rerun()
 if mode == "Live Feed":
+    selected_zone = zone_picker()
     live_source = DATA_GOV if st.session_state["use_data_gov"] else DATABRICKS
 
 
