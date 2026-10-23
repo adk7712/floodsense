@@ -882,6 +882,10 @@ hr {{
     border-top: 1px solid var(--border-main) !important;
     margin: 1.25rem 0 !important;
 }}
+/* Tighter divider under the sidebar switches, closer to "Zone Diagnostic" */
+[data-testid="stSidebar"] hr {{
+    margin: 0.5rem 0 !important;
+}}
 
 .stCaption, [data-testid="stCaptionContainer"] {{
     color: var(--text-muted) !important;
