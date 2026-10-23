@@ -631,17 +631,17 @@ button[kind="secondary"]:hover,
     z-index: 999990 !important;
     flex-wrap: nowrap !important;
 }}
-/* Sidebar Analyst / Resident switch: two equal halves across the sidebar */
-.st-key-view_switch [data-testid="stElementContainer"],
-.st-key-view_switch div[data-testid="stButtonGroup"] {{
+/* Sidebar switches (Analyst / Resident, Live / Replay): equal halves, same size, stacked close */
+.st-key-sidebar_switches [data-testid="stElementContainer"],
+.st-key-sidebar_switches div[data-testid="stButtonGroup"] {{
     width: 100% !important;
 }}
-.st-key-view_switch div[role="radiogroup"] {{
+.st-key-sidebar_switches div[role="radiogroup"] {{
     display: flex !important;
     width: 100% !important;
     max-width: none !important;
 }}
-.st-key-view_switch div[role="radiogroup"] > button {{
+.st-key-sidebar_switches div[role="radiogroup"] > button {{
     flex: 1 1 0 !important;
     justify-content: center !important;
     min-width: 0 !important;
@@ -1328,9 +1328,14 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# The Analyst / Resident switch heads the sidebar, above Live / Replay.
+# The Analyst / Resident switch heads the sidebar, right above Live / Replay; both are the same
+# full-width size (CSS on "sidebar_switches").
 st.session_state.setdefault("view", ANALYST_VIEW)
-with st.sidebar.container(key="view_switch"):
+MODES = ["Live Feed", "Replay Storm"]
+# Clicking the chosen segment again sends None; keep Live Feed rather than falling into Replay.
+if st.session_state.get("mode") not in MODES:
+    st.session_state["mode"] = "Live Feed"
+with st.sidebar.container(key="sidebar_switches", gap="xsmall"):
     st.segmented_control(
         "View",
         options=[ANALYST_VIEW, RESIDENT_VIEW],
@@ -1338,21 +1343,16 @@ with st.sidebar.container(key="view_switch"):
         required=True,
         label_visibility="collapsed",
     )
-
-MODES = ["Live Feed", "Replay Storm"]
-# Clicking the chosen segment again sends None; keep Live Feed rather than falling into Replay.
-if st.session_state.get("mode") not in MODES:
-    st.session_state["mode"] = "Live Feed"
-mode = (
-    st.sidebar.segmented_control(
-        "Mode",
-        options=MODES,
-        key="mode",
-        required=True,
-        label_visibility="collapsed",
+    mode = (
+        st.segmented_control(
+            "Mode",
+            options=MODES,
+            key="mode",
+            required=True,
+            label_visibility="collapsed",
+        )
+        or "Live Feed"
     )
-    or "Live Feed"
-)
 
 st.sidebar.markdown("---")
 
