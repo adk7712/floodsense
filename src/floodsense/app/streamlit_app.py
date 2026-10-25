@@ -76,14 +76,6 @@ st.set_page_config(
 if "theme" not in st.session_state:
     st.session_state["theme"] = "light"
 
-# Synchronize dark mode switch and theme state
-if "dark_mode_switch" in st.session_state and st.session_state["dark_mode_switch"] != (
-    st.session_state["theme"] == "dark"
-):
-    st.session_state["theme"] = "dark" if st.session_state["dark_mode_switch"] else "light"
-else:
-    st.session_state["dark_mode_switch"] = st.session_state["theme"] == "dark"
-
 IS_DARK = st.session_state["theme"] == "dark"
 
 THEME_TOKENS = {
@@ -879,6 +871,22 @@ ul[role="listbox"] {{
     color: var(--text-main) !important;
 }}
 
+/* Popover body (e.g. the Ask FloodSense answer panel): Streamlit paints it from the light theme,
+   so in dark mode the page's light text sat on a pale background and could not be read. */
+[data-testid="stPopoverBody"] {{
+    background-color: var(--bg-surface) !important;
+    color: var(--text-main) !important;
+}}
+[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] li,
+[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] strong {{
+    color: var(--text-main) !important;
+}}
+[data-testid="stPopoverBody"] [data-testid="stCaptionContainer"],
+[data-testid="stPopoverBody"] [data-testid="stCaptionContainer"] p {{
+    color: var(--text-muted) !important;
+}}
+
 li[role="option"],
 div[data-rac][role="option"] {{
     color: var(--text-main) !important;
@@ -1005,8 +1013,9 @@ button[data-variant="segmented_control"][aria-pressed="true"] *,
     display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px;
 }}
 
-/* Phones: the top controls stack full width in the page flow, clear of the sidebar toggle at the
-   top left; labels wrap rather than being cut off. */
+/* Phones: the top controls are a row of small icon-only buttons in the page flow, clear of the
+   sidebar toggle at the top left. The labels stay in the DOM, visually hidden, so screen readers
+   still announce them. */
 @media (max-width: 640px) {{
     .block-container {{
         padding-left: 1rem !important;
@@ -1014,22 +1023,49 @@ button[data-variant="segmented_control"][aria-pressed="true"] *,
     }}
     .st-key-top_controls {{
         position: static !important;
-        flex-direction: column !important;
-        align-items: stretch !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 0.4rem !important;
         width: 100% !important;
         padding-left: 48px !important;
-        margin-bottom: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
         box-sizing: border-box !important;
     }}
-    .st-key-top_controls > div, .st-key-ask_genie, .st-key-ask_genie button {{
-        width: 100% !important;
-        max-width: 100% !important;
+    .st-key-top_controls > div {{
+        width: auto !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
     }}
     .st-key-telegram_join a.fs-telegram {{
-        display: flex;
+        width: 36px;
+        height: 36px;
+        padding: 0;
         justify-content: center;
-        white-space: normal;
     }}
+    .st-key-telegram_join a.fs-telegram span,
+    .st-key-ask_genie button [data-testid="stMarkdownContainer"] {{
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
+        clip: rect(0 0 0 0) !important;
+        white-space: nowrap !important;
+    }}
+    .st-key-ask_genie, .st-key-ask_genie button {{
+        width: auto !important;
+        min-width: 0 !important;
+    }}
+    .st-key-ask_genie button {{
+        min-height: 36px !important;
+        height: 36px !important;
+        width: 36px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+        position: relative !important;
+    }}
+    .st-key-ask_genie button > div > div:last-child {{ display: none !important; }}
     .fs-kpi-label {{ white-space: normal; overflow: visible; text-overflow: clip; }}
     div[data-testid="stMain"] {{ overflow-x: hidden; }}
     div.st-key-map_view, div.st-key-map_subview div[data-testid="stElementContainer"],
@@ -1302,6 +1338,11 @@ def gold_latest() -> tuple[pd.DataFrame | None, str | None]:
         return None, str(exc)
 
 
+def _set_theme_from_switch() -> None:
+    """Persist the Light/Dark toggle in session state (the widget is only drawn in Settings)."""
+    st.session_state["theme"] = "dark" if st.session_state["dark_mode_switch"] else "light"
+
+
 def _toggle_advanced() -> None:
     st.session_state["advanced_open"] = not st.session_state.get("advanced_open", False)
 
@@ -1487,12 +1528,10 @@ with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=
     )
     if advanced_open:
         with st.container(key="advanced_ext", gap="small"):
-            is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
+            st.session_state["dark_mode_switch"] = IS_DARK
+            st.toggle("Light/Dark Mode", key="dark_mode_switch", on_change=_set_theme_from_switch)
             if mode == "Live Feed":
                 st.toggle("data.gov.sg", key="use_data_gov")
-        if is_dark_active != IS_DARK:
-            st.session_state["theme"] = "dark" if is_dark_active else "light"
-            st.rerun()
 if mode == "Live Feed":
     selected_zone = zone_picker()
     live_source = DATA_GOV if st.session_state["use_data_gov"] else DATABRICKS
