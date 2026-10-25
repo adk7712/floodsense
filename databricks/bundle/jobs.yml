@@ -1,7 +1,8 @@
-# The three live jobs. Schedules and pause states match the workspace on 22 Oct 2026:
-#   floodsense-rainfall-poller  PAUSED   (stays paused until 24 Oct)
-#   floodsense-daily-archiver   UNPAUSED
-#   floodsense-flood-alerts     UNPAUSED
+# The live jobs. Schedules and pause states match the workspace on 25 Oct 2026:
+#   floodsense-rainfall-poller    UNPAUSED (resumed 24 Oct)
+#   floodsense-daily-archiver     UNPAUSED
+#   floodsense-flood-alerts       PAUSED   (the poller lands alerts while it runs)
+#   floodsense-telegram-listener  PAUSED   (continuous; unpause only around the demo)
 # Scripts are the files already uploaded to ${var.workspace_dir} (see DEPLOYMENT.md); the bundle
 # does not upload them.
 # floodsense-telegram-alerts (databricks/jobs/telegram_alerts_job.json) is a paused fallback
@@ -18,16 +19,23 @@ resources:
       max_concurrent_runs: 1
       queue:
         enabled: true
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
       schedule:
         quartz_cron_expression: "0 0/30 * * * ?"
         timezone_id: Asia/Singapore
-        pause_status: PAUSED
+        pause_status: UNPAUSED
       environments:
         - environment_key: poller
           spec:
             client: "2"
             dependencies:
               - ${var.wheel_path}
+              # The wheel pulls numpy 2, but client 2's preinstalled scikit-learn 1.3 is built for
+              # numpy 1 and fails on import (telegram_alerts failed this way on 25 Oct). A newer
+              # scikit-learn in the task environment matches numpy 2.
+              - scikit-learn>=1.5
       tasks:
         - task_key: poll_rainfall
           environment_key: poller
@@ -106,7 +114,7 @@ resources:
       schedule:
         quartz_cron_expression: "0 0/15 * * * ?"
         timezone_id: Asia/Singapore
-        pause_status: UNPAUSED
+        pause_status: PAUSED
       environments:
         - environment_key: alerts
           spec:
@@ -136,6 +144,8 @@ resources:
             client: "2"
             dependencies:
               - ${var.wheel_path}
+              - scikit-learn>=1.5  # same numpy 2 fix as the poller
+
       tasks:
         - task_key: listen
           environment_key: poller
