@@ -13,14 +13,14 @@ run for this page.
   - The live copy is **version 4** (since 23 Oct), registered as `champion` in Databricks Unity Catalog.
   - It warns at **Moderate** from about 33 mm of rain in an hour, and at **High** from about 43 mm.
 - **Why this one:** no alternative has replaced it under rules we fixed before looking at the results.
-  - Only T3 (rain30 for Moderate) met its pre-registered margin (+3 floods at Moderate, 90% CI +4 to
-    +21 percentage points, at 8.74 false Moderate episodes per zone-year against a budget of 11); it
-    is not in use and awaits a team decision. T1 (0.518) and T2 (0.446) did not meet theirs. A post-hoc
-    static run (prior SD 0.1, chosen after seeing the data) scored 0.509, slightly above the
-    rule's 0.500. At 10 false alerts per zone-year, rule_rain30 caught 21 of 28 validation floods,
-    LightGBM 19, the registered static candidate (rule_rain60_static) 19, and the rule 18.
+  - On the 92-label run (25 Oct), no alternative beats it on the event score: rule_rain30 and T1
+    score 0.492, LightGBM and T2 0.425, against 0.500 for the rule. T1 is the closest. It misses the
+    pre-set margin, which needs 0.550.
+  - On 88 labels (18 Oct), T3 (rain30 for Moderate) met its pre-registered margin, but it was not
+    re-run on 92 labels. It awaits a team decision. A post-hoc static run (prior SD 0.1, chosen
+    after seeing the data) scored 0.509 on 88 labels, slightly above the rule's 0.500.
   - It is also the simplest model, and the easiest to explain to a resident.
-- **How strong the evidence is:** weak, in both directions. We validate on only 28 past floods (2020–2023), so every
+- **How strong the evidence is:** weak, in both directions. We validate on only 30 past floods (2020–2023), so every
   result has an uncertainty of about ±15 percentage points.
   - A model has to beat the rule by a clear margin before we switch.
   - Several alternatives came close but did not clear that margin.
@@ -52,7 +52,7 @@ run for this page.
 
 *(README "Training and evaluation" and "Evaluation protocol"; `docs/candidate_selection_2026-10.md`)*
 
-- **Data:** NEA's 5-minute rain gauge readings from 2017 to 2023, and 88 verified flood reports.
+- **Data:** NEA's 5-minute rain gauge readings from 2017 to 2023, and 92 verified flood reports.
   - 58 of the floods are from 2017–2023 and are used to build and compare models.
   - 30 are from 2024 to Sep 2026. They are kept aside as a one-time final test.
 - **Cross-validation:** each model is trained on earlier years and tested on the next year, for
@@ -71,23 +71,26 @@ run for this page.
 
 ## Summary table
 
-*(17 Oct run on 88 labels and 28 validation floods: `models/candidates/selection_2026-10-17.json`;
-18 Oct tests: `models/candidates/mentor_tests_2026-10-18.json`)*
+*(Run on 25 Oct 2026: 92 verified labels, 30 validation floods in 2020–2023, forward-chaining
+out-of-fold, same folds for every row. Cut-offs from the false-alarm budget rule (2.5 High, 11
+Moderate). Scratch run outputs: `t1_vs_v4_results.json`, `reselect_92_results.json`,
+`t2_92_results.json`. The 18 Oct pre-registered sections below keep their 88-label numbers.)*
 
-The two tier columns show floods caught (with the 90% CI) and false alerts per zone-year (fa).
+The two tier columns show floods caught (with the 90% CI), false alerts per zone-year (fa), and
+median warning time.
 
-| Model | What it uses | Event score | High: caught, fa | Moderate: caught, fa | Status | Why |
+| Model | What it uses | Event score | High: caught, fa, median warning | Moderate: caught, fa, median warning | Status | Why |
 |---|---|---|---|---|---|---|
-| **rule_rain60** | Rain in the last 60 min | **0.500** | 14/28 (36–64%), 2.49 | 18/28 (50–79%), 4.52 | **In use (champion)** | Only T3 met its pre-set margin and awaits a team decision; T1 (0.518) and the post-hoc prior-SD 0.1 static run (0.509) scored a little higher without meeting a margin, and it is the simplest to run and explain |
-| rule_rain30 | Rain in the last 30 min | 0.491 | 11/28 (25–54%), 1.41 | 21/28 (61–89%), 8.74 | Not used | Catches 3 fewer floods at High; its 3 extra Moderate catches cost about twice the false alerts |
-| Logistic regression | Several rain measures | 0.232 | 4/28 (4–25%), 1.70 | 12/28 (29–57%), 8.16 | Not used | Catches far fewer floods than the rule at the same false-alarm level |
-| LightGBM | Several rain measures | 0.438 | 11/28 (25–54%), 1.53 | 19/28 (54–82%), 8.60 | Not used | Lower score than the rule, nearly twice the Moderate false alerts, and its results swing a lot as floods are added |
-| rule_rain60_static | 60-min rain plus 3 zone features | 0.411 | 8/28 (14–43%), 1.39 | 19/28 (54–82%), 9.04 | Not used | Catches 6 fewer floods at High; it learns where floods get *reported*, not where they happen |
-| Logistic + zone features | As logistic, plus zone features | 0.295 | 5/28 (7–29%), 2.13 | 17/28 (46–75%), 9.20 | Not used | Zone features helped it, but it is still well below the rule |
-| LightGBM + zone features | As LightGBM, plus zone features | 0.152 | 4/28 (4–25%), 1.09 | 7/28 (11–39%), 7.13 | Not used | Zone features made it much worse at both tiers |
-| T1 runoff-weighted rain | 60-min rain × how much of the zone is paved | 0.518 | 15/28 (39–68%), 2.15 | 21/28 (61–89%), 10.03 | Not used | Slightly better and lost no flood, but missed the margin set in advance (needed 0.550) |
-| T2 kriged rain + uncertainty | A "plausible upper" rain estimate from kriging | 0.446 | 14/28 (36–64%), 2.07 | 21/28 (61–89%), 8.50 | Not used | Lower score; at High it gained 2 floods but lost 2 others |
-| T3 rain30 for Moderate | 60-min rule for High, 30-min rule for Moderate | not defined | 14/28 (36–64%), 2.49 | 21/28 (61–89%), 8.74 | Team decision pending | Met its margin, but the extra catches come from allowing more false alerts, not better foresight |
+| **rule_rain60** (v4) | Rain in the last 60 min | **0.500** | 15/30 (37–67%), 2.43, 45 min | 20/30 (53–80%), 7.24, 26 min | **In use (champion)** | Highest score of the models tried; the simplest rule to run and explain. No alternative met the pre-set margin (needs 0.550) |
+| rule_rain30 | Rain in the last 30 min | 0.492 | 11/30 (23–50%), 1.42, 26 min | 23/30 (63–90%), 8.83, 28 min | Not used | Catches 4 fewer floods at High. Its 3 extra Moderate catches cost 1.6 more false Moderate alerts per zone-year |
+| Logistic regression | Several rain measures | 0.217 | 3/30 (3–20%), 1.25, 29 min | 14/30 (33–63%), 7.52, 55 min | Not used | Catches far fewer floods than the rule at the same false-alarm level |
+| LightGBM | Several rain measures | 0.425 | 10/30 (20–47%), 1.45, 45 min | 21/30 (57–83%), 9.09, 33 min | Not used | Lower score than the rule; 9.1 false Moderate alerts per zone-year against 7.2 for the rule |
+| rule_rain60_static | 60-min rain plus 3 zone features | 0.375 | 7/30 (10–37%), 0.60, 11 min | 20/30 (53–80%), 9.05, 16 min | Not used | Catches 8 fewer floods at High than the rule. It learns where floods get *reported*, not where they happen |
+| Logistic + zone features | As logistic, plus zone features | 0.317 | 6/30 (10–33%), 1.69, 32 min | 17/30 (40–70%), 7.62, 36 min | Not used | Zone features helped it, but it is still well below the rule |
+| LightGBM + zone features | As LightGBM, plus zone features | 0.208 | 3/30 (3–20%), 0.76, 14 min | 13/30 (30–60%), 9.40, 30 min | Not used | Zone features made it much worse at both tiers |
+| T1 runoff-weighted rain | 60-min rain × how much of the zone is paved | 0.492 | 15/30 (37–67%), 2.15, 45 min | 23/30 (63–90%), 10.13, 23 min | Not used | Lost no flood and gained 3 at Moderate, but its score is below the rule's, and it misses the margin (needs 0.550). It uses 10.1 of the 11 false Moderate budget |
+| T2 kriged rain + uncertainty | A "plausible upper" rain estimate from kriging | 0.425 | 9/30 (17–43%), 1.11, 28 min | 20/30 (53–80%), 6.20, 26 min | Not used | Lowest score of the kriging variants. At High it catches 9 floods against 15 for the rule |
+| T3 rain30 for Moderate | 60-min rule for High, 30-min rule for Moderate | not defined | Not re-run on 92 labels (88-label result: 14/28, 2.49) | Not re-run on 92 labels (88-label result: 21/28, 8.74) | Team decision pending | Its 88-label result met its pre-set margin, but the extra catches come from allowing more false alerts, not better foresight |
 | Radar nowcast | Radar images moved forward in time | n/a | n/a | n/a | In use, for the "in 1 hour" map layer only | Forecasts rain, not floods; only 3 months of radar exist, too little to train on |
 
 ## The current model: `rule_rain60`
@@ -151,9 +154,10 @@ The two tier columns show floods caught (with the 90% CI) and false alerts per z
 **Strengths**
 - **Easy to explain:** "about 38 mm of rain in the last hour in your area" is something a resident
   or a town council can act on.
-- **Only T3 met its pre-set margin, and it awaits a team decision.** T1 (0.518) and T2 (0.446) did
-  not meet theirs. The post-hoc static run (prior SD 0.1, chosen after seeing the data) scored
-  0.509, slightly above the rule's 0.500.
+- **No alternative beat it on the 92-label run (25 Oct).** T1 scored 0.492 and T2 0.425, against
+  0.500 for the rule. On 88 labels (18 Oct), T3 met its pre-set margin and awaits a team decision.
+  The post-hoc static run (prior SD 0.1, chosen after seeing the data) scored 0.509 on 88 labels,
+  slightly above the rule's 0.500.
 - **Can't learn reporting bias.** It knows nothing about a zone except its rain, so it can't learn
   that busy areas simply get more floods *reported* (see the zone-feature models below).
 - **Calibrated,** with thresholds set by a fixed rule rather than tuned by hand.
