@@ -716,6 +716,24 @@ button[kind="secondary"]:hover,
 .st-key-ask_genie button {{
     box-shadow: var(--card-shadow) !important;
 }}
+.st-key-telegram_join a.fs-telegram {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.42rem 0.95rem;
+    border-radius: 0.5rem;
+    background: #229ED9;
+    color: #ffffff !important;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-decoration: none !important;
+    box-shadow: var(--card-shadow);
+    transition: background 0.15s ease;
+}}
+.st-key-telegram_join a.fs-telegram:hover {{ background: #1B86B8; }}
+.st-key-telegram_join a.fs-telegram svg {{ width: 1.25rem; height: 1.25rem; flex: none; }}
 
 .st-key-app_header h1 {{
     padding-top: 0 !important;  /* level with the sidebar's "FloodSense" */
@@ -1006,6 +1024,11 @@ button[data-variant="segmented_control"][aria-pressed="true"] *,
     .st-key-top_controls > div, .st-key-ask_genie, .st-key-ask_genie button {{
         width: 100% !important;
         max-width: 100% !important;
+    }}
+    .st-key-telegram_join a.fs-telegram {{
+        display: flex;
+        justify-content: center;
+        white-space: normal;
     }}
     .fs-kpi-label {{ white-space: normal; overflow: visible; text-overflow: clip; }}
     div[data-testid="stMain"] {{ overflow-x: hidden; }}
@@ -1554,11 +1577,32 @@ def render_ask_panel() -> None:
         render_genie_answer(resident)
 
 
+TELEGRAM_URL = "https://t.me/floodsense"
+TELEGRAM_ICON = (
+    '<svg viewBox="0 0 24 24" aria-hidden="true" fill="#ffffff">'
+    '<path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88'
+    "-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5"
+    '.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>'
+)
+
+
+def render_telegram_join() -> None:
+    with st.container(key="telegram_join"):
+        st.markdown(
+            f'<a class="fs-telegram" href="{TELEGRAM_URL}" target="_blank" rel="noopener noreferrer" '
+            f'title="Join the FloodSense flood alerts channel on Telegram">'
+            f"{TELEGRAM_ICON}<span>Join flood alerts on Telegram</span></a>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_app_header() -> None:
-    # Top-right corner (CSS): "Ask FloodSense", Genie answering questions about live risk.
+    # Top-right corner (CSS): Telegram alerts channel, and "Ask FloodSense" (Genie answering
+    # questions about live risk).
     with st.container(
         key="top_controls", horizontal=True, vertical_alignment="center", gap="small"
     ):
+        render_telegram_join()
         render_ask_panel()
     with st.container(key="app_header"):
         st.title("FloodSense")
