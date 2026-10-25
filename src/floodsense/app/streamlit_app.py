@@ -327,6 +327,61 @@ div[data-testid="stSidebarCollapsedControl"],
     color: var(--text-main) !important;
 }}
 
+/* Phones: the open sidebar is a full-screen menu over the page (Streamlit keeps it in the page
+   flow with a fixed width, which squeezes the page into a thin strip). Closing it returns to the
+   page and its floating open button. Same breakpoint as the phone rules further down. */
+@media (max-width: 640px) {{
+    section[data-testid="stSidebar"][aria-expanded="true"] {{
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        min-width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        z-index: 999991 !important;
+        border-right: none !important;
+        overflow-x: hidden !important;
+    }}
+    section[data-testid="stSidebar"][aria-expanded="true"] [data-testid="stSidebarContent"] {{
+        width: 100% !important;
+        height: 100% !important;
+        overflow-x: hidden !important;
+    }}
+    /* No dragging the panel narrower on a phone */
+    section[data-testid="stSidebar"] div:has(> [data-testid="stSidebarResizeHandle"]) {{
+        display: none !important;
+    }}
+    /* The close button sits at the screen's top right corner, clear of the edge */
+    section[data-testid="stSidebar"][aria-expanded="true"] [data-testid="stSidebarCollapseButton"] {{
+        right: 14px !important;
+    }}
+    /* Advanced: the toggles wrap below the button instead of running off the screen */
+    .st-key-advanced_menu {{
+        width: auto !important;
+        max-width: 100% !important;
+        flex-wrap: wrap !important;
+    }}
+    .st-key-advanced_ext {{
+        width: auto !important;
+        max-width: 100% !important;
+    }}
+    .st-key-advanced_ext label, .st-key-advanced_ext p {{
+        white-space: normal !important;
+    }}
+}}
+/* Very narrow phones: the toggles no longer fit beside the button, so they stand alone below it */
+@media (max-width: 360px) {{
+    .st-key-advanced_menu {{ flex-direction: column !important; align-items: stretch !important; }}
+    .st-key-advanced_btn_open button {{ border-radius: 8px !important; }}
+    .st-key-advanced_ext {{
+        border-left: 1px solid var(--border-main) !important;
+        border-radius: 8px !important;
+        margin-top: 4px !important;
+    }}
+}}
+
 /* Bordered containers (cards, panels): Streamlit draws their border from the light theme's
    text colour, which disappears on the dark canvas, so use the theme's own border colour. */
 [data-testid="stMain"] [data-testid="stVerticalBlock"] {{
