@@ -245,13 +245,13 @@ div[data-testid="stSidebarCollapsedControl"],
     transition: all 0.15s ease !important;
 }}
 
-/* The "Advanced" button is the last item in the sidebar, at the panel's bottom; it scrolls with
+/* The "Settings" button is the last item in the sidebar, at the panel's bottom; it scrolls with
    the panel. Its toggles open to the right, as one piece with the button. */
 [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"]:has(> [data-testid="stLayoutWrapper"] > .st-key-advanced_menu) {{
     min-height: calc(100dvh - 2.25rem) !important;  /* the panel's height below its header */
 }}
 [data-testid="stSidebarUserContent"] {{
-    padding-bottom: 0 !important;  /* Advanced keeps its own space below */
+    padding-bottom: 0 !important;  /* Settings keeps its own space below */
 }}
 [data-testid="stLayoutWrapper"]:has(> .st-key-advanced_menu) {{
     order: 999 !important;  /* drawn early in the script, shown last in the sidebar */
@@ -357,7 +357,7 @@ div[data-testid="stSidebarCollapsedControl"],
     section[data-testid="stSidebar"][aria-expanded="true"] [data-testid="stSidebarCollapseButton"] {{
         right: 14px !important;
     }}
-    /* Advanced: the toggles wrap below the button instead of running off the screen */
+    /* Settings: the toggles wrap below the button instead of running off the screen */
     .st-key-advanced_menu {{
         width: auto !important;
         max-width: 100% !important;
@@ -957,7 +957,7 @@ hr {{
 }}
 
 /* Every switch (Live / Replay, Analyst / Resident, the map's layer and timing): the chosen option
-   is the orange button, like the other buttons. "Advanced" is orange while its toggle is open. */
+   is the orange button, like the other buttons. "Settings" is orange while its toggle is open. */
 div[data-testid="stButtonGroup"] button[aria-pressed="true"],
 div[data-testid="stButtonGroup"] button[aria-checked="true"],
 button[data-variant="segmented_control"][aria-checked="true"],
@@ -1449,7 +1449,7 @@ live_source = DATA_GOV
 if mode == "Live Feed":
     # Databricks by default; a copy with no warehouse set up (e.g. CI) starts on data.gov.sg.
     st.session_state.setdefault("use_data_gov", not warehouse_id())
-# Settings stay out of the way: an "Advanced" button at the bottom of the sidebar slides its
+# Settings stay out of the way: a "Settings" button at the bottom of the sidebar slides its
 # toggles out to the right (CSS): the theme, and in Live Feed the data.gov.sg fallback. It is drawn
 # at the same place in the script in both modes (before the area picker), so a rerun keeps it as
 # one element instead of drawing a second one and moving it; CSS shows it last.
@@ -1457,7 +1457,7 @@ st.session_state.setdefault("advanced_open", False)
 advanced_open = st.session_state["advanced_open"]
 with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=None):
     st.button(
-        "Advanced",
+        "Settings",
         key="advanced_btn_open" if advanced_open else "advanced_btn",
         icon=":material/chevron_left:" if advanced_open else ":material/chevron_right:",
         on_click=_toggle_advanced,

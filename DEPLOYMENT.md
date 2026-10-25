@@ -359,7 +359,7 @@ databricks fs cp -r <dir>/state dbfs:/Volumes/workspace/floodsense/landing/archi
 ## 15. The app reads the gold table (A2, 16 Oct 2026)
 
 Live mode shows the risk the pipeline scored, from `flood_risk_predictions_gold`, by default. The
-old path (the app scoring the API itself) stays as a fallback, behind the **Advanced** button at the bottom of
+old path (the app scoring the API itself) stays as a fallback, behind the **Settings** button at the bottom of
 the sidebar: it opens a single toggle,
 **data.gov.sg**, to its right.
 
@@ -508,7 +508,7 @@ Bundles (A8.2) are a stretch goal for after the freeze.
   To pass parameters to the poller task, use
   `databricks jobs run-now --json '{"job_id": <id>, "python_params": ["--lookback-minutes", "1200"]}'`.
 - **Databricks App** redeployed (`01f1c94bf50f16b7a08f06a9438d1378`) with that day's app: the
-  Resident view switch top right, the data.gov.sg fallback behind Advanced. Akul checked it in a
+  Resident view switch top right, the data.gov.sg fallback behind Settings. Akul checked it in a
   browser, then it was stopped again.
 - **Telegram alerts (proposed here; deployed 18 Oct, section 22):** run the bot as a third task in the poller job, after
   `refresh_pipeline` (`live --once --state-file /Volumes/workspace/floodsense/artifacts/telegram_state.json`),

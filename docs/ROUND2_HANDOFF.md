@@ -540,7 +540,7 @@ Branch `app-radar-gap-live-alerts`, cut from `65d7387`. Committed and pushed (br
 - **Resident view (A9, separate page; the "What to do" line is in it):**
   - Radar gap seen on 30 Sep 2026: no nowcast at 15:00 or 15:30 (14:30 had one). **Cause found 17 Oct:** a data.gov.sg rate limit without a key. Fixed on `app-radar-gap-live-alerts` (`20a484d`); the remaining actions are in §0 (17 Oct, later). Until they are done, the map's "In 1 hour" layer can still be missing if the API rate-limits the app.
   - The 17 Apr 2021 demo replay has no radar, so "In 1 hour" never shows there.
-  - Re-checked after merging Akul's `82f1cb6` (no stale-data banner, fallback behind Advanced): the Resident view follows the same data source and has no data-age banner.
+  - Re-checked after merging Akul's `82f1cb6` (no stale-data banner, fallback behind Settings): the Resident view follows the same data source and has no data-age banner.
 - **Telegram bot:** created 17 Oct (@fs_tele_alert_bot, channel "floodsense test"); one test message sent, no real alert yet. Live mode reads gold (`2ec4bfb`) but is not deployed: it waits on Akul's secrets and the poller task.
 - **PUB alert line (17 Oct, `404c9bd`):** matched by the alert's centre point only; Live mode only. No screenshot, because a real alert cannot be produced on demand.
 - **Candidate selection:** `select_candidates.py` doesn't itself check for a dirty tree. Run `git status --porcelain` first, and it must print nothing. The sensitivity script (`prior_sensitivity.py`) does record a dirty flag.
