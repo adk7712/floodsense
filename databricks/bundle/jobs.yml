@@ -54,6 +54,7 @@ resources:
               - ${var.warehouse_id}
               - "live"
               - "--once"
+              - "--alerts-only"
               - "--state-file"
               - /Volumes/workspace/floodsense/artifacts/telegram_state.json
               - "--subscriptions-file"
@@ -118,3 +119,33 @@ resources:
           spark_python_task:
             python_file: ${var.workspace_dir}/archive_flood_alerts.py
             parameters: ["--lookback-minutes", "20"]
+
+    telegram_listener:
+      name: floodsense-telegram-listener
+      description: "Always-on Telegram command listener: answers /subscribe, /unsubscribe, /list, /status and /help within seconds. It is the only reader of bot messages and the only writer of the subscriptions file. The poller's alert task runs with --alerts-only, so it never reads messages. Always-on serverless compute, so unpause only around the demo window; paused by default. The bot reads its token and chat id from the secrets scope 'floodsense' (telegram_bot_token, telegram_chat_id)."
+      tags:
+        project: floodsense
+        track: DAISI-B2
+        role: bot-listener
+      max_concurrent_runs: 1
+      continuous:
+        pause_status: PAUSED
+      environments:
+        - environment_key: poller
+          spec:
+            client: "2"
+            dependencies:
+              - ${var.wheel_path}
+      tasks:
+        - task_key: listen
+          environment_key: poller
+          spark_python_task:
+            python_file: ${var.workspace_dir}/telegram_bot.py
+            parameters:
+              - "--warehouse-id"
+              - ${var.warehouse_id}
+              - "listen"
+              - "--subscriptions-file"
+              - /Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json
+              - "--state-file"
+              - /Volumes/workspace/floodsense/artifacts/telegram_state.json

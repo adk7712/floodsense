@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 23 Oct 2026, Akul's side (version 4 registered and promoted to `champion`; §0). Before that: 22 Oct 2026, later, adk's session (refit on 92 labels, decided to register as version 4; §0, branch `refit-92-labels`, NOT committed). Before that: 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 25 Oct 2026, adk's session (Telegram listener for fast replies and /status, branch `feat/telegram-listener`, NOT committed; §0). Before that: 23 Oct 2026, Akul's side (version 4 registered and promoted to `champion`; §0). Before that: 22 Oct 2026, later, adk's session (refit on 92 labels, decided to register as version 4; §0, branch `refit-92-labels`, NOT committed). Before that: 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -23,7 +23,29 @@
 
 ---
 
-## 0. Latest sessions: 23 Oct (Akul), 22 Oct, later (adk), 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 25 Oct (adk), 23 Oct (Akul), 22 Oct, later (adk), 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 25 Oct (adk): Telegram listener for fast replies and /status. Branch `feat/telegram-listener`, NOT committed, NOT deployed
+
+- **Built:** a `listen` subcommand of `python -m floodsense.alerts.telegram_bot`. It is always on
+  (long polling) and answers `/subscribe`, `/unsubscribe`, `/list`, `/help` and the new `/status`
+  within seconds. `/status` shows the current tier for the areas you follow, or `/status <area>`;
+  "No data" shows as no reading, and readings older than 60 minutes show as "No recent reading". While the listener is paused the bot answers nobody (the poller no longer reads messages).
+- **Split of duties:** the listener is the only reader of bot messages and the only writer of the
+  subscriptions file. The poller's alert task now runs `live --alerts-only`: it sends alerts and never
+  reads messages. Chats that block the bot (HTTP 403) are handed to the listener to remove.
+- **Job:** `floodsense-telegram-listener` in `databricks/bundle/jobs.yml`, continuous and **PAUSED**
+  (always-on serverless compute; unpause only around the demo). Poller's `telegram_alerts` task has
+  `--alerts-only`.
+- **Not changed:** alerts still come only when the poller runs (every 30 minutes), because the risk
+  data only changes then. The listener makes replies fast, not alerts.
+- **Not done:** nothing is deployed, no Telegram or Databricks call was made, and it is not tested
+  against the real bot yet. Never run a listener and an old poller without `--alerts-only` together.
+- **Waiting on Akul:** review, then deploy the listener job (DEPLOYMENT.md §27).
+- **Freeze question, to confirm with Akul before merging:** CLAUDE.md rule 3 still says features and
+  the model freeze on 23 Oct 18:00 SGT, but this file says the freeze was dropped on 18 Oct. This is
+  bot work, not model work (no model, feature, threshold or budget changes), but the team should
+  settle which rule applies.
 
 ### 23 Oct (Akul): version 4 is champion
 

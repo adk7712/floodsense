@@ -20,19 +20,30 @@ import logging
 import os
 import shutil
 import tempfile
-from collections.abc import Mapping, Sequence
-from datetime import datetime
+from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime, timedelta
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Protocol
 
 from floodsense.alerts.messages import HELP_TEXT, MAX_AREAS_PER_CHAT
 from floodsense.common.timeutil import to_sgt
+from floodsense.models.scoring import NO_DATA_TIER
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, area_from_slug
 
 logger = logging.getLogger("FloodSense.Subscriptions")
 
 EXAMPLE_AREAS = "Bukit Timah, Ang Mo Kio, Jurong East"
+
+# The live job's staleness limit: a newest gold step older than this sends nothing.
+DEFAULT_MAX_AGE = timedelta(minutes=30)
+# /status hides a reading older than this. Longer than DEFAULT_MAX_AGE because the state file is
+# written once per 30-minute poller run, some minutes after the step it holds; the reply always
+# shows the reading's time.
+STATUS_MAX_AGE = timedelta(minutes=60)
+
+# Newest saved risk step: (time, {zone: tier}), or None when there is none.
+StatusProvider = Callable[[], tuple[datetime, Mapping[str, str]] | None]
 
 
 def area_label(area: str) -> str:
@@ -188,13 +199,56 @@ def _list_reply(areas: Sequence[str]) -> str:
     return f"You follow {len(areas)} of {MAX_AREAS_PER_CHAT} areas: {names}."
 
 
-def handle_message(store: SubscriptionStore, chat_id: int, text: str, when: datetime) -> str:
-    """Apply one command to ``store`` (caller saves) and return the reply text."""
+def _status_line(area: str, tier: str | None) -> str:
+    if tier is None or tier == NO_DATA_TIER:  # unknown is never shown as Low
+        return f"{area_label(area)}: no reading (too few rain gauges reporting)"
+    return f"{area_label(area)}: {tier}"
+
+
+def _status_reply(
+    areas: Sequence[str],
+    arg: str,
+    status: StatusProvider | None,
+    when: datetime,
+    max_age: timedelta,
+) -> str:
+    if arg:
+        area = area_from_slug(arg)
+        if area is None:
+            return _unknown_area_reply(arg)
+        areas = [area]
+    elif not areas:
+        return (
+            "You are not following any areas. Send /subscribe followed by an area name, "
+            "or /status followed by an area name."
+        )
+    if status is None:
+        return "Status isn't available right now."
+    snap = status()
+    if snap is None or to_sgt(when) - to_sgt(snap[0]) > max_age:
+        return "No recent reading. The risk feed may be paused."
+    as_of, tiers = snap
+    lines = [_status_line(a, tiers.get(a)) for a in areas]
+    return "\n".join([f"Flood risk as of {to_sgt(as_of):%H:%M} SGT:", *lines])
+
+
+def handle_message(
+    store: SubscriptionStore,
+    chat_id: int,
+    text: str,
+    when: datetime,
+    status: StatusProvider | None = None,
+    status_max_age: timedelta = STATUS_MAX_AGE,
+) -> str:
+    """Apply one command to ``store`` (caller saves) and return the reply text. ``status``
+    returns the newest saved risk step for /status."""
     cmd, arg = parse_command(text)
     if cmd in ("start", "help"):
         return HELP_TEXT
     if cmd == "list":
         return _list_reply(store.areas_for(chat_id))
+    if cmd == "status":
+        return _status_reply(store.areas_for(chat_id), arg, status, when, status_max_age)
     if cmd == "subscribe":
         if not arg:
             return "Tell me which area, for example: /subscribe Bukit Timah"
@@ -234,7 +288,10 @@ def handle_message(store: SubscriptionStore, chat_id: int, text: str, when: date
 
 
 def process_updates(
-    store: SubscriptionStore, updates: Sequence[Mapping[str, object]], when: datetime
+    store: SubscriptionStore,
+    updates: Sequence[Mapping[str, object]],
+    when: datetime,
+    status: StatusProvider | None = None,
 ) -> list[tuple[int, str]]:
     """Handle Telegram ``getUpdates`` results in order. Returns ``[(chat_id, reply)]``.
 
@@ -261,5 +318,5 @@ def process_updates(
         chat_id = chat.get("id")
         if not isinstance(chat_id, int):
             continue
-        replies.append((chat_id, handle_message(store, chat_id, text, when)))
+        replies.append((chat_id, handle_message(store, chat_id, text, when, status)))
     return replies

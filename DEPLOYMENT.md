@@ -853,3 +853,80 @@ Steps to deploy (not run yet; needs Akul's go-ahead):
 3. Open the app, click **Ask FloodSense** and ask an example question. If it says "Genie couldn't
    answer", run `databricks apps logs floodsense` and look for the `Genie unavailable` line.
 4. Stop the app when done: `databricks apps stop floodsense`.
+
+## 27. Telegram listener for fast replies and /status (25 Oct 2026, branch `feat/telegram-listener`, NOT committed, NOT deployed)
+
+**Built, not deployed.** Nothing on Databricks has changed for this yet. The code is on the branch
+above and is uncommitted. Akul reviews it, then deploys.
+
+What it is: a second bot process, `python -m floodsense.alerts.telegram_bot listen`, that keeps
+asking Telegram for new messages (long polling) and answers `/subscribe`, `/unsubscribe`, `/list`,
+`/help` and the new `/status` within seconds. `/status` shows the current tier for the areas you
+follow, or `/status <area>` for one. "No data" is shown as no reading, and a reading older than 60
+minutes shows as "No recent reading" (the poller updates it every 30 minutes).
+
+What changes with it:
+
+- **Who reads messages:** only the listener. The poller's `telegram_alerts` task gets
+  `--alerts-only`, so it sends alerts to the channel and subscribers but never reads messages and
+  never writes the subscriptions file. Chats that blocked the bot (HTTP 403) are written to
+  `telegram_blocked.json` beside the subscriptions file, and the listener removes them.
+- **Job:** `floodsense-telegram-listener` in `databricks/bundle/jobs.yml`. It is continuous and
+  **PAUSED**. It runs on always-on serverless compute, so unpause it only around the demo.
+- **Alerts are unchanged:** they still arrive only when the poller runs (every 30 minutes), because
+  the risk data only changes then. The listener makes replies fast, not alerts.
+
+**Warning:** do not run the listener **and** an old poller `telegram_alerts` task without
+`--alerts-only` at the same time. Both would read the same messages, take each other's replies, and
+the subscriptions file would be written from two places. When two readers run, Telegram answers the
+second with HTTP 409, and the listener logs that as an error.
+
+Steps for Akul to deploy (these change the workspace, so they need Akul's go-ahead):
+
+1. Review the branch with adk, then merge it to master as usual. Build the wheel as in the earlier
+   sections.
+2. Upload the new wheel and the updated task script, as described in section 22 (the wheel, then
+   the script):
+   `databricks workspace import /Workspace/Users/<login>/floodsense/telegram_bot.py --file databricks/jobs/telegram_bot.py --format AUTO --overwrite`
+3. Run `databricks bundle validate -p akul`, then `databricks bundle deploy -p akul`.
+4. Check that the poller's `telegram_alerts` task now has `--alerts-only`: in Workflows open
+   `floodsense-rainfall-poller`, then the `telegram_alerts` task, and look at the parameters.
+5. Check that the listener job exists and is **PAUSED**: in Workflows open
+   `floodsense-telegram-listener`.
+6. Check that no webhook is set on the bot (a webhook blocks the listener), as in section 23 step 5.
+7. Unpause the listener for the demo: in Workflows open `floodsense-telegram-listener` and choose
+   **Unpause**. Wait for the run to show as running.
+8. Test from a phone: in Telegram send `/subscribe Bukit Timah`, then `/status`, then `/status Bukit
+   Timah`. Each reply should arrive within about a minute.
+9. After the demo, pause the listener again in Workflows (**Pause**). Confirm it shows PAUSED.
+   While it is paused nobody answers messages: the poller no longer reads them. Telegram keeps unread
+   messages for about 24 hours, so messages sent in the meantime are answered when it is
+   unpaused only if that is within 24 hours; older ones are lost.
+
+Run it locally instead (for example on the demo laptop, with the local `.env` set up as in section
+23). Stop it with Ctrl+C:
+
+```bash
+uv run python -m floodsense.alerts.telegram_bot listen --subscriptions-file data/processed/telegram_subscriptions.json --state-file data/processed/telegram_state.json
+```
+
+Do not run the local listener while the listener job is unpaused on Databricks, and do not run it
+together with a poller that lacks `--alerts-only`.
+
+**Optional: set the bot's command menu by hand (BotFather).** This only changes the menu that
+Telegram shows when people type "/". It does not change what the bot does.
+
+1. In Telegram, open the chat with @BotFather.
+2. Send `/setcommands`.
+3. Choose the bot (@fs_tele_alert_bot).
+4. Send these lines as one message:
+
+```
+subscribe - get alerts for a planning area
+unsubscribe - stop alerts for an area, or all
+list - show the areas you follow
+status - current flood risk for your areas
+help - show what the bot does
+```
+
+Not rehearsed yet: not yet run against the real Telegram bot or on Databricks.

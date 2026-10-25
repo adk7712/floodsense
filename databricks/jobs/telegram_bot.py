@@ -10,11 +10,14 @@ Serverless job tasks cannot set environment variables, so the SQL warehouse come
 ``--warehouse-id`` and is set before ``floodsense`` is imported (its settings are read at import).
 The bot token and chat id are read from the secrets scope ``floodsense`` by the bot itself.
 
-Per-area subscriptions are switched on by also passing ``--subscriptions-file
-/Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json`` (next to the alert state
-file). Each run then reads new bot messages (/subscribe, /unsubscribe, /list, /help), replies, and
-sends alerts to subscribers as well as the channel. The file holds chat ids, areas and the last
-handled update id, nothing else.
+Per-area subscriptions use two jobs. The listener job (``floodsense-telegram-listener``) runs
+``listen``, a long-polling loop that answers /subscribe, /unsubscribe, /list and /help within
+seconds; it is the only reader of bot messages and the only writer of the subscriptions file,
+``/Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json`` (next to the alert state
+file). The poller task runs ``live --once --alerts-only``: it sends alerts to the channel and to
+subscribers, never reads bot messages, and never writes the subscriptions file. Chats it finds
+blocked are handed to the listener via ``telegram_blocked.json`` next to the subscriptions file.
+The subscriptions file holds chat ids, areas and the last handled update id, nothing else.
 """
 
 import argparse
