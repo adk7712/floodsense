@@ -1577,7 +1577,7 @@ def render_ask_panel() -> None:
         render_genie_answer(resident)
 
 
-TELEGRAM_URL = "https://t.me/floodsense"
+TELEGRAM_URL = "https://t.me/fs_tele_alert_bot"
 TELEGRAM_ICON = (
     '<svg viewBox="0 0 24 24" aria-hidden="true" fill="#ffffff">'
     '<path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88'
