@@ -854,10 +854,10 @@ Steps to deploy (not run yet; needs Akul's go-ahead):
    answer", run `databricks apps logs floodsense` and look for the `Genie unavailable` line.
 4. Stop the app when done: `databricks apps stop floodsense`.
 
-## 27. Telegram listener for fast replies and /status (25 Oct 2026, branch `feat/telegram-listener`, NOT committed, NOT deployed)
+## 27. Telegram listener for fast replies and /status (25 Oct 2026, branch `feat/telegram-listener`, merged to master, NOT deployed)
 
-**Built, not deployed.** Nothing on Databricks has changed for this yet. The code is on the branch
-above and is uncommitted. Akul reviews it, then deploys.
+**Built, not deployed.** Nothing on Databricks has changed for this yet. The code is merged to master
+(25 Oct). Akul deploys it with the steps below.
 
 What it is: a second bot process, `python -m floodsense.alerts.telegram_bot listen`, that keeps
 asking Telegram for new messages (long polling) and answers `/subscribe`, `/unsubscribe`, `/list`,
@@ -883,7 +883,7 @@ second with HTTP 409, and the listener logs that as an error.
 
 Steps for Akul to deploy (these change the workspace, so they need Akul's go-ahead):
 
-1. Review the branch with adk, then merge it to master as usual. Build the wheel as in the earlier
+1. Pull master (the branch is already merged). Build the wheel as in the earlier
    sections.
 2. Upload the new wheel and the updated task script, as described in section 22 (the wheel, then
    the script):
