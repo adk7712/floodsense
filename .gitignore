@@ -19,7 +19,6 @@ data/raw/rainfall/*
 tests/screenshots/
 data/reports/
 .claude/
-.agents/
 data/processed/
 .mypy_cache/
 .ruff_cache/

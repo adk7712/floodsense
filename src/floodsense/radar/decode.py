@@ -108,11 +108,6 @@ def rate_table(path: Path | None = None) -> np.ndarray:
     return np.concatenate([[0.0], scale["rate_mm_h"].to_numpy(dtype=float)])
 
 
-def decode_rates(png: bytes) -> np.ndarray:
-    """Rain rate in mm/h per pixel."""
-    return rate_table()[decode_levels(png)]
-
-
 @lru_cache(maxsize=4)
 def zone_index(bbox: BoundingBox, shape: tuple[int, int]) -> tuple[np.ndarray, tuple[str, ...]]:
     """Per pixel, the index of the URA planning area containing it (-1 = outside every zone)."""
@@ -129,24 +124,3 @@ def zone_index(bbox: BoundingBox, shape: tuple[int, int]) -> tuple[np.ndarray, t
         poly = to_shape(feature["geometry"])
         out[shapely.contains_xy(poly, lon, lat)] = i
     return out, names
-
-
-def zone_rain(png: bytes, bbox: BoundingBox) -> pd.DataFrame:
-    """Mean and maximum rain rate (mm/h) and rain-covered share for each planning area."""
-    rates = decode_rates(png)
-    idx, names = zone_index(bbox, rates.shape)
-    rows = []
-    for i, name in enumerate(names):
-        cells = rates[idx == i]
-        if cells.size == 0:
-            continue
-        rows.append(
-            {
-                "ura_planning_area": name,
-                "radar_mean_mm_h": float(cells.mean()),
-                "radar_max_mm_h": float(cells.max()),
-                "radar_wet_share": float((cells > 0).mean()),
-                "pixels": int(cells.size),
-            }
-        )
-    return pd.DataFrame(rows)

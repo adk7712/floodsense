@@ -39,14 +39,6 @@ class Replay:
     display_start: datetime
     display_end: datetime
 
-    @property
-    def display_timestamps(self) -> list[datetime]:
-        return [
-            s.timestamp
-            for s in self.snapshots
-            if self.display_start <= s.timestamp <= self.display_end
-        ]
-
 
 def load_replay(path: str | Path) -> Replay:
     raw = json.loads(Path(path).read_text())

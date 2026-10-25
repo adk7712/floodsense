@@ -1,11 +1,8 @@
 """
 Data contract for the rainfall store and the sourced flood events (README.md, section Data).
 
-Phase 3 is done when every test here passes locally with the historical rainfall store present,
-and ``pytest -m network tests/test_phase3_contract.py`` passes too. Until then:
-- rainfall-store tests SKIP when data/raw/rainfall/ is absent (it is gitignored, so CI always skips)
-- zone-polygon and flood-event tests XFAIL while their committed files are missing
-- calling a loader that still raises NotImplementedError counts as pending (xfail), not a failure
+The rainfall store, zone polygons and flood events are committed, so these run in CI. The two
+network tests (``pytest -m network tests/test_phase3_contract.py``) are run by hand.
 
 The checks are deliberately about the *content* of the data, not just its shape: the first version
 of this contract was satisfied by a store holding one copied storm and empty zero-rain filler.
@@ -15,9 +12,7 @@ that impossible, and every event needs a source someone has opened and signed of
 
 import json
 import re
-from collections.abc import Callable
 from datetime import timedelta
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -27,18 +22,10 @@ from floodsense.common.config import settings
 from floodsense.data.replay import load_replay
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
-PENDING = "data not available (README.md, section Data)"
 FIRST_YEAR = 2017
 STEPS_PER_DAY = 288
 # The API publishes 2 decimals; the bulk CSVs keep the gauges' 3 (e.g. 0.408 vs 0.41).
 API_ROUNDING_MM = 0.0051
-
-
-def call_or_pending(fn: Callable[..., Any], *args: Any) -> Any:
-    try:
-        return fn(*args)
-    except NotImplementedError:
-        pytest.xfail(f"{fn.__module__}.{fn.__name__} not implemented yet: {PENDING}")
 
 
 @pytest.fixture(scope="module")
@@ -180,7 +167,7 @@ def test_rainfall_has_no_duplicate_readings(year_2021):
 def test_every_station_with_readings_has_metadata(year_2021):
     from floodsense.data.rainfall_store import load_station_table
 
-    stations = call_or_pending(load_station_table)
+    stations = load_station_table()
     assert {"station_id", "name", "latitude", "longitude", "valid_from", "valid_to"} <= set(
         stations.columns
     )
@@ -208,7 +195,7 @@ def test_store_matches_the_verified_replay(replay):
     from floodsense.data.rainfall_store import load_snapshots
 
     start, end = replay.snapshots[0].timestamp, replay.snapshots[-1].timestamp
-    snaps = call_or_pending(load_snapshots, start, end)
+    snaps = load_snapshots(start, end)
     _assert_same_readings(snaps, replay.snapshots, "replay")
 
 
@@ -231,7 +218,7 @@ def test_store_matches_the_live_api_on_random_days():
         start = (day + pd.Timedelta(hours=22)).to_pydatetime()
         end = (day + pd.Timedelta(hours=23, minutes=55)).to_pydatetime()
         _assert_same_readings(
-            call_or_pending(load_snapshots, start, end),
+            load_snapshots(start, end),
             poller.fetch_range(start, end),
             str(day.date()),
         )
@@ -242,7 +229,7 @@ def test_store_snapshots_feed_the_feature_pipeline(replay):
     from floodsense.data.rainfall_store import load_snapshots
     from floodsense.features.zone_features import compute_zone_feature_table
 
-    snaps = call_or_pending(load_snapshots, replay.display_start, replay.display_end)
+    snaps = load_snapshots(replay.display_start, replay.display_end)
     stations = {}
     for s in snaps:
         stations.update(s.stations)
@@ -257,8 +244,6 @@ def test_store_snapshots_feed_the_feature_pipeline(replay):
 
 @pytest.fixture(scope="module")
 def zone_polygons():
-    if not settings.zone_polygons_file.exists():
-        pytest.xfail(f"{settings.zone_polygons_file.name} missing: {PENDING}")
     shapely_geometry = pytest.importorskip("shapely.geometry")
     raw = json.loads(settings.zone_polygons_file.read_text())
     return {f["properties"]["name"]: shapely_geometry.shape(f["geometry"]) for f in raw["features"]}
@@ -303,8 +288,6 @@ MIN_SIGNED_OFF_TEST_YEARS = 5
 
 @pytest.fixture(scope="module")
 def events_csv() -> pd.DataFrame:
-    if not settings.flood_events_file.exists():
-        pytest.xfail(f"{settings.flood_events_file.name} missing: {PENDING}")
     from floodsense.data.flood_events import read_events_csv
 
     return read_events_csv()
@@ -356,7 +339,7 @@ def test_event_times_are_sgt_and_within_the_rainfall_record(events_csv):
 def test_events_load_through_the_schema(events_csv):
     from floodsense.data.flood_events import load_flood_events
 
-    events = call_or_pending(load_flood_events, None, True)
+    events = load_flood_events(None, True)
     assert len(events) == len(events_csv)
     for ev in events:
         assert ev.timestamp_start.utcoffset() == timedelta(hours=8)

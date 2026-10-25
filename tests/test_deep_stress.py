@@ -78,13 +78,11 @@ def test_physical_and_mathematical_invariants():
 
     # 2. Test physical rainfall bounding & rarity scoring
     for rain_val in [0.0, 0.5, 5.0, 25.0, 50.0, 95.0]:
-        score, rp = feat_pipe.rarity_estimator.compute_rarity_and_return_period(
-            "BUKIT TIMAH", rain_val
-        )
+        scores, rps = feat_pipe.rarity_estimator.score_array("BUKIT TIMAH", np.array([rain_val]))
+        score, rp = float(scores[0]), float(rps[0])
         assert 0.0 <= score <= 1.0, f"Rarity score out of bounds: {score}"
         assert rp >= 0.0, f"Return period negative: {rp}"
 
     # 3. Monotonicity check
-    s1, _ = feat_pipe.rarity_estimator.compute_rarity_and_return_period("BUKIT TIMAH", 10.0)
-    s2, _ = feat_pipe.rarity_estimator.compute_rarity_and_return_period("BUKIT TIMAH", 60.0)
+    (s1, s2), _ = feat_pipe.rarity_estimator.score_array("BUKIT TIMAH", np.array([10.0, 60.0]))
     assert s1 <= s2, "Rarity score is not monotonic with rainfall intensity"

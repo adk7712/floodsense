@@ -10,9 +10,8 @@ from floodsense.radar.decode import (
     N_LEVELS,
     BoundingBox,
     decode_levels,
-    decode_rates,
     rate_table,
-    zone_rain,
+    zone_index,
 )
 
 # The 70 km frame's box, as the API returns it.
@@ -41,7 +40,7 @@ def test_colours_decode_to_levels_and_rates():
     levels = decode_levels(png)
     assert levels[0, 0] == 1 and levels[1, 1] == N_LEVELS and levels[2, 2] == 17
     assert levels[3, 3] == 0  # transparent = no echo, not dry-by-default anywhere else
-    rates = decode_rates(png)
+    rates = rate_table()[levels]
     assert rates[3, 3] == 0 and rates[1, 1] > 100 > rates[0, 0]
 
 
@@ -55,12 +54,8 @@ def test_georeference_puts_the_radar_centre_mid_frame():
     assert abs(row - 240) <= 1 and abs(col - 240) <= 1
 
 
-def test_zone_rain_finds_rain_over_its_zone():
-    lat, lon = 1.4382, 103.7890  # Woodlands
-    r, c = BOX.pixel(lat, lon, (480, 480))
-    heavy = COLOUR_SCALE[-1]
-    png = _png({(r + dr, c + dc): heavy for dr in range(-3, 4) for dc in range(-3, 4)})
-    z = zone_rain(png, BOX).set_index("ura_planning_area")
-    assert len(z) == 55
-    assert z.loc["WOODLANDS", "radar_max_mm_h"] > 100
-    assert z.loc["BEDOK", "radar_max_mm_h"] == 0
+def test_zone_index_puts_a_pixel_in_its_zone():
+    idx, names = zone_index(BOX, (480, 480))
+    assert len(names) == 55
+    r, c = BOX.pixel(1.4382, 103.7890, (480, 480))  # Woodlands
+    assert names[idx[r, c]] == "WOODLANDS"

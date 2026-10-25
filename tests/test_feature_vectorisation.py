@@ -45,7 +45,7 @@ def _reference_process_batch(
             if prune_zero_rain and r120 == 0.0 and dec < 1.0:
                 continue
             r30 = round(w[6][k], 2)
-            score, _ = rarity.compute_rarity_and_return_period(zone, r30)
+            score = round(float(rarity.score_array(zone, np.array([r30]))[0][0]), 4)
             records.append(
                 {
                     "ura_planning_area": zone,

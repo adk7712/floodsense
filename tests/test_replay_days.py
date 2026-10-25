@@ -1,4 +1,4 @@
-"""Replaying any day from the rainfall store (floodsense.app.replay_days)."""
+"""Replaying any day from the rainfall store (floodsense.serving.replay_days)."""
 
 from datetime import date
 
@@ -6,13 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from floodsense.app import replay_days as rd
 from floodsense.common.config import settings
 from floodsense.common.schemas import FloodEvent
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
 from floodsense.models.artifact import load_model
 from floodsense.models.scoring import score_zone_features
+from floodsense.serving import replay_days as rd
 
 needs_store = pytest.mark.skipif(not rd.store_available(), reason="rainfall store not present")
 

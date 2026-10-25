@@ -111,12 +111,3 @@ def load_station_snapshot(path: Path | None = None) -> dict[str, dict]:
         s["id"]: {"name": s["name"], "lat": s["latitude"], "lon": s["longitude"]}
         for s in raw["stations"]
     }
-
-
-def create_singapore_geojson() -> dict:
-    """
-    Load official URA Master Plan 2019 Planning Area GeoJSON feature collection.
-    """
-    if settings.zone_polygons_file.exists():
-        return json.loads(settings.zone_polygons_file.read_text())
-    raise FileNotFoundError(f"Missing {settings.zone_polygons_file}")

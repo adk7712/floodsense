@@ -1,40 +1,15 @@
 """
-FloodSense - Resident-view wording (T2): the action line is on, the "N times" line is never shown
-to residents, and it only says what the saved 2017–2023 result allows.
+FloodSense - Resident-view wording (T2): the action line has a time window, and the page shows
+PUB text literally.
 """
-
-import json
-from pathlib import Path
 
 from floodsense.app import resident_view as rv
 
 
-def _file(tmp_path: Path, show: bool) -> Path:
-    path = tmp_path / "m.json"
-    entry = {"display": {"show": show, "phrase": "at least 116 times"}}
-    path.write_text(
-        json.dumps({"headline_period": "p", "periods": {"p": {"tiers": {"high": entry}}}})
-    )
-    return path
-
-
-def test_action_line_is_on_and_has_a_time_window():
-    assert rv.RISK_WORDING_DRAFT is True
+def test_action_line_has_a_time_window():
     for tier in ("High", "Moderate"):
-        assert "next hour" in rv.DRAFT_TIER_LINE[tier]
-    assert "Low" not in rv.DRAFT_TIER_LINE
-
-
-def test_multiple_line_uses_the_saved_phrase(tmp_path):
-    line = rv.risk_multiple_line("High", _file(tmp_path, True))
-    assert line is not None and line.startswith("At least 116 times the usual flood risk")
-
-
-def test_multiple_line_hidden_when_rule_says_hide_or_data_missing(tmp_path):
-    assert rv.risk_multiple_line("High", _file(tmp_path, False)) is None
-    assert rv.risk_multiple_line("Moderate", _file(tmp_path, True)) is None  # High only
-    assert rv.risk_multiple_line("Low", _file(tmp_path, True)) is None
-    assert rv.risk_multiple_line("High", tmp_path / "missing.json") is None
+        assert "next hour" in rv.TIER_ACTION_LINE[tier]
+    assert "Low" not in rv.TIER_ACTION_LINE
 
 
 def test_markdown_in_pub_text_is_shown_literally():

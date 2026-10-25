@@ -117,14 +117,6 @@ class StormRarityEstimator:
         quiet = r <= 0.1
         return np.where(quiet, 0.0, score), np.where(quiet, 0.0, rp)
 
-    def compute_rarity_and_return_period(self, zone: str, rain_30m: float) -> tuple[float, float]:
-        """
-        Calculates storm rarity score [0.0, 1.0] and estimated return period in years,
-        rounded for display (4 dp and 2 dp). See ``score_array`` for the unrounded batch version.
-        """
-        score, rp = self.score_array(zone, np.array([rain_30m], dtype=np.float64))
-        return round(float(score[0]), 4), round(float(rp[0]), 2)
-
 
 class FeaturePipeline:
     """

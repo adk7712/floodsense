@@ -24,7 +24,6 @@ import plotly.graph_objects as go
 import streamlit as st
 from shapely.geometry import mapping, shape
 
-from floodsense.app import replay_days
 from floodsense.app.resident_view import (
     RESIDENT_CSS,
     areas_at_risk,
@@ -55,7 +54,7 @@ from floodsense.models.scoring import (
 )
 from floodsense.radar.decode import COLOUR_SCALE
 from floodsense.radar.live import RadarView, forecast_features, radar_view
-from floodsense.serving import genie
+from floodsense.serving import genie, replay_days
 from floodsense.serving.coverage import coverage, withhold_tier
 from floodsense.serving.gold import GoldUnavailable, latest_zone_risk, warehouse_id
 from floodsense.spatial.singapore_geo import (
@@ -176,7 +175,6 @@ footer,
 .stAppDeployButton,
 [data-testid="stAppDeployButton"],
 [data-testid="stMainMenu"],
-[data-testid="stDecoration"],
 [data-testid="stToolbarActions"],
 div[data-testid="stSidebarNav"] {{
     display: none !important;
@@ -196,7 +194,6 @@ div[data-testid="stToolbar"] {{
 }}
 
 /* Ensure sidebar expand control floats cleanly when sidebar is collapsed */
-div[data-testid="stSidebarCollapsedControl"],
 [data-testid="stExpandSidebarButton"] {{
     pointer-events: auto !important;
     display: flex !important;
@@ -557,20 +554,6 @@ h2, h3 {{
     color: var(--text-main) !important;
 }}
 
-/* --- 3. ENTERPRISE CARDS --- */
-div[data-testid="stVerticalBlockBorderWrapper"] > div {{
-    background-color: var(--bg-surface) !important;
-    border: 1px solid var(--border-main) !important;
-    border-radius: var(--radius-card) !important;
-    box-shadow: var(--card-shadow) !important;
-    padding: 1.15rem 1.25rem !important;
-}}
-
-/* Top border accent on Diagnostic Card matches active telemetry theme */
-div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div {{
-    border-top: 3px solid var(--accent) !important;
-}}
-
 /* Rarity gauge: no element toolbar */
 .st-key-rarity_gauge [data-testid="stElementToolbar"] {{
     display: none !important;
@@ -607,8 +590,7 @@ div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorde
 }}
 
 /* --- 5. BUTTONS --- */
-button[kind="primary"],
-[data-testid="baseButton-primary"] {{
+button[kind="primary"] {{
     background-color: var(--primary) !important;
     border: 1px solid var(--primary) !important;
     color: #FFFFFF !important;
@@ -620,15 +602,13 @@ button[kind="primary"],
     transition: all 0.15s ease !important;
 }}
 
-button[kind="primary"]:hover,
-[data-testid="baseButton-primary"]:hover {{
+button[kind="primary"]:hover {{
     background-color: var(--primary-hover) !important;
     border-color: var(--primary-hover) !important;
     color: #FFFFFF !important;
 }}
 
-button[kind="secondary"],
-[data-testid="baseButton-secondary"] {{
+button[kind="secondary"] {{
     background-color: var(--bg-subtle) !important;
     border: 1px solid var(--border-main) !important;
     color: var(--text-main) !important;
@@ -640,8 +620,7 @@ button[kind="secondary"],
     transition: all 0.15s ease !important;
 }}
 
-button[kind="secondary"]:hover,
-[data-testid="baseButton-secondary"]:hover {{
+button[kind="secondary"]:hover {{
     background-color: var(--bg-hover) !important;
     border-color: var(--border-main) !important;
     color: var(--text-main) !important;
@@ -713,35 +692,12 @@ button[kind="secondary"]:hover,
     padding-bottom: 0 !important;
 }}
 
-div[data-testid="stToggle"] {{
-    display: inline-flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    margin-bottom: 0px !important;
-}}
-
-div[data-testid="stToggle"] label {{
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    color: var(--text-main) !important;
-    cursor: pointer !important;
-}}
-
-div[data-testid="stToggle"] label p {{
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    color: var(--text-main) !important;
-    margin: 0 !important;
-}}
-
 /* --- 6. SEGMENTED CONTROL --- */
 /* Line the "Mode" label up with the first option's text (button padding + border). */
 section[data-testid="stSidebar"] [data-testid="stButtonGroup"] [data-testid="stWidgetLabel"] {{
     padding-left: 15px !important;
 }}
 
-div[data-testid="stSegmentedControl"],
 .stButtonGroup {{
     background-color: var(--bg-subtle) !important;
     border: 1px solid var(--border-main) !important;
@@ -749,8 +705,7 @@ div[data-testid="stSegmentedControl"],
     padding: 3px !important;
 }}
 
-button[data-variant="segmented_control"],
-button[data-testid="stButtonGroupButton"] {{
+button[data-variant="segmented_control"] {{
     border-radius: 7px !important;
     border: 1px solid transparent !important;
     background-color: transparent !important;
@@ -762,14 +717,7 @@ button[data-testid="stButtonGroupButton"] {{
     transition: all 0.15s ease !important;
 }}
 
-button[data-testid="stButtonGroupButton"][aria-pressed="true"] {{
-    background-color: var(--primary) !important;
-    color: {"#111827" if IS_DARK else "#FFFFFF"} !important;
-    border: 1px solid var(--primary) !important;
-}}
-
-button[data-variant="segmented_control"]:hover,
-button[data-testid="stButtonGroupButton"]:hover {{
+button[data-variant="segmented_control"]:hover {{
     color: var(--text-main) !important;
 }}
 
@@ -891,15 +839,12 @@ div[data-rac][role="option"][aria-selected="true"] {{
 
 /* --- 8. SLIDERS: TELEMETRY ACCENT --- */
 div[data-testid="stSlider"] div[role="slider"],
-div[data-testid="stSelectSlider"] div[role="slider"],
-div[data-testid="stSlider"] div[role="group"] > div > div,
-div[data-testid="stSelectSlider"] div[role="group"] > div > div {{
+div[data-testid="stSlider"] div[role="group"] > div > div {{
     border-radius: 9999px !important;
     background-color: var(--primary) !important;
 }}
 
-div[data-testid="stSlider"] div[data-baseweb="slider"] div,
-div[data-testid="stSelectSlider"] div[data-baseweb="slider"] div {{
+div[data-testid="stSlider"] div[data-baseweb="slider"] div {{
     background-color: var(--primary) !important;
 }}
 
@@ -1182,6 +1127,22 @@ def replay_features(path: str) -> tuple[pd.DataFrame, str, int]:
         table["timestamp"] <= replay.display_end
     )
     return table[in_window].reset_index(drop=True), replay.event_name, len(replay.stations)
+
+
+def replay_status_line(label: str, view_time: datetime) -> str:
+    """The amber replay badge and the timestamp, shown above the map in replay mode."""
+    replay_bg = "rgba(245, 158, 11, 0.15)" if IS_DARK else "#FEF3C7"
+    replay_border = "rgba(245, 158, 11, 0.35)" if IS_DARK else "#FDE68A"
+    replay_color = "#FBBF24" if IS_DARK else "#D97706"
+    replay_badge = (
+        f'<span style="background: {replay_bg}; border: 1px solid {replay_border}; '
+        f"color: {replay_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
+        f"font-family: 'Inter', sans-serif; font-weight: 600;\">{label}</span>"
+    )
+    return (
+        f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
+        f"`{view_time:%d %b %Y %H:%M} SGT`"
+    )
 
 
 @st.cache_data(show_spinner="Loading rainfall for that day…")
@@ -1802,19 +1763,7 @@ elif replay_days.store_available():
         )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
-    replay_bg = "rgba(245, 158, 11, 0.15)" if IS_DARK else "#FEF3C7"
-    replay_border = "rgba(245, 158, 11, 0.35)" if IS_DARK else "#FDE68A"
-    replay_color = "#FBBF24" if IS_DARK else "#D97706"
-    replay_badge = (
-        f'<span style="background: {replay_bg}; border: 1px solid {replay_border}; '
-        f"color: {replay_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
-        f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
-        "⟳ Replay: NEA gauge readings</span>"
-    )
-    status_line = (
-        f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
-        f"`{view_time:%d %b %Y %H:%M} SGT`"
-    )
+    status_line = replay_status_line("⟳ Replay: NEA gauge readings", view_time)
     second_look = replay_days.second_look_note(replay_day)
     if view.step_share < replay_days.SPARSE_SHARE:
         replay_warning = (
@@ -1833,19 +1782,7 @@ else:
     )
     view_time = times[chosen]
     features = table[table["timestamp"] == view_time].reset_index(drop=True)
-    replay_bg = "rgba(245, 158, 11, 0.15)" if IS_DARK else "#FEF3C7"
-    replay_border = "rgba(245, 158, 11, 0.35)" if IS_DARK else "#FDE68A"
-    replay_color = "#FBBF24" if IS_DARK else "#D97706"
-    replay_badge = (
-        f'<span style="background: {replay_bg}; border: 1px solid {replay_border}; '
-        f"color: {replay_color}; padding: 4px 12px; border-radius: 9999px; font-size: 0.78rem; "
-        f"font-family: 'Inter', sans-serif; font-weight: 600;\">"
-        f"⟳ Historical Replay: {event_name}</span>"
-    )
-    status_line = (
-        f"{replay_badge} &nbsp;·&nbsp; <span style='color: {c_muted}; font-size: 0.8rem; font-family: \"Inter\", sans-serif; font-weight: 500;'>Timestamp:</span> "
-        f"`{view_time:%d %b %Y %H:%M} SGT`"
-    )
+    status_line = replay_status_line(f"⟳ Historical Replay: {event_name}", view_time)
     day_events = replay_days.events_on(replay_days.PINNED_STORM, flood_events())
 
 # Gold arrives scored by the pipeline: show its probabilities and tiers as they are.
