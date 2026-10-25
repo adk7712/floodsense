@@ -6,3 +6,5 @@ databricks/
 CLAUDE.md
 uv.lock
 .pre-commit-config.yaml
+floodsense-ideal-vision.md
+floodsense-project-plan.pdf
