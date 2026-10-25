@@ -50,7 +50,12 @@ def test_gold_matches_the_app_path_exactly(replay, gold):
     want = score_zone_features(table, load_model())[core.PREDICTION_COLUMNS]
     want = want.sort_values(["timestamp", "ura_planning_area"]).reset_index(drop=True)
     assert list(gold.columns) == core.PREDICTION_COLUMNS
-    assert len(gold) == len(want) == 55 * len(replay.display_timestamps)
+    assert (
+        len(gold)
+        == len(want)
+        == 55
+        * sum(replay.display_start <= s.timestamp <= replay.display_end for s in replay.snapshots)
+    )
     assert (gold["risk_tier"] == want["risk_tier"]).all()
     for col in core.PREDICTION_COLUMNS[2:-1]:
         np.testing.assert_allclose(gold[col].to_numpy(float), want[col].to_numpy(float), rtol=1e-12)

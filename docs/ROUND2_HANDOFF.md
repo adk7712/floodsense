@@ -119,8 +119,8 @@ Items marked "adk" still need adk's agreement or action.
 | # | Decision | Done here |
 |---|---|---|
 | 1 | Keep `rule_rain60` (version 3); T3 is not pursued before Demo Day | Recorded |
-| 2 | Resident wording: tier + action + time window, **no "N times" multiple** to residents; a hedged "over 100 times the risk of an ordinary rainy hour, based on 8 past floods" only on a slide, if at all. Turn on `RISK_WORDING_DRAFT` once both have read the strings (**adk**) | Flag still off |
-| 3 | "Second look" caption on any replay of a 2024–2026 day (storm buttons and the 30 Sep 2026 radar day) | `replay_days.second_look_note`, shown with the replay caption; test added |
+| 2 | Resident wording: tier + action + time window, **no "N times" multiple** to residents; a hedged "over 100 times the risk of an ordinary rainy hour, based on 8 past floods" only on a slide, if at all. Action line per tier shown in the Resident view (**adk** to read the strings) | On since 22 Oct |
+| 3 | "Second look" caption on any replay of a 2024–2026 day (storm buttons and the 30 Sep 2026 radar day) | `serving/replay_days.second_look_note`, shown with the replay caption; test added |
 | 4 | Radar results (Jul–Sep 2026 data): no "second look" label, but say plainly they use 2026 radar, never flood labels | README "Radar" line |
 | 5 | Vulnerable packages: upgrade after Demo Day; not on the limitations slide (fixable, Akul 22 Oct) | Recorded |
 | 6 | Bot with an incomplete gold step: keep sending nothing | Recorded |
@@ -322,7 +322,7 @@ Checks run: 366 unit and 43 integration tests pass; ruff, format and mypy clean.
 - **T5** `?area=<slug>` link (`area_from_slug`, `spatial/singapore_geo.py`): unknown or empty values fall back to the default; AppTest tests.
 
 **Drafted, behind a flag, NOT in use (needs adk's sign-off):**
-- **T2** Resident risk wording: `RISK_WORDING_DRAFT = False` in `app/resident_view.py` (verb + time window per tier). PUB-style "avoid ... for at least one hour" is not drafted (no sourced wording). The "N times the usual flood risk for a rainy hour" figure is computed from 2017–2023 only (`docs/results/risk_multiple_2017_2023.{py,json,md}`): High about 231 times (90% CI 117–359, 8 floods), Moderate about 28 times (11–49, 6 floods). **Recommendation: do not show "about N"**; the flag, if turned on, shows High only as "at least 116 times". The baseline counts drizzle and is pooled across zones, so "here" is not supported.
+- **T2** Resident risk wording: `TIER_ACTION_LINE` in `app/resident_view.py` (verb + time window per tier, shown since 22 Oct). PUB-style "avoid ... for at least one hour" is not drafted (no sourced wording). The "N times the usual flood risk for a rainy hour" figure is computed from 2017–2023 only (`docs/results/risk_multiple_2017_2023.{py,json,md}`): High about 231 times (90% CI 117–359, 8 floods), Moderate about 28 times (11–49, 6 floods). **Recommendation: do not show "about N"**; it is not shown to residents (22 Oct), and the app no longer has code for it. The baseline counts drizzle and is pooled across zones, so "here" is not supported.
 
 **Specified, NOT built:** **T6** postal-code lookup via OneMap (`docs/onemap_postal_lookup_spec.md`). All terms unverified; build only after the licence and token checks.
 
@@ -392,7 +392,7 @@ Intervals are 90% bootstrap intervals over the 28 floods (wide, and they overlap
 
 ### 17 Oct (adk): done, waiting, next
 
-**Labels: the file is now 88 verified, 0 unverified** (`docs/label_review_2026-10-17.md`, commit `33e9484`).
+**Labels: the file is now 88 verified, 0 unverified** (`docs/label_reviews_2026-10.md`, commit `33e9484`).
 - adk second-checked the 11 new candidates drafted by Akul's session: **8 verified (as adk), 3 rejected** (the rejections are in `docs/flood_events_rejected.md`).
 - Verified floods: 58 in 2017–2023 (28 in the 2020–2023 cross-validation folds) and 30 in 2024–2026.
 - Against the 60-new target: 14 + 8 = 22 new verified rows. The shortfall is documented (label target, below).
@@ -551,7 +551,7 @@ Branch `app-radar-gap-live-alerts`, cut from `65d7387`. Committed and pushed (br
   - The folded panel was screenshotted in light and dark (Replay 17 Apr 2021, 12:50, Bukit Timah) and reads well. It has no forecast line of its own; the map's "In 1 hour" layer is unchanged.
 
 **Limitations and loose ends (be aware before relying on today's work):**
-- **Labels (16 Oct, history):** only 4 of the 14 new candidate rows had their source quote re-checked by adk's session; the other 10 relied on the drafting agent's own check. All 14 were then checked and signed off by Akul on 16 Oct (`docs/label_review_2026-10-16.md`), and the 11 later candidates were checked by adk on 17 Oct (8 verified, 3 rejected; `docs/label_review_2026-10-17.md`). No row is unverified now.
+- **Labels (16 Oct, history):** only 4 of the 14 new candidate rows had their source quote re-checked by adk's session; the other 10 relied on the drafting agent's own check. All 14 were then checked and signed off by Akul on 16 Oct (`docs/label_reviews_2026-10.md`), and the 11 later candidates were checked by adk on 17 Oct (8 verified, 3 rejected; `docs/label_reviews_2026-10.md`). No row is unverified now.
 - **Secondary sources:** several label sources are reposts (a wildsingaporenews blog copying CNA, ST or TODAY text) or secondary pages (ADInet, an archived The Online Citizen piece). The original articles were not fetched. Each row says so in `notes`.
 - **Label target:** 22 new verified rows (14 + 8) against a plan target of 60 (the Definition of Done says 100). 2022–23 added none.
   - Not tried: the ERL paper supplement (CAPTCHA, needs a person in a browser), `t.me/sgflood`, Wayback copies of PUB's X/Facebook posts, and Hansard through a browser.
@@ -641,7 +641,7 @@ Streamlit app, live or as a replay of any day since 2017.
 |---|---|
 | Data | 60.8M NEA 5-min readings, 2017 to Sep 2026 (Parquet store). 88 verified flood events (58 in 2017–23 for training and cross-validation; 30 in 2024–26 as the test set), none unverified (all on master since the 18 Oct merge). Static zone features include `built_up_land_pct` (18 Oct, B7). PUB Flood Prone Areas, URA MP2019 zones, LTA MRT station exits. |
 | Model | A Platt-calibrated **60-min rainfall rule** (`models/flood_model.joblib`). **Champion is model version 3** (since 18 Oct): Moderate from 0.53% (≈38 mm in 60 min), High from 0.71% (≈43 mm). The published test result (2024 to Sep 2026, 30 floods, scored once): High 12/30 (40%, CI 27–53%), Moderate 21/30 (70%, CI 57–83%), median warning 10 / 15 min, was measured with version 1 at 0.30%; it does not describe version 3. B7 mentor-test code (pending review, not in serving): `models/mentor_tests.py`, `features/krig_upper.py`, kriging variance in `spatial/kriging.py`. |
-| Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and 15-min PUB alert job** (§3b). See DEPLOYMENT.md. |
+| Databricks | Lakeflow pipeline (bronze → silver → gold, plus the PUB alert archive). Poller job (schedule **paused**). Model in UC as `workspace.floodsense.flood_model@champion`, which gold scores with (A4). AI/BI dashboard. UC tags. **Radar archive and daily job** (§3). **Daily gauge archive and PUB alert job** (DEPLOYMENT.md §14). See DEPLOYMENT.md. |
 | Radar | **Done, all of A1** (§3). |
 | App | Live mode (PUB live alerts, 5-min refresh) and Replay (two-step sidebar: choose a date, then simulate). Map switch **Risk of flood \| Rain radar**, with a joined timing row (**Now \| In 1 hour**, or **Now \| +30 \| +60 min**); one layer at a time; slim legend bars. Zone Diagnostic panel shows risk, a 2-line radar summary in radar view, and (Live mode, 17 Oct, `404c9bd`) the official PUB alert for the selected area. The separate Resident view (A9) has the "What to do" line; its switch sits top right. MRT stations at risk. Light/dark toggle, orange buttons. |
 | Tests/CI | On `ci-data-checks` (21 Oct, pushed, awaiting review): CI gates on the lock check, ruff, format, mypy, the reference-data check, pytest (including the test-set guard) and a gitleaks secret scan; coverage, the licence report and pip-audit are informational (§10). Default `uv run pytest`: 528 passed, 2 skipped, 3 deselected (includes the 55 AppTest integration tests, 1 skipped); coverage 70%. (Earlier, as then written: ruff, mypy, format, and pytest in CI. On `stress-test-fixes` (21 Oct, adk's session, uncommitted): 495 passed, 2 skipped, 3 deselected with the default `uv run pytest` (this includes the 55 Streamlit AppTest integration tests, 1 skipped); ruff, format and mypy clean. (Earlier counts, as then written: 366 unit and 43 integration on 21 Oct earlier, 344/33 on 18 Oct, 321 unit on 17 Oct, about 290 on 16 Oct.) GitHub Actions on push.)|
@@ -672,48 +672,6 @@ Streamlit app, live or as a replay of any day since 2017.
 - **In the app:** `floodsense.radar.live`. Demo day for radar: **30 Sep 2026** (Woodlands flood);
   17 Apr 2021 predates the radar archive.
 - **Rate limits (17 Oct, `20a484d`):** without a data.gov.sg key, the live fallback gets HTTP 429 and showed no radar at some times. Fixed on `app-radar-gap-live-alerts`; the remaining actions are in §0 (17 Oct, later).
-
-
-## 3b. Ongoing data collection (16 Oct)
-
-The poller is paused, so two jobs keep the data growing (DEPLOYMENT.md §14):
-- **`floodsense-daily-archiver`** (03:00 SGT): radar (§3) plus the last 3 complete days of gauge
-  readings, as raw API pages in `landing/rainfall/daily/`. The pipeline ingests them on its next
-  update (the job doesn't run it). Gauges backfilled from 1 Oct, so there is no gap since 30 Sep.
-- **`floodsense-flood-alerts`** (every 15 min): PUB alerts, which the API doesn't keep. Only pages
-  with an alert are saved. **Pause it at the same time as the poller is unpaused** (A3); the poller saves alerts
-  too. Check its compute use after the first day; fall back to every 30 min if heavy.
-- The **local** gauge store (`data/raw/rainfall`) ends 15 Oct 2026 (21 Oct), and local radar ends 14 Oct;
-  neither updates by itself.
-
----
-
-## 4. Round 2 plan and ownership
-
-The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6 are done, and Akul has finished A1, A2 and A6 (see §0). Done by adk (§0): B2 (zone_static), B3, B4.1, B4.2/B2.4 (re-run on 88 labels, 17 Oct), A5 (replay and Telegram bot; deployed 18 Oct as a poller task), A7.2 (first pass), A9 (its PUB alert line is `404c9bd`, 17 Oct), and B7 (mentor tests round 2, 18 Oct, pending Akul's review).
-
-**Ownership swap: proposed 15 Oct, accepted by adk 16 Oct** (the owners in §4b are updated):
-- **Akul takes everything Databricks:** A2 (app reads gold; done), A3 (poller ops), A4 (serve from UC),
-  A6 (Databricks App; done), A8 (governance), B4.4 (registering adk's candidates), J3.1 (final workspace).
-- **adk takes:** A9 (resident advice, in the separate Resident view), A5 (Telegram bot plus replay mode), A7 (all the
-  label drafting).
-- **adk keeps:** B1–B4 and B6 (labels, static features, kriging, retrain, deck).
-- **Verification:** Akul's side verifies everything adk pushes.
-- **Label second check:** adk drafts, so Akul verifies (`verified_by` = Akul's initials).
-
-**Akul's next items (in order):**
-1. Day-1 checks: closed 16 Oct (no second user needed after the swap; the other B2 team's entry isn't visible).
-2. **Done:** A2 (app reads gold, `d484942`) and A6 (Databricks App, `f02fc15`; OpenCV is in `requirements.txt` for radar). A1 is also done.
-3. **Done:** A4.1–A4.3 (`772ad07`). Parity: the champion file is byte-identical to `models/flood_model.joblib` and scores the 17 Apr 2021 replay like the Databricks export. Left: A4.4, promote adk's candidate before the freeze if there is one.
-4. A3 (unpause the poller only for the run-up to the demo, long enough to log 48 h of clean runs before Demo Day, because running it longer uses up the daily compute quota; pause `floodsense-flood-alerts` at the same time) and A8.
-5. **Done:** reviewed and merged adk's branch (`0e315b3`). **14 labels checked against sources and signed off by Akul 16 Oct (`docs/label_review_2026-10-16.md`): 80 verified events. adk checked Akul's 11 new candidates on 17 Oct (8 verified, 3 rejected): 88 verified, and re-ran `select_candidates` on them.**
-6. **Done:** A8 (descriptions and tags; DEPLOYMENT.md §18), with gold column comments live since the 16 Oct refresh.
-7. **16 Oct evening refresh** (DEPLOYMENT.md §19): wheel rebuilt, gold refreshed to 18:20 SGT, Databricks App redeployed with the day's app and checked by Akul, then stopped. Telegram job proposed as a poller task, waiting on adk's bot token and chat id. The Telegram provider is done (`2ec4bfb`, §0); the Telegram job deployment is on Akul's list (§0, "Waiting on Akul", item 5).
-8. Run `brew upgrade uv` before `uv sync --locked` (see the uv note in §0).
-
-**Also:**
-- Share the radar results with adk (§4b is the plan).
-- ~~Settle the radar go/no-go~~: **GO**, decided 17 Oct.
 
 ---
 
@@ -869,24 +827,6 @@ The task list is §4b (merged from the old work plan, v3.2). Status: A1.1–A1.6
   - AI/BI dashboard id `01f1c168d5ba1a44819705ab969bf3ea`
 - **Secret** `floodsense/data_gov_api_key` (the data.gov.sg key). The key is also in the gitignored
   `.env`. Never print it. Creating secrets is Akul's job (the classifier blocks it for Claude).
-
----
-
-## 8. Local environment (this Mac)
-
-- **uv:** use `.venv/bin/uv`, or call the venv tools directly (`.venv/bin/pytest`, `ruff`, `mypy`,
-  `streamlit`). Homebrew is installed; `libomp` and `poppler` were installed via brew.
-- **Run the app:** `.venv/bin/streamlit run src/floodsense/app/streamlit_app.py --server.headless true --server.port 8501`.
-  The preview launcher was unreliable, so start it via Bash. Playwright with Chromium is installed
-  for headless screenshots.
-- **MLflow:** local `mlflow.db`. Paths were fixed on 6 Oct to the College folder (no more
-  `~/Desktop/NTU`). Artifacts go to `mlruns/` (gitignored).
-- **Local data:**
-  - the feature store `data/processed/features` (to Sep 2026)
-  - radar `data/raw/radar`
-  - `data/processed/nowcast_eval.parquet`
-- **Gauge store coverage:** ends 15 Oct 2026 (the nowcast evaluation window is still 16 Jul to 30 Sep).
-- **`.env` (adk, 17 Oct):** holds the Telegram token and chat ID. It has no data.gov.sg key yet (§0, 17 Oct, later). Never print any of them.
 
 ---
 

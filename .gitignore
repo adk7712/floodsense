@@ -8,7 +8,6 @@ mlflow.db
 .DS_Store
 *.parquet
 data/raw/*
-!data/raw/.gitkeep
 # The NEA rainfall store (~18 MB of Parquet, 2017 onward) is committed so the app can replay any
 # date and nobody has to rebuild it. Raw CSVs, sightings and the manifest stay local.
 !data/raw/rainfall/
@@ -20,7 +19,6 @@ data/raw/rainfall/*
 tests/screenshots/
 data/reports/
 .claude/
-.agents/
 data/processed/
 .mypy_cache/
 .ruff_cache/

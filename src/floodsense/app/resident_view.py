@@ -8,11 +8,9 @@ always agree.
 """
 
 import html
-import json
 import re
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -22,8 +20,6 @@ from floodsense.common.schemas import FloodEvent
 from floodsense.ingestion.flood_alerts import FloodAlert
 from floodsense.models.scoring import NO_DATA_TIER, risk_tier
 
-# The same wording as the Telegram alerts and the zone panel (alerts/messages.py).
-ADVICE_FOR_TIER = ADVICE
 RISK_NOW = {
     "High": "High risk of a flash flood",
     "Moderate": "Moderate risk of a flash flood",
@@ -40,45 +36,16 @@ PARTIAL_NOTE = (
 PUB_ALERTS_UNAVAILABLE = "PUB flood alerts can't be checked right now."
 FORECAST_CAVEAT = "Forecast from radar; flood accuracy not yet tested."
 
-# Action line per tier (T2): a verb and a time window. Turned on 22 Oct (team decision; adk to
+# Action line per tier (T2): a verb and a time window, shown since 22 Oct (team decision; adk to
 # review the strings). PUB-style "avoid ... for at least one hour" is left out: no sourced PUB
-# wording has been checked yet, so it is UNVERIFIED and not drafted here.
-RISK_WORDING_DRAFT = True
-DRAFT_TIER_LINE = {
+# wording has been checked yet, so it is UNVERIFIED and not drafted here. The "N times the usual
+# risk" figure (docs/results/risk_multiple_2017_2023.*) is not shown to residents (22 Oct).
+TIER_ACTION_LINE = {
     "High": "Flooding is likelier than usual in the next hour. Act now.",
     "Moderate": "Flooding is possible in the next hour. Prepare now.",
 }
-RISK_MULTIPLE_FILE = (
-    Path(__file__).resolve().parents[3] / "docs/results/risk_multiple_2017_2023.json"
-)
 
 TierStyle = Callable[[str, bool], tuple[str, str, str]]
-
-
-def risk_multiple_line(tier: str, path: Path = RISK_MULTIPLE_FILE) -> str | None:
-    """The "N times the usual flood risk for a rainy hour" line, from the 2017–2023 figures.
-
-    Not shown to residents (team decision, 22 Oct: 8 floods, a weak "usual" baseline and no
-    per-area figure); kept for the slide, where the caveats fit.
-
-    Reads the saved result (``docs/results/risk_multiple_2017_2023.py``) and shows its own
-    ``display.phrase`` only when its rule allows it; None for Low, a missing file or a hidden
-    figure. 2017–2023 data only (never the 2024–2026 test set)."""
-    # High only: the Moderate figure is not recommended (docs/results/risk_multiple_2017_2023.md).
-    if tier != "High":
-        return None
-    try:
-        data = json.loads(path.read_text())
-        entry = data["periods"][data["headline_period"]]["tiers"][tier.lower()]
-        display = entry["display"]
-        return (
-            f"{str(display['phrase']).capitalize()} the usual flood risk for a rainy hour "
-            "(Singapore-wide, from 2017–2023 floods)."
-            if display["show"]
-            else None
-        )
-    except (OSError, KeyError, ValueError, TypeError):
-        return None
 
 
 def areas_at_risk(table: pd.DataFrame) -> str:
@@ -250,14 +217,14 @@ def render_resident_view(
     if pub_alerts_unavailable:
         st.caption(PUB_ALERTS_UNAVAILABLE)
 
-    if RISK_WORDING_DRAFT and tier in DRAFT_TIER_LINE:
-        st.markdown(f"**{DRAFT_TIER_LINE[tier]}**")
+    if tier in TIER_ACTION_LINE:
+        st.markdown(f"**{TIER_ACTION_LINE[tier]}**")
 
     st.markdown('<div class="fs-res-step">What to do</div>', unsafe_allow_html=True)
     st.markdown(
         f'<div class="fs-res-advice" style="border-left:6px solid {colour}; '
         f'background:{tokens["bg_surface"]}; color:{tokens["text_main"]};">'
-        f"{NO_DATA_ADVICE if tier == NO_DATA_TIER else ADVICE_FOR_TIER[tier]}</div>",
+        f"{NO_DATA_ADVICE if tier == NO_DATA_TIER else ADVICE[tier]}</div>",
         unsafe_allow_html=True,
     )
 

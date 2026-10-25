@@ -38,7 +38,6 @@ CURRENT_MODERATE = 0.003
 REFIT_MODERATE = 0.00531
 HIGH = 0.00706
 DEFAULT_CUTOFFS: list[float] = [0.002, 0.003, 0.004, 0.0045, REFIT_MODERATE, 0.006, HIGH]
-SCALE_MM = 25.0  # RuleModel: p = x / (x + 25); used only for the mm equivalents, see _mm
 
 
 def _mm(p: float) -> float:

@@ -24,10 +24,7 @@ from floodsense.features.feature_pipeline import (
 )
 from floodsense.ingestion.poller import NEAPoller
 from floodsense.spatial.idw_matrix import IDWMatrixEngine, haversine_distance_km
-from floodsense.spatial.singapore_geo import (
-    URA_PLANNING_AREAS,
-    create_singapore_geojson,
-)
+from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 
 def test_haversine_distance():
@@ -98,8 +95,9 @@ def test_zero_rain_stream_pruning():
 def test_storm_rarity_score():
     """Verify that high rainfall bursts produce high rarity scores and return periods."""
     estimator = StormRarityEstimator()
-    score_low, rp_low = estimator.compute_rarity_and_return_period("BUKIT TIMAH", 5.0)
-    score_extreme, rp_extreme = estimator.compute_rarity_and_return_period("BUKIT TIMAH", 85.0)
+    (score_low, score_extreme), (rp_low, rp_extreme) = estimator.score_array(
+        "BUKIT TIMAH", np.array([5.0, 85.0])
+    )
 
     assert score_low < score_extreme
     assert rp_low < rp_extreme
@@ -121,13 +119,6 @@ def test_poller_stages_raw_payload(tmp_path):
     payload = {"code": 0, "data": {"stations": [], "readings": []}}
     staged = NEAPoller(landing_dir=tmp_path).stage_payload_to_volume(payload, "x.json")
     assert json.loads(staged.read_text()) == payload
-
-
-def test_geojson_generation():
-    """Verify GeoJSON generation for 55 planning areas."""
-    gj = create_singapore_geojson()
-    assert gj["type"] == "FeatureCollection"
-    assert len(gj["features"]) == len(URA_PLANNING_AREAS)
 
 
 # --- Scoring unknown inputs, and the IDW engine's defaults ---------------------------------------

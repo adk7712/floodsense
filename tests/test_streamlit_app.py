@@ -10,8 +10,8 @@ import pytest
 import requests
 from streamlit.testing.v1 import AppTest
 
-from floodsense.app import replay_days
-from floodsense.app.replay_days import store_available
+from floodsense.serving import replay_days
+from floodsense.serving.replay_days import store_available
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS
 
 pytestmark = pytest.mark.integration
@@ -207,7 +207,7 @@ def test_gap_and_patchy_days_are_flagged_not_shown_as_dry():
 
 
 def test_without_the_store_the_recorded_storm_still_replays(monkeypatch):
-    from floodsense.app import replay_days
+    from floodsense.serving import replay_days
 
     monkeypatch.setattr(replay_days, "store_available", lambda: False)
     at = _app()
@@ -535,7 +535,8 @@ def test_resident_area_selection_changes_the_shown_area():
 
 @needs_store
 def test_resident_advice_matches_the_tier():
-    from floodsense.app.resident_view import ADVICE_FOR_TIER, RISK_NOW
+    from floodsense.alerts.messages import ADVICE
+    from floodsense.app.resident_view import RISK_NOW
 
     # 12:50 on 17 Apr 2021 has High zones. Check each tier that occurs.
     at = _resident(time_label="12:50")
@@ -550,9 +551,9 @@ def test_resident_advice_matches_the_tier():
         assert not at.exception
         text = _resident_text(at)
         assert RISK_NOW[tier] in text, (zone, tier)
-        assert ADVICE_FOR_TIER[tier] in text
-        for other in set(ADVICE_FOR_TIER) - {tier}:
-            assert ADVICE_FOR_TIER[other] not in text
+        assert ADVICE[tier] in text
+        for other in set(ADVICE) - {tier}:
+            assert ADVICE[other] not in text
         seen.add(tier)
     assert "High" in seen, "expected some zone to be High at 12:50 on 17 Apr 2021"
 

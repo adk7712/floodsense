@@ -206,9 +206,7 @@ def _boot_diff(
     return m, [float(lo), float(hi)]
 
 
-def _summarise(
-    sub: pd.DataFrame, n_steps: int, rng: np.random.Generator, n_boot: int
-) -> dict[str, object]:
+def _summarise(sub: pd.DataFrame, rng: np.random.Generator, n_boot: int) -> dict[str, object]:
     n = len(sub)
     if n == 0:
         return {"n_gauge_steps": 0}
@@ -232,7 +230,7 @@ def _summarise(
     }
 
 
-def summarise(res: pd.DataFrame, n_steps: int, seed: int, n_boot: int) -> dict[str, object]:
+def summarise(res: pd.DataFrame, seed: int, n_boot: int) -> dict[str, object]:
     rng = np.random.default_rng(seed)
     groups = {
         "light (<10 mm/h)": res[res["obs"] < HEAVY_MMH],
@@ -240,7 +238,7 @@ def summarise(res: pd.DataFrame, n_steps: int, seed: int, n_boot: int) -> dict[s
         "very heavy (>=30 mm/h)": res[res["obs"] >= VERY_HEAVY_MMH],
         "all": res,
     }
-    return {name: _summarise(sub, n_steps, rng, n_boot) for name, sub in groups.items()}
+    return {name: _summarise(sub, rng, n_boot) for name, sub in groups.items()}
 
 
 def format_table(summary: dict[str, object]) -> str:
@@ -288,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
     variogram, vinfo = fit_pooled_variogram(fit_steps, geo)
     kriger = OrdinaryKriger(variogram)
     res, extra = evaluate(eval_steps, geo, kriger)
-    summary = summarise(res, len(eval_steps), a.seed, a.boot)
+    summary = summarise(res, a.seed, a.boot)
 
     out = {
         "window": f"{a.first_year}-01-01 to {a.last_year}-12-31 (2024+ held-out, not used)",

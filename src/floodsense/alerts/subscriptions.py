@@ -17,9 +17,7 @@ volume for the job. Email sign-up is not built.
 
 import json
 import logging
-import os
 import shutil
-import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta
 from difflib import get_close_matches
@@ -27,6 +25,7 @@ from pathlib import Path
 from typing import Protocol
 
 from floodsense.alerts.messages import HELP_TEXT, MAX_AREAS_PER_CHAT
+from floodsense.common.fileio import write_json_atomic
 from floodsense.common.timeutil import to_sgt
 from floodsense.models.scoring import NO_DATA_TIER
 from floodsense.spatial.singapore_geo import URA_PLANNING_AREAS, area_from_slug
@@ -156,18 +155,7 @@ class JsonSubscriptionStore:
         if self.path.exists():
             shutil.copy2(self.path, self.backup)
         data = {"version": 1, "last_update_id": self._offset, "subscriptions": self._rows}
-        tmp_name: str | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                "w", dir=self.path.parent, prefix=self.path.name + ".", suffix=".tmp", delete=False
-            ) as tmp:
-                tmp_name = tmp.name
-                json.dump(data, tmp)
-            os.replace(tmp_name, self.path)
-        except OSError:
-            if tmp_name:
-                Path(tmp_name).unlink(missing_ok=True)
-            raise
+        write_json_atomic(self.path, data)
 
 
 def parse_command(text: str) -> tuple[str, str]:

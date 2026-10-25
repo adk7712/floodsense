@@ -203,7 +203,7 @@ The 16 Oct results (66 verified labels) above stay as history.
 
 **Run:** 17 Oct 2026, adk's session, branch `rerun-88-labels`, from commit `33e9484`. The labels
 are the 88 rows in `data/reference/flood_events.csv`, all verified (adk signed off 8 of the 11 new
-candidates on 17 Oct and rejected 3; see `docs/label_review_2026-10-17.md`). The results files
+candidates on 17 Oct and rejected 3; see `docs/label_reviews_2026-10.md`). The results files
 record `git_sha` `33e9484`, and the sensitivity and refit files record `"dirty": false`.
 - `models/candidates/selection_2026-10-17.json`
 - `models/candidates/prior_sensitivity_2026-10-17.json`

@@ -117,14 +117,6 @@ class StormRarityEstimator:
         quiet = r <= 0.1
         return np.where(quiet, 0.0, score), np.where(quiet, 0.0, rp)
 
-    def compute_rarity_and_return_period(self, zone: str, rain_30m: float) -> tuple[float, float]:
-        """
-        Calculates storm rarity score [0.0, 1.0] and estimated return period in years,
-        rounded for display (4 dp and 2 dp). See ``score_array`` for the unrounded batch version.
-        """
-        score, rp = self.score_array(zone, np.array([rain_30m], dtype=np.float64))
-        return round(float(score[0]), 4), round(float(rp[0]), 2)
-
 
 class FeaturePipeline:
     """
@@ -157,7 +149,6 @@ class FeaturePipeline:
         out = {col: np.empty(n_rows) for col in WINDOW_ROWS}
         decay = np.empty(n_rows)
         score = np.empty(n_rows)
-        rp = np.empty(n_rows)
 
         # Rows are sorted by zone, so each zone is one contiguous slice.
         bounds = np.flatnonzero(np.diff(zone_codes)) + 1
@@ -170,9 +161,7 @@ class FeaturePipeline:
                 # Full convolution truncated to n gives partial windows at the zone's start.
                 out[col][lo:hi] = np.convolve(zone_rain, np.ones(window), mode="full")[:n]
             decay[lo:hi] = lfilter([1.0], [1.0, -DECAY_FACTOR_PER_STEP], zone_rain)
-            score[lo:hi], rp[lo:hi] = self.rarity_estimator.score_array(
-                zone, out["rain_30m"][lo:hi]
-            )
+            score[lo:hi], _ = self.rarity_estimator.score_array(zone, out["rain_30m"][lo:hi])
 
         features = pd.DataFrame(
             {

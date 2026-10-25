@@ -23,7 +23,7 @@ import pandas as pd
 from floodsense.common.config import MIN_REPORTING_STATIONS, settings
 from floodsense.models.scoring import NO_DATA_TIER
 
-__all__ = ["NO_DATA_TIER", "coverage", "withhold_tier"]
+__all__ = ["coverage", "withhold_tier"]
 
 # The rain_60m window: this step plus the 11 before it.
 WINDOW_STEPS = 12

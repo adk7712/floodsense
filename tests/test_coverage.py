@@ -5,7 +5,8 @@ import pandas as pd
 import pytest
 
 from floodsense.common.config import MIN_REPORTING_STATIONS
-from floodsense.serving.coverage import NO_DATA_TIER, coverage, withhold_tier
+from floodsense.models.scoring import NO_DATA_TIER
+from floodsense.serving.coverage import coverage, withhold_tier
 
 T0 = pd.Timestamp("2026-10-20 12:00", tz="Asia/Singapore")
 

@@ -1,4 +1,57 @@
-# Flood-label second check, 17 Oct 2026
+# Flood-label second checks, October 2026
+
+Two batches of drafted flood events, each checked against its sources by the person who did not
+draft them. Per-row findings are also in each row's `notes` in `data/reference/flood_events.csv`.
+
+## Flood-label second check, 16 Oct 2026
+
+adk's session drafted 14 flood events (2017–2021, commit `fef4165`). Akul's session checked each one
+against its source on 16 Oct: page fetched, quote found, date and year from the dateline, time,
+and planning area by point-in-polygon on the URA MP2019 polygons. Where possible the original CNA,
+Straits Times or TODAY article was also read. The findings are in each row's `notes`
+(`data/reference/flood_events.csv`). **`verified_by` stays empty until Akul signs off**: the check
+was done by an AI session, and the column records the person who confirmed it.
+
+**Result: 14 of 14 hold up; none rejected. Signed off by Akul on 16 Oct (`verified_by` = `Akul9`).** Decisions: Geylang and Hougang kept as rain-day floods (Hougang's cause changed to `rain`); Rochor Road kept as DOWNTOWN CORE.
+
+| Event | Source re-read | Original reached | Open point for the sign-off |
+|---|---|---|---|
+| 2017-10-30 Newton, Mount Elizabeth | wildsingapore repost | CNA (Wayback) | Point ~85 m from the ORCHARD boundary |
+| 2017-10-30 Downtown Core, Stamford Rd | repost | ST, CNA | Junction ~90 m from MUSEUM/ROCHOR |
+| 2018-01-09 Outram, Craig Rd | repost | ST | One passing sentence, no second source |
+| 2018-01-30 Seletar, Seletar North Link | repost | TODAY, ST | Start 5.17pm (PUB); ST says about 5.15pm |
+| 2018-05-26 Orchard, Kramat Lane | archived TOC page | ST | ~85 m from the NEWTON boundary |
+| 2018-06-26 Clementi, Toh Tuck Ave | ADInet | ST | none |
+| 2018-06-26 Bukit Timah, Lorong Kismis | repost | CNA (Wayback) | ST calls it "Jalan Kismis" |
+| 2018-06-29 Bukit Timah, Lorong Kismis / Dunearn Rd | repost | not reachable | none |
+| 2018-09-19 Ang Mo Kio, Ave 6 | Mothership | PUB tweets not reachable | none |
+| 2018-11-11 Geylang, Lorong 23 | repost | not reachable | **Cause:** choked construction drain in heavy rain, kept as `rain` |
+| 2019-06-03 Downtown Core, Rochor Rd | Coconuts | — | **Planning area ambiguous** (77 m from ROCHOR); Republic Blvd, clearly DOWNTOWN CORE, flooded the same day |
+| 2020-11-02 Hougang, Ave 3 | PUB Clarifications page | — | **Cause `other`** (construction runoff); single PUB source plus a MustShareNews photo |
+| 2021-07-12 Bukit Timah, Dunearn Rd | MustShareNews | — | none |
+| 2021-07-12 Sengkang, TPE slip road | MustShareNews | — | Slip road not geocoded; near PUNGGOL |
+
+**Decisions for the sign-off:**
+1. **Construction-related floods:** Geylang (2018-11-11) is `rain` and Hougang (2020-11-02) is
+   `other`, though both are blocked or overflowing construction drains during heavy rain. Pick one rule.
+   Simplest: keep both as rain-day floods, or drop both from training.
+2. **Rochor Road (2019-06-03):** keep it as DOWNTOWN CORE (Republic Blvd supports a Downtown Core flood
+   that day), or leave it out.
+
+**To sign off:** set `verified_by` to your initials on the rows you accept. Setting it is what makes a
+row count for training.
+
+### New candidates (11), drafted 16 Oct by Akul's session
+
+Added unverified at the end of `flood_events.csv`: seven from 2017, and one each from 2018 and 2021,
+plus two from 2022. Every page was fetched, every quote string-matched, and every planning area
+point-in-polygon tested. **adk should do their second check**, since Akul's side drafted them. Rows
+whose notes need a human look: Orchard Blvd (RIVER VALLEY or ORCHARD?), the BKE shoulder near
+Kranji (SUNGEI KADUT is a best guess), reader-video-only rows (Pasir Ris Farmway, Hougang Ave 1,
+Woodlands Ave 2, Stirling Rd), and Stomp pages whose year comes from page metadata. What was skipped
+and why is in `docs/flood_events_rejected.md`.
+
+## Flood-label second check, 17 Oct 2026
 
 Akul's session drafted 11 candidate flood events on 16 Oct (commit `0b1edd4`). adk's session then
 checked each one with AI agents on 17 Oct: the page was fetched, the quote was matched word for word,
@@ -11,7 +64,7 @@ pages were checked for corroboration.
 rows moved to `docs/flood_events_rejected.md`. The label file now has 88 verified events and no
 unverified rows.
 
-## Verdicts
+### Verdicts
 
 | # | Event (date, place, area) | Source | Verdict | What adk should look at |
 |---|---|---|---|---|
@@ -27,7 +80,7 @@ unverified rows.
 | 10 | 2022-11-07, BKE road shoulder near Kranji Exit 8 (no single area) | [Stomp, PUB statement](https://www.stomp.sg/singapore-seen/car-drives-through-floodwater-on-bke-can-go-kayaking-on-highway-in-future); corroborated by [Mothership](https://mothership.sg/2022/11/bke-flooded-drains-blocked/) | REJECT | The flood is real. But the expressway there is within about 10 m of the SUNGEI KADUT, MANDAI and WOODLANDS lines, and no source gives a direction or km. |
 | 11 | 2022-11-13, behind Block 48 Stirling Rd (QUEENSTOWN) | [Stomp, reader video and town council reply](https://www.stomp.sg/singapore-seen/flooding-at-stirling-road-town-council-says-no-issue-with-estate-drainage-system-will) | KEEP (adk decided, 17 Oct) | Source type: Tanjong Pagar Town Council statement only, plus a reader video. No PUB or news report found. |
 
-## Steps for adk
+### Steps for adk
 
 1. Open each source link above. Start with rows 2, 3, 4, 6, 7 and 11, since those need a judgement.
    For each one, check that the quote is on the page and that the date and time match what it says.
@@ -38,7 +91,7 @@ unverified rows.
    - set `verified_by` to your initials on the 8 kept rows (1, 2, 3, 4, 6, 7, 9 and 11).
 3. After that, the model is re-run with the updated labels.
 
-## Not checked
+### Not checked
 
 - Original CNA, TODAY and Straits Times articles for rows 1, 2, 3 and 7. Only the Wildsingapore reposts were read.
 - The TheOnlineCitizen page for row 1. Only a search snippet was seen (UNVERIFIED).
@@ -48,7 +101,7 @@ unverified rows.
 - The exact BKE stretch for row 10. No source gives a direction or km.
 - The "Kranji Exit 8" wording is Stomp's, not Mothership's. Mothership does not mention Kranji or Exit 8.
 
-## Per-row evidence
+### Per-row evidence
 
 1. **Craig Rd / Tanjong Pagar Rd, 2017-01-23.** Quote found in the TODAY passage. Date from "Monday (Jan 23)" and the dateline "23 Jan 17". Junction not geocoded (Overpass timed out). Craig Rd points are OUTRAM, 150 to 161 m from BUKIT MERAH and 189 to 235 m from DOWNTOWN CORE. Corroboration: the repost reproduces CNA, TODAY and TNP, all citing PUB.
 2. **Maxwell Rd, 2017-01-23.** Quote found in the CNA passage ("At 10am, the flash flood at Maxwell Road had subsided"). Date as row 1. Junction with South Bridge Rd is OUTRAM, 2 to 17 m from DOWNTOWN CORE. Kadayanallur St point is DOWNTOWN CORE, 29 m from OUTRAM. Corroboration: same repost as row 1.

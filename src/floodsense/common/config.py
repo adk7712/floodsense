@@ -126,13 +126,6 @@ class Settings(BaseSettings):
         return ZoneInfo(self.timezone)
 
     @property
-    def operational_thresholds(self) -> dict[str, float]:
-        return {
-            "low_moderate": self.risk_low_moderate,
-            "moderate_high": self.risk_moderate_high,
-        }
-
-    @property
     def models_dir(self) -> Path:
         return self.root_dir / "models"
 

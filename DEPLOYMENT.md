@@ -86,7 +86,7 @@ databricks fs cp -r replay_landing dbfs:/Volumes/workspace/floodsense/landing/ra
 W=/Workspace/Users/<your-login>/floodsense
 databricks workspace mkdirs $W
 databricks workspace import $W/lakeflow_pipeline.py --file databricks/pipelines/lakeflow_pipeline.py --format RAW --overwrite
-databricks pipelines create --json @databricks/pipelines/pipeline_spec.json
+# (the pipeline is now managed by the asset bundle, databricks/bundle/pipeline.yml; section 24)
 databricks pipelines start-update <pipeline_id> --full-refresh
 ```
 
@@ -235,7 +235,6 @@ databricks secrets create-scope floodsense                       # once
 databricks secrets put-secret floodsense data_gov_api_key        # once; prompts for the key
 databricks workspace import /Workspace/Users/<login>/floodsense/poll_rainfall.py \
     --file databricks/jobs/poll_rainfall.py --format AUTO --overwrite
-databricks jobs create --json @databricks/jobs/poller_job.json   # after filling in <login>
 databricks jobs run-now --json '{"job_id": <id>, "python_params": ["--lookback-minutes", "5760"]}'  # first run: 96 h warm-up
 ```
 
@@ -303,7 +302,6 @@ georeference. Days already archived are skipped.
 databricks volumes create workspace floodsense radar MANAGED
 databricks workspace import /Workspace/Users/<login>/floodsense/archive_radar.py \
     --file databricks/jobs/archive_radar.py --format AUTO --overwrite
-databricks jobs create --json @databricks/jobs/radar_archive_job.json   # after filling in <login>
 python databricks/jobs/archive_radar.py --out-dir data/raw/radar --start <first available day>  # backfill
 ```
 
@@ -348,8 +346,6 @@ databricks workspace import /Workspace/Users/<login>/floodsense/archive_rainfall
     --file databricks/jobs/archive_rainfall.py --format AUTO --overwrite
 databricks workspace import /Workspace/Users/<login>/floodsense/archive_flood_alerts.py \
     --file databricks/jobs/archive_flood_alerts.py --format AUTO --overwrite
-databricks jobs reset --json '{"job_id": 486214899373176, "new_settings": <radar_archive_job.json, login filled in>}'
-databricks jobs create --json @databricks/jobs/flood_alerts_job.json   # after filling in <login>
 # backfill locally, then upload pages and markers
 python databricks/jobs/archive_rainfall.py --out-dir <dir>/daily --state-dir <dir>/state --start 2026-10-01
 databricks fs cp -r <dir>/daily dbfs:/Volumes/workspace/floodsense/landing/rainfall/daily
@@ -473,8 +469,6 @@ databricks fs cp dist/floodsense-0.1.0-py3-none-any.whl \
     dbfs:/Volumes/workspace/floodsense/artifacts/wheels/ --overwrite
 databricks workspace import /Workspace/Users/<login>/floodsense/lakeflow_pipeline.py \
     --file databricks/pipelines/lakeflow_pipeline.py --format AUTO --overwrite
-# add floodsense.model_uri and mlflow-skinny to the pipeline (pipeline_spec.json), then:
-databricks pipelines update <pipeline_id> --json @<spec with the two additions>
 databricks pipelines start-update <pipeline_id>
 ```
 
@@ -588,7 +582,8 @@ each pipeline update. The job's schedule stays **paused** until A3.
 ```bash
 databricks workspace import /Workspace/Users/<login>/floodsense/telegram_bot.py \
     --file databricks/jobs/telegram_bot.py --format AUTO --overwrite
-databricks jobs reset --json '{"job_id": 986423263843293, "new_settings": <poller_job.json, login and warehouse filled in>}'
+# Job and pipeline settings are managed by the asset bundle since 22 Oct (section 24): edit
+# databricks/bundle/*.yml and run `databricks bundle deploy`, not `jobs create/reset`.
 ```
 
 ## Asset Bundles (A8.2)

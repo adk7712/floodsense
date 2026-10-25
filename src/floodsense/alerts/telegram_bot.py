@@ -89,7 +89,6 @@ import json
 import logging
 import os
 import sys
-import tempfile
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -108,6 +107,7 @@ from floodsense.alerts.subscriptions import (
     process_updates,
 )
 from floodsense.common.config import MIN_REPORTING_STATIONS, settings
+from floodsense.common.fileio import write_json_atomic
 from floodsense.common.timeutil import to_sgt
 from floodsense.data.replay import load_replay
 from floodsense.features.zone_features import compute_zone_feature_table
@@ -509,7 +509,7 @@ def replay_snapshots(day: date, model: object | None = None) -> list[Snapshot]:
         stamps = pd.to_datetime(table["timestamp"])
         table = table[(stamps >= replay.display_start) & (stamps <= replay.display_end)]
     else:
-        from floodsense.app import replay_days  # lazy: needs the large rainfall store
+        from floodsense.serving import replay_days  # lazy: needs the large rainfall store
 
         if not replay_days.store_available():
             raise FileNotFoundError("No replay file or rainfall store for that date")
@@ -599,19 +599,10 @@ def save_detector_state(det: AlertDetector, path: Path | None) -> None:
     """Write state atomically (temp file in the same folder, then rename). Never raises."""
     if path is None:
         return
-    tmp_name: str | None = None
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            "w", dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False
-        ) as tmp:
-            tmp_name = tmp.name
-            json.dump(det.to_state(), tmp)
-        os.replace(tmp_name, path)
+        write_json_atomic(path, det.to_state())
     except OSError as exc:
         logger.error("Could not save state to %s (%s)", path, type(exc).__name__)
-        if tmp_name:
-            Path(tmp_name).unlink(missing_ok=True)
 
 
 def _error_text(exc: Exception) -> str:
@@ -769,23 +760,6 @@ def _read_blocked(path: Path) -> list[int]:
     return [int(c) for c in raw["chat_ids"]]
 
 
-def _write_json_atomic(path: Path, data: object) -> None:
-    """Temp file in the same folder, then rename. Raises OSError."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_name: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            "w", dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False
-        ) as tmp:
-            tmp_name = tmp.name
-            json.dump(data, tmp)
-        os.replace(tmp_name, path)
-    except OSError:
-        if tmp_name:
-            Path(tmp_name).unlink(missing_ok=True)
-        raise
-
-
 def _set_aside(path: Path, blocked_path: Path) -> None:
     """Move an unreadable handoff file to ``<blocked name>.<time>.corrupt`` (kept for a person to
     read; the time stamp keeps an earlier copy from being overwritten)."""
@@ -806,7 +780,7 @@ def append_blocked_chats(path: Path, chat_ids: Iterable[int]) -> None:
         except _UNREADABLE as exc:
             logger.warning("Blocked-chat file unreadable (%s); set aside", type(exc).__name__)
             _set_aside(path, path)
-    _write_json_atomic(path, {"version": 1, "chat_ids": sorted({*existing, *chat_ids})})
+    write_json_atomic(path, {"version": 1, "chat_ids": sorted({*existing, *chat_ids})})
 
 
 def apply_blocked_chats(store: SubscriptionStore, path: Path) -> int:
