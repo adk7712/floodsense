@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from floodsense.common.config import settings
-from floodsense.ingestion.poller import NEAPoller, parse_rainfall_payload
+from floodsense.ingestion.poller import LiveFeedUnavailable, NEAPoller, parse_rainfall_payload
 
 log = logging.getLogger("floodsense.poll_rainfall")
 
@@ -68,7 +68,16 @@ def main(argv: list[str] | None = None) -> int:
             params = {"date": day.isoformat()}
             if token:
                 params["paginationToken"] = token
-            payload = poller._get_json(settings.nea_api_primary, params)
+            try:
+                payload = poller._get_json(settings.nea_api_primary, params)
+            except LiveFeedUnavailable as exc:
+                # Just after midnight the API answers 404 "Data not found" for today until the
+                # first reading of the day is published (the 00:00 run failed this way on 26 Oct).
+                # Go on to yesterday; if nothing lands at all, the check below still fails the run.
+                if day == now.date() and page == 0 and str(exc).endswith("HTTP 404"):
+                    log.warning("No readings for %s yet (HTTP 404); trying the day before", day)
+                    break
+                raise
             snapshots = parse_rainfall_payload(payload)
             if snapshots:
                 poller.stage_payload_to_volume(
