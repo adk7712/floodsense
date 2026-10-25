@@ -36,6 +36,15 @@
         "securable_type": "VOLUME",
         "permission": "READ_VOLUME"
       }
+    },
+    {
+      "name": "genie-space",
+      "description": "The Genie space behind the app's \"Ask FloodSense\" panel (reads gold).",
+      "genie_space": {
+        "name": "FloodSense risk (gold)",
+        "space_id": "01f1cd8bf8de1d5fba454efa5909044a",
+        "permission": "CAN_RUN"
+      }
     }
   ]
 }

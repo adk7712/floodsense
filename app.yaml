@@ -19,6 +19,9 @@ env:
     valueFrom: sql-warehouse
   - name: FLOODSENSE_DATA_GOV_API_KEY
     valueFrom: data-gov-key
+  # The Genie space for "Ask FloodSense" (floodsense.serving.genie reads GENIE_SPACE_ID).
+  - name: GENIE_SPACE_ID
+    valueFrom: genie-space
   # Archived radar frames for Replay, read through the Files API (no local archive in the App).
   - name: FLOODSENSE_RADAR_VOLUME
     value: /Volumes/workspace/floodsense/radar

@@ -55,6 +55,7 @@ from floodsense.models.scoring import (
 )
 from floodsense.radar.decode import COLOUR_SCALE
 from floodsense.radar.live import RadarView, forecast_features, radar_view
+from floodsense.serving import genie
 from floodsense.serving.coverage import coverage, withhold_tier
 from floodsense.serving.gold import GoldUnavailable, latest_zone_risk, warehouse_id
 from floodsense.spatial.singapore_geo import (
@@ -244,15 +245,24 @@ div[data-testid="stSidebarCollapsedControl"],
     transition: all 0.15s ease !important;
 }}
 
-/* Live mode's "Advanced" button sits at the bottom of the sidebar; its toggle opens to the right,
-   as one piece with the button and the same height. */
+/* The "Advanced" button is the last item in the sidebar, at the panel's bottom; it scrolls with
+   the panel. Its toggles open to the right, as one piece with the button. */
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"]:has(> [data-testid="stLayoutWrapper"] > .st-key-advanced_menu) {{
+    min-height: calc(100dvh - 2.25rem) !important;  /* the panel's height below its header */
+}}
+[data-testid="stSidebarUserContent"] {{
+    padding-bottom: 0 !important;  /* Advanced keeps its own space below */
+}}
+[data-testid="stLayoutWrapper"]:has(> .st-key-advanced_menu) {{
+    order: 999 !important;  /* drawn early in the script, shown last in the sidebar */
+    margin-top: auto !important;  /* at the panel's bottom when the sidebar is short */
+    padding: 1rem 0 1.25rem 0 !important;
+}}
 .st-key-advanced_menu {{
-    position: absolute !important;
-    bottom: 1.25rem !important;
-    left: 1.5rem !important;
     width: max-content !important;
     flex-wrap: nowrap !important;
-    align-items: stretch !important;
+    /* The button keeps its place when it opens: the taller toggle panel grows upwards beside it */
+    align-items: flex-end !important;
     gap: 0 !important;
 }}
 .st-key-advanced_menu button {{
@@ -266,11 +276,11 @@ div[data-testid="stSidebarCollapsedControl"],
     border-bottom-right-radius: 0 !important;
 }}
 .st-key-advanced_ext {{
-    height: 36px !important;
+    min-height: 36px !important;
     width: max-content !important;
     display: flex !important;
     justify-content: center !important;
-    padding: 0 12px !important;
+    padding: 6px 12px !important;
     background-color: var(--bg-subtle) !important;
     border: 1px solid var(--border-main) !important;
     border-left: none !important;
@@ -630,29 +640,25 @@ button[kind="secondary"]:hover,
     z-index: 999990 !important;
     flex-wrap: nowrap !important;
 }}
-.st-key-view_switch [data-testid="stElementContainer"],
-.st-key-view_switch div[data-testid="stButtonGroup"] {{
-    margin: 0 !important;
+/* Sidebar switches (Analyst / Resident, Live / Replay): equal halves, same size, stacked close */
+.st-key-sidebar_switches [data-testid="stElementContainer"],
+.st-key-sidebar_switches div[data-testid="stButtonGroup"] {{
+    width: 100% !important;
 }}
-/* Same 34px height as the theme toggle beside it */
-.st-key-view_switch div[data-testid="stButtonGroup"] {{
-    height: 34px !important;
-    box-sizing: border-box !important;
-    align-items: center !important;
+.st-key-sidebar_switches div[role="radiogroup"] {{
+    display: flex !important;
+    width: 100% !important;
+    max-width: none !important;
 }}
-.st-key-view_switch button {{
-    min-height: 0 !important;
-    height: 26px !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+.st-key-sidebar_switches div[role="radiogroup"] > button {{
+    flex: 1 1 0 !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
     font-size: 0.82rem !important;
 }}
-.st-key-theme_toggle {{
-    justify-content: center !important;
-    background: var(--bg-surface) !important;
-    border: 1px solid var(--border-main) !important;
-    border-radius: 9999px !important;
-    padding: 4px 12px !important;
+.st-key-ask_genie button {{
     box-shadow: var(--card-shadow) !important;
 }}
 
@@ -885,6 +891,10 @@ hr {{
     border-top: 1px solid var(--border-main) !important;
     margin: 1.25rem 0 !important;
 }}
+/* Tighter divider under the sidebar switches, closer to "Zone Diagnostic" */
+[data-testid="stSidebar"] hr {{
+    margin: 0.5rem 0 !important;
+}}
 
 .stCaption, [data-testid="stCaptionContainer"] {{
     color: var(--text-muted) !important;
@@ -901,6 +911,10 @@ button[data-variant="segmented_control"][aria-pressed="true"],
     background-color: var(--primary) !important;
     border-color: var(--primary) !important;
     box-shadow: none !important;
+}}
+.st-key-advanced_btn_open button:hover {{
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
 }}
 div[data-testid="stButtonGroup"] button[aria-pressed="true"] *,
 div[data-testid="stButtonGroup"] button[aria-checked="true"] *,
@@ -934,28 +948,9 @@ button[data-variant="segmented_control"][aria-pressed="true"] *,
         margin-bottom: 0.5rem !important;
         box-sizing: border-box !important;
     }}
-    .st-key-top_controls > div, .st-key-view_switch, .st-key-theme_toggle {{
+    .st-key-top_controls > div, .st-key-ask_genie, .st-key-ask_genie button {{
         width: 100% !important;
         max-width: 100% !important;
-    }}
-    .st-key-view_switch [data-testid="stElementContainer"],
-    .st-key-view_switch div[data-testid="stButtonGroup"] {{
-        width: 100% !important;
-    }}
-    .st-key-view_switch div[role="radiogroup"] {{
-        display: flex !important;
-        width: 100% !important;
-        max-width: none !important;
-    }}
-    .st-key-view_switch div[role="radiogroup"] > button {{
-        flex: 1 1 0 !important;
-        justify-content: center !important;
-        padding-left: 6px !important;
-        padding-right: 6px !important;
-    }}
-    .st-key-theme_toggle {{
-        justify-content: flex-start !important;
-        box-sizing: border-box !important;
     }}
     .fs-kpi-label {{ white-space: normal; overflow: visible; text-overflow: clip; }}
     div[data-testid="stMain"] {{ overflow-x: hidden; }}
@@ -1146,10 +1141,7 @@ def resident_view_on() -> bool:
 
 
 def zone_picker() -> str:
-    """The planning-area selector for the Zone Diagnostic (sidebar). The resident view has its
-    own selector on the page, so the sidebar one steps aside (same session key)."""
-    if resident_view_on():
-        return str(st.session_state["zone"])
+    """The planning-area selector for the Zone Diagnostic (sidebar), in both views."""
     st.sidebar.subheader(":material/tune: Zone Diagnostic")
     return str(
         st.sidebar.selectbox("Select Planning Area", options=sorted(URA_PLANNING_AREAS), key="zone")
@@ -1350,20 +1342,31 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
+# The Analyst / Resident switch heads the sidebar, right above Live / Replay; both are the same
+# full-width size (CSS on "sidebar_switches").
+st.session_state.setdefault("view", ANALYST_VIEW)
 MODES = ["Live Feed", "Replay Storm"]
 # Clicking the chosen segment again sends None; keep Live Feed rather than falling into Replay.
 if st.session_state.get("mode") not in MODES:
     st.session_state["mode"] = "Live Feed"
-mode = (
-    st.sidebar.segmented_control(
-        "Mode",
-        options=MODES,
-        key="mode",
+with st.sidebar.container(key="sidebar_switches", gap="xsmall"):
+    st.segmented_control(
+        "View",
+        options=[ANALYST_VIEW, RESIDENT_VIEW],
+        key="view",
         required=True,
         label_visibility="collapsed",
     )
-    or "Live Feed"
-)
+    mode = (
+        st.segmented_control(
+            "Mode",
+            options=MODES,
+            key="mode",
+            required=True,
+            label_visibility="collapsed",
+        )
+        or "Live Feed"
+    )
 
 st.sidebar.markdown("---")
 
@@ -1389,51 +1392,125 @@ for _key in list(st.session_state):
 selected_zone = str(st.session_state["zone"])
 live_source = DATA_GOV
 if mode == "Live Feed":
-    selected_zone = zone_picker()
     # Databricks by default; a copy with no warehouse set up (e.g. CI) starts on data.gov.sg.
     st.session_state.setdefault("use_data_gov", not warehouse_id())
-    # The fallback stays out of the way: an "Advanced" button pinned to the bottom of the sidebar
-    # that slides its one toggle out to the right (CSS).
-    st.session_state.setdefault("advanced_open", False)
-    advanced_open = st.session_state["advanced_open"]
-    with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=None):
-        st.button(
-            "Advanced",
-            key="advanced_btn_open" if advanced_open else "advanced_btn",
-            icon=":material/chevron_left:" if advanced_open else ":material/chevron_right:",
-            on_click=_toggle_advanced,
-        )
-        if advanced_open:
-            with st.container(key="advanced_ext"):
+# Settings stay out of the way: an "Advanced" button at the bottom of the sidebar slides its
+# toggles out to the right (CSS): the theme, and in Live Feed the data.gov.sg fallback. It is drawn
+# at the same place in the script in both modes (before the area picker), so a rerun keeps it as
+# one element instead of drawing a second one and moving it; CSS shows it last.
+st.session_state.setdefault("advanced_open", False)
+advanced_open = st.session_state["advanced_open"]
+with st.sidebar.container(key="advanced_menu", horizontal=True, wrap=False, gap=None):
+    st.button(
+        "Advanced",
+        key="advanced_btn_open" if advanced_open else "advanced_btn",
+        icon=":material/chevron_left:" if advanced_open else ":material/chevron_right:",
+        on_click=_toggle_advanced,
+    )
+    if advanced_open:
+        with st.container(key="advanced_ext", gap="small"):
+            is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
+            if mode == "Live Feed":
                 st.toggle("data.gov.sg", key="use_data_gov")
+        if is_dark_active != IS_DARK:
+            st.session_state["theme"] = "dark" if is_dark_active else "light"
+            st.rerun()
+if mode == "Live Feed":
+    selected_zone = zone_picker()
     live_source = DATA_GOV if st.session_state["use_data_gov"] else DATABRICKS
 
 
 # --- TOP HEADER & APPEARANCE SWITCH --------------------------------------------------------
+# --- ASK FLOODSENSE (DATABRICKS GENIE) ------------------------------------------------------
+def genie_examples(resident: bool, zone: str) -> list[str]:
+    """Starter questions: plain ones for residents, ranked tables for analysts."""
+    area = zone.title()
+    if resident:
+        return [
+            f"Is {area} at risk of a flash flood right now?",
+            "Which areas are at risk of a flash flood right now?",
+        ]
+    return [
+        "Which areas are at Moderate or High risk right now?",
+        "Top 5 areas by flood probability right now",
+        f"How has the flood chance in {area} changed over the last 6 hours?",
+    ]
+
+
+def _ask_genie(question: str) -> None:
+    question = question.strip()
+    if not question:
+        return
+    try:
+        answer = genie.ask(question)
+        st.session_state["genie_qa"] = {"question": question, "answer": answer, "error": None}
+    except genie.GenieUnavailable as exc:
+        log.warning("Genie unavailable: %s", exc)
+        st.session_state["genie_qa"] = {"question": question, "answer": None, "error": str(exc)}
+
+
+def render_genie_answer(resident: bool) -> None:
+    qa = st.session_state.get("genie_qa")
+    if not qa:
+        return
+    st.markdown(f"**{html.escape(qa['question'])}**")
+    answer: genie.GenieAnswer | None = qa["answer"]
+    if answer is None:
+        st.info(
+            "Genie couldn't answer just now. Please try again in a minute.",
+            icon=":material/cloud_off:",
+        )
+        return
+    if answer.summary:
+        st.markdown(answer.summary)
+    if answer.rows and not resident:
+        st.dataframe(
+            pd.DataFrame(answer.rows, columns=answer.columns), hide_index=True, height="content"
+        )
+    if answer.sql and not resident:
+        with st.expander("SQL that Genie ran on the gold table"):
+            st.code(answer.sql, language="sql")
+    st.caption("FloodSense is not an official warning. Follow PUB's alerts.")
+
+
+def render_ask_panel() -> None:
+    resident = resident_view_on()
+    with st.popover("Ask FloodSense", icon=":material/forum:", type="primary", key="ask_genie"):
+        st.caption("Ask about live flood risk in plain English. Powered by Databricks Genie.")
+        if not genie.space_id():
+            st.info("Ask FloodSense needs the Databricks connection.", icon=":material/cloud_off:")
+            return
+        if mode != "Live Feed":
+            st.caption("Answers use the live data, not the day being replayed.")
+        examples = genie_examples(resident, str(st.session_state.get("zone", DEFAULT_ZONE)))
+        for i, example in enumerate(examples):
+            if st.button(example, key=f"genie_example_{i}", width="stretch"):
+                with st.spinner("Asking Genie..."):
+                    _ask_genie(example)
+        with st.form("genie_form", clear_on_submit=True, border=False):
+            question = st.text_input(
+                "Your question",
+                placeholder="Type a question about flood risk",
+                label_visibility="collapsed",
+            )
+            if st.form_submit_button("Ask", type="primary"):
+                with st.spinner("Asking Genie..."):
+                    _ask_genie(question)
+        render_genie_answer(resident)
+
+
 def render_app_header() -> None:
-    # Top-right corner (CSS): the Analyst / Resident switch, then the theme toggle.
-    st.session_state.setdefault("view", ANALYST_VIEW)
+    # Top-right corner (CSS): "Ask FloodSense", Genie answering questions about live risk.
     with st.container(
         key="top_controls", horizontal=True, vertical_alignment="center", gap="small"
     ):
-        with st.container(key="view_switch", width="content"):
-            st.segmented_control(
-                "View",
-                options=[ANALYST_VIEW, RESIDENT_VIEW],
-                key="view",
-                label_visibility="collapsed",
-            )
-        with st.container(key="theme_toggle", width="content"):
-            is_dark_active = st.toggle("Light/Dark Mode", key="dark_mode_switch")
+        render_ask_panel()
     with st.container(key="app_header"):
         st.title("FloodSense")
         st.caption(
             "The chance of a flash flood in the next hour, for each of Singapore's 55 planning "
             "areas."
         )
-    if is_dark_active != IS_DARK:
-        st.session_state["theme"] = "dark" if is_dark_active else "light"
-        st.rerun()
 
 
 render_app_header()
@@ -1795,6 +1872,7 @@ if resident_view_on():
     )
     with st.container(key="resident_page"):
         resident_zone = render_resident_view(
+            zone=selected_zone,
             risk_now=df_results,
             risk_in_1h=resident_forecast,
             when=view_time,

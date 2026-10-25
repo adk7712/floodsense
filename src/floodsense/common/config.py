@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     databricks_profile: str | None = None
     gold_table: str = "workspace.floodsense.flood_risk_predictions_gold"
     gold_stale_minutes: float = 60.0  # older gold gets a visible warning
+    # Genie space "FloodSense risk (gold)" behind the app's "Ask FloodSense" panel (reads gold;
+    # DEPLOYMENT.md). A Databricks App can also pass it as GENIE_SPACE_ID.
+    genie_space_id: str | None = "01f1cd8bf8de1d5fba454efa5909044a"
     # Databricks volume with the archived radar frames (e.g. /Volumes/workspace/floodsense/radar).
     # Set in the Databricks App, which has no local archive; read through the Files API.
     radar_volume: str | None = None
