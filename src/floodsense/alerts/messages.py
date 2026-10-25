@@ -33,10 +33,11 @@ HELP_TEXT = (
     "/unsubscribe <area>: stop alerts for one area\n"
     "/unsubscribe all: stop all alerts and delete your data\n"
     "/list: show the areas you follow\n"
+    "/status: current flood risk for your areas, or /status <area>\n"
     "/help: show this message\n\n"
     f"You can follow up to {MAX_AREAS_PER_CHAT} areas. Alerts follow the same rules as the "
     "FloodSense channel: a message only when the risk rises, and at most one per area per hour "
     "(a rise from Moderate to High is let through).\n\n"
-    "The bot checks for messages on a schedule, so replies and alerts can take up to 30 minutes.\n\n"
+    "Replies come within seconds. Alerts follow the risk feed, which updates every 30 minutes.\n\n"
     f"{HONESTY_LINE}\n\n{PRIVACY_NOTE}"
 )

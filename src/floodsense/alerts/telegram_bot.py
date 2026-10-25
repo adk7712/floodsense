@@ -58,6 +58,8 @@ Usage:
     python -m floodsense.alerts.telegram_bot replay --date 2021-04-17 [--dry-run] [--speed N]
     python -m floodsense.alerts.telegram_bot live [--dry-run] [--interval-seconds 300]
         [--once] [--state-file PATH] [--max-age-minutes 30] [--subscriptions-file PATH]
+        [--alerts-only]
+    python -m floodsense.alerts.telegram_bot listen --subscriptions-file PATH [--poll-timeout 25]
 
 Per-area subscriptions (``--subscriptions-file``): people message the bot /subscribe <area>,
 /unsubscribe <area>, /unsubscribe all, /list, /start or /help. Each live cycle first reads new
@@ -67,9 +69,22 @@ as well as to the channel. The rules are the detector's, not copies: rises only,
 one-per-zone-per-hour limit, "No data" never alerts, no all-clear on missing data. A subscriber
 send never blocks or retracts the channel alert; a chat that blocked the bot (HTTP 403) is
 dropped. Without the flag the bot behaves exactly as before. Email sign-up is not built.
+
+Fast replies (``listen`` with ``live --alerts-only``): a scheduled ``live`` run reads messages
+only once per run, so a reply can take as long as the schedule interval. ``listen`` is an
+always-on loop that long-polls ``getUpdates`` (``--poll-timeout`` seconds, default 25) and replies
+within seconds. It is then the ONLY reader of messages and the ONLY writer of the subscriptions
+file; the alert job runs ``live --alerts-only --subscriptions-file PATH``, which sends alerts to
+the channel and subscribers but never reads messages and never writes that file. A chat that
+blocked the bot (HTTP 403) is written by the alert job to ``telegram_blocked.json`` in the same
+folder, and the listener removes it from the subscriptions and clears that file. Failed reads back
+off from 1 s, doubling to 60 s; HTTP 429 waits as long as Telegram asks; HTTP 409 means another
+reader (a second listener, a ``live`` run without ``--alerts-only``, or a webhook) is active and is
+logged as such. Ctrl-C stops the listener with status 0.
 """
 
 import argparse
+import copy
 import json
 import logging
 import os
@@ -86,7 +101,9 @@ import requests
 
 from floodsense.alerts.messages import ADVICE, DISCLAIMER, HONESTY_LINE
 from floodsense.alerts.subscriptions import (
+    DEFAULT_MAX_AGE,
     JsonSubscriptionStore,
+    StatusProvider,
     SubscriptionStore,
     process_updates,
 )
@@ -149,6 +166,18 @@ def format_message(zone: str, tier: str, when: datetime) -> str:
     )
 
 
+def parse_latest(raw: object) -> tuple[datetime, dict[str, str]] | None:
+    """Read a saved ``latest`` entry. Anything missing or malformed gives None; never raises."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        as_of = to_sgt(datetime.fromisoformat(str(raw["as_of"])))
+        tiers = {str(z): str(t) for z, t in dict(raw["tiers"]).items()}
+    except (KeyError, ValueError, TypeError):
+        return None
+    return as_of, tiers
+
+
 class AlertDetector:
     """Stateful tier-change detector. Feed it time-ordered snapshots; it returns new alerts."""
 
@@ -169,6 +198,13 @@ class AlertDetector:
         self._pending: dict[str, str] = {}  # tier of a rise the rate limit dropped
         self._last_gap: dict[str, datetime] = {}  # last "No data" step per zone
         self._undo: dict[str, tuple[str | None, datetime | None, str | None, bool, str | None]] = {}
+        # Newest step read, "No data" tiers included, for /status. Not used for alerts (last_tier
+        # skips "No data" steps on purpose).
+        self._latest: dict[str, object] | None = None
+
+    def record_latest(self, ts: datetime, tiers: Mapping[str, str]) -> None:
+        """Remember the newest step as read, with "No data" tiers kept, so /status can show it."""
+        self._latest = {"as_of": to_sgt(ts).isoformat(), "tiers": dict(tiers)}
 
     def to_state(self) -> dict[str, object]:
         """JSON-able copy of the per-zone state (tiers, send times)."""
@@ -180,6 +216,7 @@ class AlertDetector:
             "alerted": sorted(self._alerted),
             "pending": dict(self._pending),
             "last_gap": {z: t.isoformat() for z, t in self._last_gap.items()},
+            "latest": self._latest,
         }
 
     def load_state(self, state: Mapping[str, object]) -> None:
@@ -206,6 +243,10 @@ class AlertDetector:
         self._alerted = alerted
         self._pending = pending
         self._last_gap = last_gap
+        latest = parse_latest(state.get("latest"))  # absent in older files
+        self._latest = (
+            None if latest is None else {"as_of": latest[0].isoformat(), "tiers": dict(latest[1])}
+        )
 
     def retract(self, alert: Alert) -> None:
         """Undo the state change that produced ``alert`` (its send failed), so it can retry."""
@@ -342,11 +383,24 @@ class TelegramSender:
 
 
 class TelegramSendError(RuntimeError):
-    """A Bot API call failed. Carries the HTTP status (None if no response); never the token."""
+    """A Bot API call failed. Carries the HTTP status (None if no response) and, for HTTP 429,
+    Telegram's ``retry_after`` seconds when given; never the token."""
 
-    def __init__(self, message: str, status: int | None = None) -> None:
+    def __init__(
+        self, message: str, status: int | None = None, retry_after: float | None = None
+    ) -> None:
         super().__init__(message)
         self.status = status
+        self.retry_after = retry_after
+
+
+def _retry_after(resp: requests.Response) -> float | None:
+    """``parameters.retry_after`` from an error reply, or None. The body is never logged."""
+    try:
+        value = resp.json()["parameters"]["retry_after"]
+    except Exception:
+        return None
+    return float(value) if isinstance(value, int | float) and value >= 0 else None
 
 
 class TelegramApi:
@@ -365,28 +419,36 @@ class TelegramApi:
         self._timeout = timeout
         self._post = post
 
-    def _call(self, method: str, payload: dict[str, object]) -> object:
+    def _call(
+        self, method: str, payload: dict[str, object], http_timeout: float | None = None
+    ) -> object:
         post = self._post or requests.post
         try:
             resp = post(
-                f"{TELEGRAM_API}/bot{self._token}/{method}", json=payload, timeout=self._timeout
+                f"{TELEGRAM_API}/bot{self._token}/{method}",
+                json=payload,
+                timeout=self._timeout if http_timeout is None else http_timeout,
             )
         except requests.RequestException as exc:
             raise TelegramSendError(f"Telegram request failed ({type(exc).__name__})") from None
         if resp.status_code != 200:
             raise TelegramSendError(
-                f"Telegram rejected {method} (HTTP {resp.status_code})", resp.status_code
+                f"Telegram rejected {method} (HTTP {resp.status_code})",
+                resp.status_code,
+                _retry_after(resp) if resp.status_code == 429 else None,
             )
         try:
             return resp.json().get("result")
         except (ValueError, AttributeError):
             raise TelegramSendError(f"Telegram sent an unreadable {method} reply") from None
 
-    def get_updates(self, offset: int | None) -> list[Mapping[str, object]]:
-        payload: dict[str, object] = {"timeout": 0, "allowed_updates": ["message"]}
+    def get_updates(self, offset: int | None, timeout: int = 0) -> list[Mapping[str, object]]:
+        """New messages. ``timeout`` > 0 is Telegram long polling: the call waits up to that many
+        seconds for a message, so the HTTP timeout is set 10 seconds longer."""
+        payload: dict[str, object] = {"timeout": timeout, "allowed_updates": ["message"]}
         if offset is not None:
             payload["offset"] = offset
-        result = self._call("getUpdates", payload)
+        result = self._call("getUpdates", payload, max(self._timeout, timeout + 10.0))
         return [u for u in result if isinstance(u, dict)] if isinstance(result, list) else []
 
     def send_message(self, chat_id: int, text: str) -> None:
@@ -483,7 +545,6 @@ def _score_snapshots(table: pd.DataFrame, model: object) -> list[Snapshot]:
 LatestRiskProvider = Callable[[], tuple[datetime, Mapping[str, str]]]
 
 DEFAULT_STATE_FILE = settings.root_dir / "data" / "processed" / "telegram_state.json"
-DEFAULT_MAX_AGE = timedelta(minutes=30)
 
 
 def gold_latest_risk() -> tuple[datetime, Mapping[str, str]]:
@@ -520,6 +581,18 @@ def load_detector_state(det: AlertDetector, path: Path | None) -> None:
     except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
         logger.warning("State file %s is unreadable (%s); starting fresh", path, type(exc).__name__)
         det.load_state(AlertDetector().to_state())
+
+
+def read_latest(state_path: Path | None) -> tuple[datetime, dict[str, str]] | None:
+    """(time, {zone: tier}) of the newest step saved by ``run_cycle``, for /status. Read-only.
+    A missing or unreadable file, or one without "latest", gives None; never raises."""
+    if state_path is None:
+        return None
+    try:
+        raw = json.loads(state_path.read_text())
+    except (OSError, ValueError):
+        return None
+    return parse_latest(raw.get("latest")) if isinstance(raw, dict) else None
 
 
 def save_detector_state(det: AlertDetector, path: Path | None) -> None:
@@ -573,6 +646,8 @@ def run_cycle(
     except ValueError as exc:  # an unknown tier or coverage value: log it, skip the cycle
         logger.error("Bad risk data, skipping this cycle: %s", exc)
         return 1
+    if tiers:
+        det.record_latest(ts, tiers)
     for alert in alerts:
         try:
             emit(alert)
@@ -594,6 +669,7 @@ def process_commands(
     api: TelegramApi,
     *,
     now: Callable[[], datetime] | None = None,
+    status: StatusProvider | None = None,
 ) -> int:
     """Read new bot messages, apply the commands, save, then send the replies. Returns the number
     of problems; never raises. The store is saved before replying so no update is handled twice."""
@@ -606,12 +682,24 @@ def process_commands(
         return 1
     if not updates:
         return 0
-    replies = process_updates(store, updates, when)
     try:
-        store.save()
+        return _apply_and_reply(store, api, updates, when, status)
     except OSError as exc:
         logger.error("Could not save subscriptions (%s); replies not sent", type(exc).__name__)
         return 1
+
+
+def _apply_and_reply(
+    store: SubscriptionStore,
+    api: TelegramApi,
+    updates: Sequence[Mapping[str, object]],
+    when: datetime,
+    status: StatusProvider | None = None,
+) -> int:
+    """Apply ``updates``, save, then reply. Returns failed replies. Raises OSError if the save
+    fails, in which case no reply is sent."""
+    replies = process_updates(store, updates, when, status=status)
+    store.save()
     problems = 0
     for chat_id, text in replies:
         try:
@@ -620,6 +708,22 @@ def process_commands(
             problems += 1
             logger.error("Reply failed (%s)", _error_text(exc))
     return problems
+
+
+def _send_to_subscribers(api: TelegramApi, chats: Iterable[int], text: str) -> list[int]:
+    """Send ``text`` to each chat; failures are logged only. Returns the chats that answered
+    HTTP 403 (the person blocked the bot)."""
+    blocked: list[int] = []
+    for chat_id in chats:
+        try:
+            api.send_message(chat_id, text)
+        except TelegramSendError as exc:
+            logger.error("Subscriber send failed (%s)", exc)
+            if exc.status == 403:
+                blocked.append(chat_id)
+        except Exception as exc:
+            logger.error("Subscriber send failed (%s)", type(exc).__name__)
+    return blocked
 
 
 def subscriber_emitter(
@@ -632,24 +736,245 @@ def subscriber_emitter(
 
     def emit(alert: Alert) -> None:
         channel_emit(alert)
-        dropped = False
-        for chat_id in store.chats_for(alert.zone):
-            try:
-                api.send_message(chat_id, alert.text)
-            except TelegramSendError as exc:
-                logger.error("Subscriber send failed (%s)", exc)
-                if exc.status == 403:
-                    store.remove_all(chat_id)
-                    dropped = True
-            except Exception as exc:
-                logger.error("Subscriber send failed (%s)", type(exc).__name__)
-        if dropped:
+        blocked = _send_to_subscribers(api, store.chats_for(alert.zone), alert.text)
+        for chat_id in blocked:
+            store.remove_all(chat_id)
+        if blocked:
             try:
                 store.save()
             except OSError as exc:
                 logger.error("Could not save subscriptions (%s)", type(exc).__name__)
 
     return emit
+
+
+# --- listener / alerts-only split ---------------------------------------------------------------
+#
+# With ``listen`` running, the alert job (``live --alerts-only``) must not write the subscriptions
+# file: two writers would overwrite each other's changes. So a chat that blocked the bot is not
+# removed by the alert job; its id goes into a small handoff file next to the store, and the
+# listener (the only writer) removes it and clears the file.
+
+BLOCKED_FILE_NAME = "telegram_blocked.json"
+_UNREADABLE = (OSError, ValueError, TypeError, KeyError, AttributeError)
+
+
+def blocked_file_for(store_path: Path) -> Path:
+    """The handoff file for chats that blocked the bot: same folder as the subscriptions file."""
+    return store_path.with_name(BLOCKED_FILE_NAME)
+
+
+def _read_blocked(path: Path) -> list[int]:
+    raw = json.loads(path.read_text())
+    return [int(c) for c in raw["chat_ids"]]
+
+
+def _write_json_atomic(path: Path, data: object) -> None:
+    """Temp file in the same folder, then rename. Raises OSError."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False
+        ) as tmp:
+            tmp_name = tmp.name
+            json.dump(data, tmp)
+        os.replace(tmp_name, path)
+    except OSError:
+        if tmp_name:
+            Path(tmp_name).unlink(missing_ok=True)
+        raise
+
+
+def _set_aside(path: Path, blocked_path: Path) -> None:
+    """Move an unreadable handoff file to ``<blocked name>.<time>.corrupt`` (kept for a person to
+    read; the time stamp keeps an earlier copy from being overwritten)."""
+    try:
+        stamp = datetime.now(settings.tzinfo).strftime("%Y%m%dT%H%M%S")
+        os.replace(path, blocked_path.with_name(f"{blocked_path.name}.{stamp}.corrupt"))
+    except OSError as exc:
+        logger.error("Could not set aside %s (%s)", path, type(exc).__name__)
+
+
+def append_blocked_chats(path: Path, chat_ids: Iterable[int]) -> None:
+    """Add chat ids to the handoff file (de-duplicated, written atomically). Raises OSError.
+    An unreadable existing file is set aside as ``.corrupt`` and a fresh one written."""
+    existing: list[int] = []
+    if path.exists():
+        try:
+            existing = _read_blocked(path)
+        except _UNREADABLE as exc:
+            logger.warning("Blocked-chat file unreadable (%s); set aside", type(exc).__name__)
+            _set_aside(path, path)
+    _write_json_atomic(path, {"version": 1, "chat_ids": sorted({*existing, *chat_ids})})
+
+
+def apply_blocked_chats(store: SubscriptionStore, path: Path) -> int:
+    """Remove the chats listed in the handoff file from ``store`` and save. Returns problems.
+
+    Race with the alert job, which may append while this runs: the file is first claimed by
+    renaming it to ``<name>.claimed``. The alert job's append is read-then-rename, so if it read
+    the file just before the claim, its rename puts those ids back in a new file and they are
+    removed twice next loop (harmless); no id is lost. The claimed file is deleted only after the
+    store save succeeds, so a failed save or a crash leaves it to be applied on the next loop or
+    restart, before any newer file is claimed."""
+    claimed = path.with_name(path.name + ".claimed")
+    if not claimed.exists():
+        if not path.exists():
+            return 0
+        try:
+            os.replace(path, claimed)
+        except OSError as exc:
+            logger.error("Could not claim the blocked-chat file (%s)", type(exc).__name__)
+            return 1
+    try:
+        chat_ids = _read_blocked(claimed)
+    except _UNREADABLE as exc:
+        logger.error("Blocked-chat file unreadable (%s); set aside", type(exc).__name__)
+        _set_aside(claimed, path)
+        return 1
+    removed = sum(store.remove_all(c) for c in chat_ids)
+    try:
+        store.save()
+    except OSError as exc:
+        logger.error("Could not save subscriptions (%s); will retry", type(exc).__name__)
+        return 1
+    claimed.unlink(missing_ok=True)
+    if chat_ids:
+        logger.info("Dropped %d blocked chat(s), %d subscription(s)", len(chat_ids), removed)
+    return 0
+
+
+def alerts_only_emitter(
+    channel_emit: Callable[[Alert], None], store_path: Path, api: TelegramApi
+) -> Callable[[Alert], None]:
+    """Like ``subscriber_emitter`` but never writes the subscriptions file (``live
+    --alerts-only``). The file is re-read for each alert, since the listener keeps changing it;
+    a chat answering HTTP 403 is added to the handoff file for the listener to remove."""
+    blocked_path = blocked_file_for(store_path)
+
+    def emit(alert: Alert) -> None:
+        channel_emit(alert)
+        chats = JsonSubscriptionStore(store_path).chats_for(alert.zone)
+        blocked = _send_to_subscribers(api, chats, alert.text)
+        if blocked:
+            try:
+                append_blocked_chats(blocked_path, blocked)
+            except OSError as exc:
+                logger.error("Could not record blocked chats (%s)", type(exc).__name__)
+
+    return emit
+
+
+BACKOFF_FIRST = 1.0
+BACKOFF_CAP = 60.0
+MAX_BATCH_FAILURES = 3  # a batch that keeps failing (not a save error) is skipped after this
+
+
+def _listen_wait(exc: Exception, delay: float) -> tuple[float, float]:
+    """(seconds to sleep now, next backoff delay) after a failed ``getUpdates``. Logs the error
+    as class name or HTTP status only (the request URL holds the token)."""
+    nxt = min(delay * 2, BACKOFF_CAP)
+    status = exc.status if isinstance(exc, TelegramSendError) else None
+    if status == 429 and isinstance(exc, TelegramSendError) and exc.retry_after is not None:
+        wait = max(exc.retry_after, BACKOFF_FIRST)
+        logger.warning("Telegram asked us to slow down (HTTP 429); waiting %.0f s", wait)
+        return wait, delay
+    if status == 409:
+        logger.error(
+            "Another getUpdates reader or a webhook is active (HTTP 409); only one listener may "
+            "run. Retrying in %.0f s",
+            delay,
+        )
+    else:
+        logger.error(
+            "Could not read bot messages (%s); retrying in %.0f s", _error_text(exc), delay
+        )
+    return delay, nxt
+
+
+def run_listen(
+    store_path: Path,
+    api: TelegramApi,
+    *,
+    state_path: Path | None = None,
+    poll_timeout: int = 25,
+    max_loops: int | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], datetime] | None = None,
+) -> int:
+    """Always-on command listener: the only ``getUpdates`` caller and the only writer of the
+    subscriptions file. Returns the problem count; stops quietly on Ctrl-C.
+
+    Each loop applies the blocked-chat handoff file, long-polls ``getUpdates`` for up to
+    ``poll_timeout`` seconds, then applies the commands, saves and replies (save first, so a
+    restart never handles an update twice). Failed reads back off 1 s doubling to 60 s (reset on
+    success); HTTP 429 waits Telegram's ``retry_after``. If the save fails, the store is put back
+    to its in-memory copy from before the batch (never re-read from a volume that may be failing,
+    which could load empty and later overwrite every subscription), so the same updates are fetched
+    and handled again. Any other error in a batch is retried the same way; a batch that fails
+    ``MAX_BATCH_FAILURES`` times in a row is skipped, so one bad message cannot stop the bot."""
+    if poll_timeout < 1:
+        raise ValueError("--poll-timeout must be at least 1 second")
+    clock = now or (lambda: datetime.now(settings.tzinfo))
+    store: SubscriptionStore = JsonSubscriptionStore(store_path)
+    blocked_path = blocked_file_for(store_path)
+
+    def status() -> tuple[datetime, dict[str, str]] | None:
+        return read_latest(state_path)
+
+    delay = BACKOFF_FIRST
+    problems = 0
+    loops = 0
+    failed_batch: object = None
+    failures = 0
+    logger.info("Listening for bot commands (long poll %d s)", poll_timeout)
+    try:
+        while max_loops is None or loops < max_loops:
+            loops += 1
+            last = store.last_update_id()
+            try:
+                updates = api.get_updates(None if last is None else last + 1, poll_timeout)
+            except Exception as exc:
+                problems += 1
+                wait, delay = _listen_wait(exc, delay)
+                sleep(wait)
+                continue
+            delay = BACKOFF_FIRST
+            # Applied right after the poll, just before the commands, so a chat that unblocked the
+            # bot and re-subscribed in this batch keeps its new subscription.
+            problems += apply_blocked_chats(store, blocked_path)
+            if not updates:
+                continue
+            before = copy.deepcopy(store)
+            try:
+                problems += _apply_and_reply(store, api, updates, clock(), status)
+                failed_batch, failures = None, 0
+            except Exception as exc:
+                problems += 1
+                store = before  # roll back in memory; the same updates come again next loop
+                first = updates[0].get("update_id")
+                failures = failures + 1 if first == failed_batch else 1
+                failed_batch = first
+                if isinstance(exc, OSError):
+                    logger.error(
+                        "Could not save subscriptions (%s); replies not sent", type(exc).__name__
+                    )
+                else:
+                    logger.error("Could not handle bot messages (%s)", type(exc).__name__)
+                if failures >= MAX_BATCH_FAILURES and not isinstance(exc, OSError):
+                    ids = [uid for u in updates if isinstance(uid := u.get("update_id"), int)]
+                    if ids:
+                        store.set_last_update_id(max(ids))
+                        logger.error(
+                            "Skipping %d message(s) that failed %d times", len(ids), failures
+                        )
+                        failed_batch, failures = None, 0
+                sleep(delay)
+                delay = min(delay * 2, BACKOFF_CAP)
+    except KeyboardInterrupt:
+        logger.info("Listener stopped")
+    return problems
 
 
 def run_live(
@@ -707,8 +1032,15 @@ def _emitter(dry_run: bool) -> Callable[[Alert], None]:
     return send
 
 
-def _commands_hook(store: SubscriptionStore, api: TelegramApi) -> Callable[[], int]:
-    return lambda: process_commands(store, api, now=lambda: datetime.now(settings.tzinfo))
+def _commands_hook(
+    store: SubscriptionStore, api: TelegramApi, state_path: Path
+) -> Callable[[], int]:
+    return lambda: process_commands(
+        store,
+        api,
+        now=lambda: datetime.now(settings.tzinfo),
+        status=lambda: read_latest(state_path),
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -747,13 +1079,47 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="JSON file for per-area subscriptions; turns subscriptions on (default: off). "
         "Locally use data/processed/telegram_subscriptions.json (gitignored).",
     )
+    li.add_argument(
+        "--alerts-only",
+        action="store_true",
+        help="with --subscriptions-file: send alerts to subscribers but never read bot messages "
+        "or write the subscriptions file (use when 'listen' runs)",
+    )
     li.add_argument("--interval-seconds", type=float, default=300.0)
     li.add_argument("--all-clear", action="store_true")
+    ls = sub.add_parser("listen", help="always-on: answer /subscribe etc. within seconds")
+    ls.add_argument("--subscriptions-file", type=Path, required=True)
+    ls.add_argument(
+        "--state-file",
+        type=Path,
+        default=DEFAULT_STATE_FILE,
+        help=f"state file the live job writes, read by /status (default {DEFAULT_STATE_FILE})",
+    )
+    ls.add_argument("--poll-timeout", type=int, default=25, help="long-poll seconds (default 25)")
+    ls.add_argument("--max-loops", type=int, default=None, help=argparse.SUPPRESS)  # tests
     args = parser.parse_args(argv)
+    if args.cmd == "live" and args.alerts_only and args.subscriptions_file is None:
+        parser.error("--alerts-only needs --subscriptions-file")
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     load_dotenv_file()
+    if args.cmd == "listen":
+        load_databricks_secrets()
+        try:
+            run_listen(
+                args.subscriptions_file,
+                TelegramApi(),
+                state_path=args.state_file,
+                poll_timeout=args.poll_timeout,
+                max_loops=args.max_loops,
+            )
+        except (RuntimeError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        except KeyboardInterrupt:
+            pass  # stopped during start-up
+        return 0
     if not args.dry_run:
         load_databricks_secrets()
     try:
@@ -772,11 +1138,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"{count} alert(s) for {args.date}", file=sys.stderr)
         else:
             pre_cycle: Callable[[], int] | None = None
-            if args.subscriptions_file is not None and not args.dry_run:
+            if args.subscriptions_file is not None and not args.dry_run and args.alerts_only:
+                emit = alerts_only_emitter(emit, args.subscriptions_file, TelegramApi())
+            elif args.subscriptions_file is not None and not args.dry_run:
                 store = JsonSubscriptionStore(args.subscriptions_file)
                 api = TelegramApi()
                 emit = subscriber_emitter(emit, store, api)
-                pre_cycle = _commands_hook(store, api)
+                pre_cycle = _commands_hook(store, api, args.state_file)
             problems = run_live(
                 gold_latest_risk,
                 emit,

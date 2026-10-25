@@ -313,3 +313,59 @@ def test_subscriptions_are_off_without_the_flag(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(tb.requests, "post", lambda url, **kw: posts.append(url) or FakeResponse())
     assert tb.main(["live", "--once", "--max-age-minutes", "1e9"]) == 0
     assert not any("getUpdates" in u for u in posts)
+
+
+# --- /status ------------------------------------------------------------------------------------
+
+SNAP = (T0, {"BEDOK": "Moderate", "PIONEER": "Low", "TUAS": "No data"})
+
+
+def ask(
+    store: subs.JsonSubscriptionStore,
+    text: str,
+    snap: Any = SNAP,
+    when: datetime = T0 + timedelta(minutes=5),
+    provided: bool = True,
+) -> str:
+    return subs.handle_message(store, 1, text, when, (lambda: snap) if provided else None)
+
+
+def test_status_for_followed_areas(store: subs.JsonSubscriptionStore) -> None:
+    for a in ("Pioneer", "Bedok"):
+        subs.handle_message(store, 1, f"/subscribe {a}", T0)
+    assert ask(store, "/status") == "Flood risk as of 12:00 SGT:\nBedok: Moderate\nPioneer: Low"
+
+
+def test_status_named_area_and_unknown_area(store: subs.JsonSubscriptionStore) -> None:
+    assert ask(store, "/status bedok") == "Flood risk as of 12:00 SGT:\nBedok: Moderate"
+    assert ask(store, "/status Narnia") == subs._unknown_area_reply("Narnia")
+
+
+def test_status_without_follows_says_how_to_start(store: subs.JsonSubscriptionStore) -> None:
+    reply = ask(store, "/status")
+    assert "/subscribe" in reply and "/status" in reply and "Low" not in reply
+
+
+def test_status_no_data_is_never_low(store: subs.JsonSubscriptionStore) -> None:
+    reply = ask(store, "/status Tuas")
+    assert "Tuas: no reading (too few rain gauges reporting)" in reply and "Low" not in reply
+    # an area missing from the snapshot is also "no reading", not dry
+    assert "no reading" in ask(store, "/status Bishan")
+
+
+def test_status_stale_or_missing_snapshot_shows_no_tiers(
+    store: subs.JsonSubscriptionStore,
+) -> None:
+    old = "No recent reading. The risk feed may be paused."
+    assert ask(store, "/status Bedok", when=T0 + timedelta(minutes=61)) == old
+    assert "Moderate" in ask(store, "/status Bedok", when=T0 + timedelta(minutes=60))
+    assert ask(store, "/status Bedok", snap=None) == old
+
+
+def test_status_not_provided(store: subs.JsonSubscriptionStore) -> None:
+    assert ask(store, "/status Bedok", provided=False) == "Status isn't available right now."
+
+
+def test_process_updates_threads_status(store: subs.JsonSubscriptionStore) -> None:
+    out = subs.process_updates(store, [msg(1, 5, "/status Bedok")], T0, status=lambda: SNAP)
+    assert out == [(5, "Flood risk as of 12:00 SGT:\nBedok: Moderate")]
