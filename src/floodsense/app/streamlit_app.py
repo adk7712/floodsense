@@ -1876,7 +1876,7 @@ def public_transport(
             headers = [
                 "Station",
                 "Risk",
-                *(["Chance (next hour)"] if show_chance else []),
+                *(["Chance now"] if show_chance else []),
                 "Planning area",
             ]
             table_box = (

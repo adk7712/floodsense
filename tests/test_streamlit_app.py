@@ -704,7 +704,7 @@ def test_the_analyst_transport_table_shows_each_station_s_chance():
     at = _app()
     assert any("Public transport at risk" in h.value for h in at.subheader)
     table = next(m.value for m in at.markdown if "<thead>" in m.value)
-    assert "Chance (next hour)" in table and "%</td>" in table
+    assert "Chance now" in table and "%</td>" in table
 
 
 # --- live outage, gold failure, stale data, odd inputs (stress-test fixes) -------------------
