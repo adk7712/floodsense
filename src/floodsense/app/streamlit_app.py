@@ -92,16 +92,11 @@ THEME_TOKENS = {
         "accent": "#38BDF8",
         "primary": "#FB923C",
         "primary_hover": "#F97316",
-        "accent_hover": "#0EA5E9",
         "accent_muted": "rgba(56, 189, 248, 0.12)",
         "card_shadow": "0 1px 3px 0 rgba(0, 0, 0, 0.4)",
         "map_style": "carto-darkmatter",
-        "grid_color": "rgba(255, 255, 255, 0.08)",
         "gauge_tick": "#64748B",
         "gauge_num": "#F8FAFC",
-        "badge_border": "#27272A",
-        "badge_bg": "#1E293B",
-        "badge_text": "#CBD5E1",
         "stat_tile_bg": "#151F30",
         "stat_tile_border": "#233047",
         "gauge_step_0_70": "rgba(56, 189, 248, 0.18)",
@@ -121,16 +116,11 @@ THEME_TOKENS = {
         "accent": "#0284C7",
         "primary": "#EA580C",
         "primary_hover": "#C2410C",
-        "accent_hover": "#0369A1",
         "accent_muted": "rgba(2, 132, 199, 0.08)",
         "card_shadow": "0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04)",
         "map_style": "carto-positron",
-        "grid_color": "rgba(0, 0, 0, 0.06)",
         "gauge_tick": "#94A3B8",
         "gauge_num": "#0F172A",
-        "badge_border": "#E2E8F0",
-        "badge_bg": "#EEF2F6",
-        "badge_text": "#475569",
         "stat_tile_bg": "#F8FAFC",
         "stat_tile_border": "#E2E8F0",
         "gauge_step_0_70": "#E0F2FE",
@@ -142,17 +132,10 @@ THEME_TOKENS = {
 tokens = THEME_TOKENS["dark" if IS_DARK else "light"]
 c_muted = tokens["text_muted"]
 c_main = tokens["text_main"]
-c_accent = tokens["accent"]
 c_subtle = tokens["bg_subtle"]
 c_surface = tokens["bg_surface"]
 c_border = tokens["border_main"]
 c_border_subtle = tokens["border_subtle"]
-c_dim = tokens["text_dim"]
-c_badge_bg = tokens["badge_bg"]
-c_badge_border = tokens["badge_border"]
-c_badge_text = tokens["badge_text"]
-c_stat_bg = tokens["stat_tile_bg"]
-c_stat_border = tokens["stat_tile_border"]
 c_accent_muted = tokens["accent_muted"]
 
 MODERN_TELEMETRY_CSS = f"""
@@ -165,13 +148,10 @@ MODERN_TELEMETRY_CSS = f"""
     --bg-subtle: {tokens["bg_subtle"]};
     --bg-hover: {tokens["bg_hover"]};
     --border-main: {tokens["border_main"]};
-    --border-subtle: {tokens["border_subtle"]};
     --text-main: {tokens["text_main"]};
     --text-muted: {tokens["text_muted"]};
     --text-dim: {tokens["text_dim"]};
     --accent: {tokens["accent"]};
-    --accent-hover: {tokens["accent_hover"]};
-    --accent-muted: {tokens["accent_muted"]};
     --primary: {tokens["primary"]};
     --primary-hover: {tokens["primary_hover"]};
     --card-shadow: {tokens["card_shadow"]};
@@ -624,13 +604,6 @@ div[data-testid="stColumn"]:nth-of-type(2) div[data-testid="stVerticalBlockBorde
     font-variant-numeric: tabular-nums !important;
     letter-spacing: -0.02em !important;
     line-height: 1.15 !important;
-}}
-
-[data-testid="stMetricDelta"] {{
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.75rem !important;
-    font-weight: 600 !important;
-    font-variant-numeric: tabular-nums !important;
 }}
 
 /* --- 5. BUTTONS --- */
@@ -2166,10 +2139,10 @@ def card_footer(left: str, right: str) -> None:
     )
 
 
-def kpi_card(label: str, metric_label: str, value: str, footer: tuple[str, str], **kw) -> None:
+def kpi_card(label: str, metric_label: str, value: str, footer: tuple[str, str]) -> None:
     with st.container(border=True):
         card_header(label)
-        st.metric(label=metric_label, value=value, label_visibility="collapsed", **kw)
+        st.metric(label=metric_label, value=value, label_visibility="collapsed")
         card_footer(*footer)
 
 
@@ -2404,23 +2377,6 @@ with map_col, st.container(border=True, key="map_card"):
             font_family="Inter, sans-serif",
             font_size=12,
             font_color=tokens["text_main"],
-        ),
-        legend=dict(
-            itemsizing="constant",
-            yanchor="top",
-            y=0.98,
-            xanchor="left",
-            x=0.02,
-            bgcolor=f"rgba({17 if IS_DARK else 255}, {24 if IS_DARK else 255}, {39 if IS_DARK else 255}, 0.92)",
-            bordercolor=tokens["border_main"],
-            borderwidth=1,
-            font=dict(family="Inter, sans-serif", size=11, color=tokens["text_main"]),
-            title=dict(
-                text="RISK IN 1 HOUR"
-                if forecast_on and radar is not None
-                else "RISK CLASSIFICATION",
-                font=dict(family="Inter, sans-serif", size=10, color=tokens["text_muted"]),
-            ),
         ),
         showlegend=False,  # the slim legend bar under the map replaces it
         **{map_layout_key: {"style": tokens["map_style"], "layers": map_layers}},

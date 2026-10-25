@@ -157,7 +157,6 @@ class FeaturePipeline:
         out = {col: np.empty(n_rows) for col in WINDOW_ROWS}
         decay = np.empty(n_rows)
         score = np.empty(n_rows)
-        rp = np.empty(n_rows)
 
         # Rows are sorted by zone, so each zone is one contiguous slice.
         bounds = np.flatnonzero(np.diff(zone_codes)) + 1
@@ -170,9 +169,7 @@ class FeaturePipeline:
                 # Full convolution truncated to n gives partial windows at the zone's start.
                 out[col][lo:hi] = np.convolve(zone_rain, np.ones(window), mode="full")[:n]
             decay[lo:hi] = lfilter([1.0], [1.0, -DECAY_FACTOR_PER_STEP], zone_rain)
-            score[lo:hi], rp[lo:hi] = self.rarity_estimator.score_array(
-                zone, out["rain_30m"][lo:hi]
-            )
+            score[lo:hi], _ = self.rarity_estimator.score_array(zone, out["rain_30m"][lo:hi])
 
         features = pd.DataFrame(
             {

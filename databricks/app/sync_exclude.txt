@@ -1,13 +1,8 @@
 tests/
-submission/
 docs/
 databricks/
 .github/
 .claude/
 CLAUDE.md
-PROJECT_STATUS.md
-ROUND2_WORK_PLAN.md
-floodsense-ideal-vision.md
-floodsense-project-plan.pdf
 uv.lock
 .pre-commit-config.yaml

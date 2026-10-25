@@ -206,9 +206,7 @@ def _boot_diff(
     return m, [float(lo), float(hi)]
 
 
-def _summarise(
-    sub: pd.DataFrame, n_steps: int, rng: np.random.Generator, n_boot: int
-) -> dict[str, object]:
+def _summarise(sub: pd.DataFrame, rng: np.random.Generator, n_boot: int) -> dict[str, object]:
     n = len(sub)
     if n == 0:
         return {"n_gauge_steps": 0}
@@ -240,7 +238,7 @@ def summarise(res: pd.DataFrame, n_steps: int, seed: int, n_boot: int) -> dict[s
         "very heavy (>=30 mm/h)": res[res["obs"] >= VERY_HEAVY_MMH],
         "all": res,
     }
-    return {name: _summarise(sub, n_steps, rng, n_boot) for name, sub in groups.items()}
+    return {name: _summarise(sub, rng, n_boot) for name, sub in groups.items()}
 
 
 def format_table(summary: dict[str, object]) -> str:

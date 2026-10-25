@@ -5,24 +5,11 @@ model training, and live inference.
 """
 
 from datetime import datetime
-from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from floodsense.common.timeutil import to_sgt
-
-
-class SeverityLevel(str, Enum):  # noqa: UP042 - StrEnum changes str() output; revisit in a later phase
-    MINOR = "Minor"
-    MODERATE = "Moderate"
-    SEVERE = "Severe"
-
-
-class RiskTier(str, Enum):  # noqa: UP042 - StrEnum changes str() output; revisit in a later phase
-    LOW = "Low"
-    MODERATE = "Moderate"
-    HIGH = "High"
 
 
 class StationMetadata(BaseModel):
@@ -32,7 +19,6 @@ class StationMetadata(BaseModel):
     name: str = Field(..., description="Human readable station location name")
     latitude: float = Field(..., ge=1.1, le=1.5, description="Station WGS84 Latitude")
     longitude: float = Field(..., ge=103.5, le=104.1, description="Station WGS84 Longitude")
-    is_active: bool = Field(default=True, description="Whether station is currently active")
 
 
 class RainfallReading(BaseModel):
@@ -41,7 +27,6 @@ class RainfallReading(BaseModel):
     station_id: str = Field(..., description="Reporting station ID")
     timestamp: datetime = Field(..., description="Observation timestamp, normalised to SGT")
     rainfall_mm: float = Field(..., ge=0.0, description="5-minute precipitation in mm")
-    is_valid: bool = Field(default=True, description="Defensive data quality check flag")
 
     @field_validator("timestamp")
     @classmethod
@@ -113,9 +98,6 @@ class FloodEvent(BaseModel):
     verified_by: str = Field(default="", description="Who opened the source and confirmed the row")
     drafted_by: str = Field(default="", description="Who drafted the row; never the verifier")
     notes: str = Field(default="")
-    geocoding_confidence: float = Field(
-        default=1.0, ge=0.0, le=1.0, description="Confidence score of polygon mapping"
-    )
 
     @field_validator("timestamp_start")
     @classmethod
@@ -126,34 +108,3 @@ class FloodEvent(BaseModel):
     @classmethod
     def normalise_end(cls, v: datetime | None) -> datetime | None:
         return to_sgt(v) if v is not None else None
-
-
-class ZoneFeatureVector(BaseModel):
-    """Engineered feature vector for a specific URA Planning Area at time t."""
-
-    ura_planning_area: str
-    timestamp: datetime
-    rain_5m: float = Field(..., ge=0.0, description="Current 5-min rainfall (mm)")
-    rain_15m: float = Field(..., ge=0.0, description="Rolling 15-min cumulative rainfall (mm)")
-    rain_30m: float = Field(..., ge=0.0, description="Rolling 30-min cumulative rainfall (mm)")
-    rain_60m: float = Field(..., ge=0.0, description="Rolling 60-min cumulative rainfall (mm)")
-    rain_120m: float = Field(..., ge=0.0, description="Rolling 120-min cumulative rainfall (mm)")
-    rain_decay_72h: float = Field(
-        ..., ge=0.0, description="72-hour exponential antecedent moisture factor"
-    )
-    storm_rarity_score: float = Field(
-        ..., ge=0.0, le=1.0, description="Empirical quantile score [0, 1]"
-    )
-
-
-class PredictionResult(BaseModel):
-    """Inference output for a specific URA Planning Area."""
-
-    ura_planning_area: str
-    timestamp: datetime
-    flood_probability: float = Field(
-        ..., ge=0.0, le=1.0, description="Model predicted probability of flood within 60 min"
-    )
-    risk_tier: Literal["Low", "Moderate", "High"] = Field(..., description="Operational alert tier")
-    lead_time_min: int = Field(default=60, description="Prediction horizon in minutes")
-    contributing_factors: list[str] = Field(default_factory=list, description="Top feature drivers")
