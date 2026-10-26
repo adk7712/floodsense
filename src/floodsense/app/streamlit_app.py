@@ -2414,10 +2414,13 @@ with detail_col, st.container(border=True, key="zone_card"):
 
     if radar_mode and radar is not None:
         zr = radar.zones.set_index("ura_planning_area").loc[selected_zone]
-        st.caption(
-            f"**Radar:** {zr['radar_now_mm_h']:.1f} mm/h falling here now.  \n"
-            f"Forecast: **{zr['nowcast_30_mm']:.1f} mm** in the next 30 min, "
-            f"**{zr['nowcast_60_mm']:.1f} mm** in the next hour."
+        st.markdown(
+            f'<div style="font-size: 0.95rem; line-height: 1.45; color: {tokens["text_main"]}; '
+            f"margin: 4px 0 6px 0; font-family: 'Inter', sans-serif;\">"
+            f"<b>Radar:</b> {zr['radar_now_mm_h']:.1f} mm/h falling here now.<br>"
+            f"Forecast: <b>{zr['nowcast_30_mm']:.1f} mm</b> in the next 30 min, "
+            f"<b>{zr['nowcast_60_mm']:.1f} mm</b> in the next hour.</div>",
+            unsafe_allow_html=True,
         )
     elif not zone_no_data:
         levels = (
