@@ -130,7 +130,7 @@ resources:
 
     telegram_listener:
       name: floodsense-telegram-listener
-      description: "Always-on Telegram command listener: answers /subscribe, /unsubscribe, /list, /status and /help within seconds. It is the only reader of bot messages and the only writer of the subscriptions file. The poller's alert task runs with --alerts-only, so it never reads messages. Always-on serverless compute, so unpause only around the demo window; paused by default. The bot reads its token and chat id from the secrets scope 'floodsense' (telegram_bot_token, telegram_chat_id)."
+      description: "Always-on Telegram command listener: answers /subscribe, /unsubscribe, /list, /status, /channel and /help within seconds. It is the only reader of bot messages and the only writer of the subscriptions file. The poller's alert task runs with --alerts-only, so it never reads messages. Always-on serverless compute, so unpause only around the demo window; paused by default. The bot reads its token and chat id from the secrets scope 'floodsense' (telegram_bot_token, telegram_chat_id)."
       tags:
         project: floodsense
         track: DAISI-B2

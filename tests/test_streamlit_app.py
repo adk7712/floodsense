@@ -520,7 +520,7 @@ def test_resident_view_switch_returns_to_the_analyst_view():
     at.run(timeout=60)
     assert not at.exception
     assert "/ 55" in at.metric[0].value
-    assert "Zone Diagnostic" in " ".join(md.value for md in at.markdown)
+    assert "Zone Diagnostic (Current)" in " ".join(md.value for md in at.markdown)
 
 
 def test_resident_area_selection_changes_the_shown_area():

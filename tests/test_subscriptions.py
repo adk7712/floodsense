@@ -10,7 +10,13 @@ import pytest
 
 from floodsense.alerts import subscriptions as subs
 from floodsense.alerts import telegram_bot as tb
-from floodsense.alerts.messages import HELP_TEXT, HONESTY_LINE, MAX_AREAS_PER_CHAT, PRIVACY_NOTE
+from floodsense.alerts.messages import (
+    CHANNEL_LINK,
+    HELP_TEXT,
+    HONESTY_LINE,
+    MAX_AREAS_PER_CHAT,
+    PRIVACY_NOTE,
+)
 
 SGT = timezone(timedelta(hours=8))
 T0 = datetime(2026, 10, 22, 12, 0, tzinfo=SGT)
@@ -109,7 +115,7 @@ def test_list(store: subs.JsonSubscriptionStore) -> None:
 def test_start_and_help_text(store: subs.JsonSubscriptionStore, cmd: str) -> None:
     reply = subs.handle_message(store, 1, cmd, T0)
     assert reply == HELP_TEXT
-    for needle in ("/subscribe", "/unsubscribe", "/unsubscribe all", "/list", "/help"):
+    for needle in ("/subscribe", "/unsubscribe", "/unsubscribe all", "/list", "/channel", "/help"):
         assert needle in reply
     assert HONESTY_LINE in reply
     assert PRIVACY_NOTE in reply
@@ -117,6 +123,14 @@ def test_start_and_help_text(store: subs.JsonSubscriptionStore, cmd: str) -> Non
         "We store only your chat ID and the areas you pick, to send you alerts. "
         "Send /unsubscribe all to delete them."
     )
+
+
+def test_channel_replies_with_link(store: subs.JsonSubscriptionStore) -> None:
+    assert CHANNEL_LINK == "https://t.me/floodsense"
+    reply = subs.handle_message(store, 1, "/channel", T0)
+    assert CHANNEL_LINK in reply and "Moderate or High" in reply and "all areas" in reply
+    assert subs.handle_message(store, 1, "/Channel@fs_tele_alert_bot", T0) == reply
+    assert store.areas_for(1) == []  # /channel stores nothing
 
 
 def test_store_keeps_only_chat_area_time(tmp_path: Path) -> None:

@@ -24,7 +24,7 @@ from difflib import get_close_matches
 from pathlib import Path
 from typing import Protocol
 
-from floodsense.alerts.messages import HELP_TEXT, MAX_AREAS_PER_CHAT
+from floodsense.alerts.messages import CHANNEL_TEXT, HELP_TEXT, MAX_AREAS_PER_CHAT
 from floodsense.common.fileio import write_json_atomic
 from floodsense.common.timeutil import to_sgt
 from floodsense.models.scoring import NO_DATA_TIER
@@ -235,6 +235,8 @@ def handle_message(
         return HELP_TEXT
     if cmd == "list":
         return _list_reply(store.areas_for(chat_id))
+    if cmd == "channel":
+        return CHANNEL_TEXT
     if cmd == "status":
         return _status_reply(store.areas_for(chat_id), arg, status, when, status_max_age)
     if cmd == "subscribe":
