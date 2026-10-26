@@ -1,6 +1,6 @@
 # FloodSense: Round 2 handoff (the one status file)
 
-**Last updated:** 25 Oct 2026, adk's session (Telegram listener for fast replies and /status, branch `feat/telegram-listener`, merged to master, NOT deployed; §0). Before that: 23 Oct 2026, Akul's side (version 4 registered and promoted to `champion`; §0). Before that: 22 Oct 2026, later, adk's session (refit on 92 labels, decided to register as version 4; §0, branch `refit-92-labels`, NOT committed). Before that: 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
+**Last updated:** 26 Oct 2026, adk's session (`/channel` bot command and Zone Diagnostic wording, branch `feat/telegram-channel-and-diagnostic-labels`, NOT committed; §0). Before that: 25 Oct 2026, adk's session (Telegram listener for fast replies and /status, branch `feat/telegram-listener`, merged to master, NOT deployed; §0). Before that: 23 Oct 2026, Akul's side (version 4 registered and promoted to `champion`; §0). Before that: 22 Oct 2026, later, adk's session (refit on 92 labels, decided to register as version 4; §0, branch `refit-92-labels`, NOT committed). Before that: 22 Oct 2026, adk's session (merged master into `ci-data-checks`: master's `flood_events.csv` taken, 92 verified, which supersedes the 21 Oct candidate move; `flood_candidates.csv` removed; §0). Before that: 22 Oct 2026, Akul's side (labels verified to 92, Databricks jobs not running since 21 Oct, team decisions of 22 Oct; §0). Before that: 21 Oct 2026, adk's session (CI checks; §0 and §10, branch `ci-data-checks`, cut from `stress-test-fixes` e968a04, pushed to `135dd7f`, CI green, awaiting Akul's review; the four unverified 19 Oct candidates moved out of `flood_events.csv`, see §0). Before that: 21 Oct, adk's session (stress test and fixes; §0, branch `stress-test-fixes`, cut from `alerts-wording-transport` 09b7638, NOT committed). Before that: 21 Oct, alerts wording, transport table, area link (§0, branch `alerts-wording-transport`). Before that: 18 Oct 2026, evening, adk's session (mentor tests round 2, B7). Before that: Akul's session (Telegram deployed, no code freeze).
 - **18 Oct evening (adk):** mentor tests round 2 (B7) on branch `mentor-tests-round2`, pushed, waiting on Akul's review (§0).
 - master merges adk's `app-radar-gap-live-alerts` (which contains `rerun-88-labels`), reviewed by
   Akul's side on 18 Oct: 88 verified labels, the re-run, the refit script, the cut-off comparison,
@@ -23,7 +23,17 @@
 
 ---
 
-## 0. Latest sessions: 25 Oct (adk), 23 Oct (Akul), 22 Oct, later (adk), 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+## 0. Latest sessions: 26 Oct (adk), 25 Oct (adk), 23 Oct (Akul), 22 Oct, later (adk), 22 Oct (Akul), 21 Oct (adk), 18 Oct evening (adk), 18 Oct (Akul), 17 Oct (adk, two blocks), then 16 Oct (history)
+
+### 26 Oct (adk): `/channel` bot command and Zone Diagnostic wording. Branch `feat/telegram-channel-and-diagnostic-labels`, NOT committed
+
+- **Bot:** new `/channel` command. It replies with the public alerts channel, https://t.me/floodsense,
+  which posts alerts for all areas at Moderate or High. Listed in `/help`. Takes effect once the
+  listener job is redeployed.
+- **App:** the Telegram button reads "Get flood alerts on Telegram"; the panel is "Zone Diagnostic
+  (Current)"; the chance explanation under the status card is larger and darker; the tiles read
+  "Current rainfall & ground moisture" with "Last 5 min" … "Last 120 min" and "Ground Moisture"; the
+  rarity status ("No rain in the last 30 min" etc.) now sits above the percentile inside the gauge.
 
 ### 25 Oct (adk): Telegram listener for fast replies and /status. Branch `feat/telegram-listener`, merged to master, NOT deployed
 

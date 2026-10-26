@@ -11,7 +11,7 @@ Serverless job tasks cannot set environment variables, so the SQL warehouse come
 The bot token and chat id are read from the secrets scope ``floodsense`` by the bot itself.
 
 Per-area subscriptions use two jobs. The listener job (``floodsense-telegram-listener``) runs
-``listen``, a long-polling loop that answers /subscribe, /unsubscribe, /list and /help within
+``listen``, a long-polling loop that answers /subscribe, /unsubscribe, /list, /channel and /help within
 seconds; it is the only reader of bot messages and the only writer of the subscriptions file,
 ``/Volumes/workspace/floodsense/artifacts/telegram_subscriptions.json`` (next to the alert state
 file). The poller task runs ``live --once --alerts-only``: it sends alerts to the channel and to

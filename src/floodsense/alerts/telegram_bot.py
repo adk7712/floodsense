@@ -62,7 +62,7 @@ Usage:
     python -m floodsense.alerts.telegram_bot listen --subscriptions-file PATH [--poll-timeout 25]
 
 Per-area subscriptions (``--subscriptions-file``): people message the bot /subscribe <area>,
-/unsubscribe <area>, /unsubscribe all, /list, /start or /help. Each live cycle first reads new
+/unsubscribe <area>, /unsubscribe all, /list, /status, /channel, /start or /help. Each live cycle first reads new
 messages with ``getUpdates`` (the last handled update id is kept in the subscriptions file, so no
 message is handled twice), then sends every alert the detector produces to the zone's subscribers
 as well as to the channel. The rules are the detector's, not copies: rises only, the same

@@ -1563,8 +1563,8 @@ def render_telegram_join() -> None:
     with st.container(key="telegram_join"):
         st.markdown(
             f'<a class="fs-telegram" href="{TELEGRAM_URL}" target="_blank" rel="noopener noreferrer" '
-            f'title="Join the FloodSense flood alerts channel on Telegram">'
-            f"{TELEGRAM_ICON}<span>Join flood alerts on Telegram</span></a>",
+            f'title="Get FloodSense flood alerts on Telegram">'
+            f"{TELEGRAM_ICON}<span>Get flood alerts on Telegram</span></a>",
             unsafe_allow_html=True,
         )
 
@@ -2362,7 +2362,7 @@ with detail_col, st.container(border=True, key="zone_card"):
     st.markdown(
         f'<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">'
         f'  <div style="display: flex; align-items: center; gap: 8px;">'
-        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Zone Diagnostic</span>"
+        f"    <span style=\"font-size: 1.15rem; font-weight: 700; color: {tokens['text_main']}; font-family: 'Inter', sans-serif;\">Zone Diagnostic (Current)</span>"
         f"  </div>"
         f"</div>",
         unsafe_allow_html=True,
@@ -2426,10 +2426,13 @@ with detail_col, st.container(border=True, key="zone_card"):
             if tier_thresholds
             else "are low."
         )
-        st.caption(
+        st.markdown(
+            f'<div style="font-size: 0.95rem; line-height: 1.45; color: {tokens["text_main"]}; '
+            f"margin: 4px 0 6px 0; font-family: 'Inter', sans-serif;\">"
             f"Chance a flood is reported here in the next 60 min: "
-            f"**{pct(zone_data['flood_probability'], tier_thresholds)}**. Flood reports are rare, "
-            f"so the alert levels {levels}"
+            f"<b>{pct(zone_data['flood_probability'], tier_thresholds)}</b>. Flood reports are rare, "
+            f"so the alert levels {levels}</div>",
+            unsafe_allow_html=True,
         )
 
     def rain_txt(col: str, spec: str) -> str:
@@ -2437,35 +2440,35 @@ with detail_col, st.container(border=True, key="zone_card"):
         value = zone_data[col]
         return "—" if zone_no_data or pd.isna(value) else format(value, spec)
 
-    # Rolling rainfall and wet-ground tiles
+    # Current rainfall and ground-moisture tiles
     st.markdown(
         f'<div style="display: flex; justify-content: space-between; align-items: center; margin: 14px 0 8px 0;">'
-        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">ROLLING RAINFALL & WET-GROUND</span>"
+        f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">CURRENT RAINFALL & GROUND MOISTURE</span>"
         f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: {tokens['accent']}; font-family: 'Inter', sans-serif;\">{'Live' if mode == 'Live Feed' else 'Replay'} · {view_time:%H:%M} SGT</span>"
         f"</div>"
         f'<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;">'
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">5-min Rain</div>'
+        f'    <div style="font-size: 0.8rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Last 5 min</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_5m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">15-min Rain</div>'
+        f'    <div style="font-size: 0.8rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Last 15 min</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_15m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">30-min Rain</div>'
+        f'    <div style="font-size: 0.8rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Last 30 min</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_30m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">60-min Rain</div>'
+        f'    <div style="font-size: 0.8rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Last 60 min</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_60m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">120-min Rain</div>'
+        f'    <div style="font-size: 0.8rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Last 120 min</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_120m", ".2f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">mm</span></div>'
         f"  </div>"
         f'  <div style="background: {tokens["stat_tile_bg"]}; border: 1px solid {tokens["stat_tile_border"]}; border-radius: 8px; padding: 8px 6px; text-align: center;">'
-        f'    <div style="font-size: 0.68rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Wet-Ground</div>'
+        f'    <div style="font-size: 0.8rem; font-weight: 600; color: {tokens["text_muted"]}; margin-bottom: 2px;">Ground Moisture</div>'
         f'    <div style="font-size: 1.15rem; font-weight: 700; color: {tokens["accent"]}; font-variant-numeric: tabular-nums;">{rain_txt("rain_decay_72h", ".1f")} <span style="font-size: 0.72rem; color: {tokens["text_dim"]}; font-weight: 400;">idx</span></div>'
         f"  </div>"
         f"</div>",
@@ -2503,25 +2506,15 @@ with detail_col, st.container(border=True, key="zone_card"):
         # The title lives in the page, not the chart: a chart title stays small and lands inside the
         # arc when the chart is opened full screen.
         st.markdown(
-            '<div style="display: flex; justify-content: space-between; align-items: center; margin: 4px 0 0 0;">'
+            '<div style="margin: 4px 0 0 0;">'
             f"  <span style=\"font-size: 0.7rem; font-weight: 700; color: {tokens['text_muted']}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', sans-serif;\">{rarity_title}</span>"
-            f"  <span style=\"font-size: 0.72rem; font-weight: 600; color: {tokens['accent']}; font-family: 'Inter', sans-serif;\">{rarity_status}</span>"
             "</div>",
             unsafe_allow_html=True,
         )
         fig_gauge = go.Figure(
             go.Indicator(
-                mode="gauge+number",
+                mode="gauge",
                 value=rarity * 100,
-                number={
-                    "font": {
-                        "family": "Inter, sans-serif",
-                        "size": 34,
-                        "color": tokens["gauge_num"],
-                    },
-                    "valueformat": ".1f",
-                    "suffix": "%",
-                },
                 gauge={
                     "axis": {
                         "range": [0, 100],
@@ -2545,6 +2538,31 @@ with detail_col, st.container(border=True, key="zone_card"):
                     ],
                 },
             )
+        )
+        # The number and the status above it are annotations, not the indicator's own number: Plotly
+        # centres a narrow gauge vertically and moves its number with it, so a status at a fixed
+        # height would overlap it. Both sit at a fixed distance from the chart's bottom edge instead.
+        fig_gauge.add_annotation(
+            x=0.5,
+            y=0,
+            xref="paper",
+            yref="paper",
+            text=f"{rarity * 100:.1f}%",
+            showarrow=False,
+            xanchor="center",
+            yanchor="bottom",
+            font={"family": "Inter, sans-serif", "size": 34, "color": tokens["gauge_num"]},
+        )
+        fig_gauge.add_annotation(
+            x=0.5,
+            y=0.25,
+            xref="paper",
+            yref="paper",
+            text=f"<b>{rarity_status}</b>",
+            showarrow=False,
+            xanchor="center",
+            yanchor="bottom",
+            font={"family": "Inter, sans-serif", "size": 16, "color": tokens["text_main"]},
         )
         fig_gauge.update_layout(
             height=210,

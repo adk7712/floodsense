@@ -21,6 +21,11 @@ HONESTY_LINE = "FloodSense is not an official warning; alerts can be late or mis
 
 # --- Telegram subscriptions (per-area private alerts) --------------------------------------------
 MAX_AREAS_PER_CHAT = 5
+CHANNEL_LINK = "https://t.me/floodsense"
+CHANNEL_TEXT = (
+    "FloodSense has a Telegram channel that posts alerts for all areas with Moderate or High "
+    f"flash-flood risk: {CHANNEL_LINK}"
+)
 PRIVACY_NOTE = (
     "We store only your chat ID and the areas you pick, to send you alerts. "
     "Send /unsubscribe all to delete them."
@@ -34,6 +39,7 @@ HELP_TEXT = (
     "/unsubscribe all: stop all alerts and delete your data\n"
     "/list: show the areas you follow\n"
     "/status: current flood risk for your areas, or /status <area>\n"
+    "/channel: link to the FloodSense channel, which posts alerts for all areas\n"
     "/help: show this message\n\n"
     f"You can follow up to {MAX_AREAS_PER_CHAT} areas. Alerts follow the same rules as the "
     "FloodSense channel: a message only when the risk rises, and at most one per area per hour "
