@@ -1,5 +1,5 @@
 # The live jobs. Schedules and pause states match the workspace on 25 Oct 2026:
-#   floodsense-rainfall-poller    UNPAUSED (resumed 24 Oct)
+#   floodsense-rainfall-poller    UNPAUSED (resumed 24 Oct; every 12 h since 28 Oct, after Demo Day)
 #   floodsense-daily-archiver     UNPAUSED
 #   floodsense-flood-alerts       PAUSED   (the poller lands alerts while it runs)
 #   floodsense-telegram-listener  PAUSED   (continuous; unpause only around the demo)
@@ -23,7 +23,7 @@ resources:
         on_failure:
           - ${workspace.current_user.userName}
       schedule:
-        quartz_cron_expression: "0 0/30 * * * ?"
+        quartz_cron_expression: "0 0 0/12 * * ?"
         timezone_id: Asia/Singapore
         pause_status: UNPAUSED
       environments:
@@ -42,7 +42,7 @@ resources:
           timeout_seconds: 900
           spark_python_task:
             python_file: ${var.workspace_dir}/poll_rainfall.py
-            parameters: ["--lookback-minutes", "40"]
+            parameters: ["--lookback-minutes", "750"]
         - task_key: refresh_pipeline
           depends_on:
             - task_key: poll_rainfall
